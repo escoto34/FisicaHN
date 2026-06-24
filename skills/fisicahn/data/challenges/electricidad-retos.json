@@ -1,0 +1,65 @@
+[
+  {
+    "id": "ele-1",
+    "type": "numeric",
+    "question": "Por un resistor de 10 Ω circulan 2 A. ¿Cuál es la diferencia de potencial?",
+    "answer": 20,
+    "unit": "V",
+    "hint": "Ley de Ohm: V = I × R",
+    "points": 10
+  },
+  {
+    "id": "ele-2",
+    "type": "multiple",
+    "question": "En un circuito en serie, la corriente es...",
+    "options": ["Diferente en cada resistor", "La misma en todo el circuito", "Mayor al final", "Cero en los nodos"],
+    "answer": 1,
+    "hint": "En serie no hay ramificaciones: la corriente es igual en todas partes",
+    "points": 10
+  },
+  {
+    "id": "ele-3",
+    "type": "numeric",
+    "question": "Dos resistores de 6 Ω y 3 Ω están en serie. ¿Cuál es la resistencia equivalente?",
+    "answer": 9,
+    "unit": "Ω",
+    "hint": "Serie: R_eq = R₁ + R₂",
+    "points": 10
+  },
+  {
+    "id": "ele-4",
+    "type": "numeric",
+    "question": "Dos resistores de 6 Ω están en paralelo. ¿Cuál es la resistencia equivalente?",
+    "answer": 3,
+    "unit": "Ω",
+    "hint": "Paralelo: 1/R_eq = 1/R₁ + 1/R₂",
+    "points": 15
+  },
+  {
+    "id": "ele-5",
+    "type": "select",
+    "question": "La unidad de potencia eléctrica es...",
+    "options": ["Voltio", "Amperio", "Vatio", "Ohmio"],
+    "answer": 2,
+    "hint": "Potencia se mide en vatios (W)",
+    "points": 5
+  },
+  {
+    "id": "ele-6",
+    "type": "numeric",
+    "question": "Una bombilla de 60 W está conectada a 120 V. ¿Qué corriente circula?",
+    "answer": 0.5,
+    "unit": "A",
+    "hint": "P = V × I → I = P / V",
+    "points": 10
+  },
+  {
+    "id": "ele-7",
+    "type": "multiple",
+    "question": "En un capacitor, la carga almacenada es proporcional a...",
+    "options": ["La corriente", "El voltaje", "La resistencia", "La potencia"],
+    "answer": 1,
+    "hint": "Q = C × V, la carga es proporcional al voltaje",
+    "points": 10
+  }
+]

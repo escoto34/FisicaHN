@@ -1,0 +1,220 @@
+/* ============================================
+   tools.css — Instrumentos de medición
+   ============================================ */
+
+/* --- Cronómetro --- */
+.tool-stopwatch {
+  padding: 10px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.tool-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 8px 0;
+}
+
+.stopwatch-display {
+  font-size: 32px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: #0f172a;
+  background: #ffffff;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 8px;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 2px;
+}
+
+.stopwatch-laps {
+  list-style: none;
+  margin: 8px 0 0 0;
+  padding: 0;
+  max-height: 150px;
+  overflow-y: auto;
+  font-size: 12px;
+}
+
+.stopwatch-laps li {
+  padding: 3px 8px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #475569;
+  font-variant-numeric: tabular-nums;
+}
+
+.tool-btn-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.tool-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s;
+  touch-action: manipulation;
+}
+
+.tool-btn:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.tool-btn:active {
+  transform: scale(0.97);
+}
+
+.tool-btn-primary {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.tool-btn-primary:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+.tool-btn-danger {
+  background: #ef4444;
+  color: white;
+  border-color: #ef4444;
+}
+
+.tool-btn-danger:hover {
+  background: #dc2626;
+  border-color: #dc2626;
+}
+
+.tool-btn-active {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+/* --- Regla superpuesta --- */
+.ruler-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.ruler-tool {
+  pointer-events: auto;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.ruler-tool:active {
+  cursor: grabbing;
+}
+
+.ruler-label {
+  position: absolute;
+  top: -22px;
+  left: 0;
+  background: #3b82f6;
+  color: #ffffff;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: bold;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.ruler-ticks {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  right: 0;
+  height: 24px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* --- Multímetro --- */
+.tool-multimeter {
+  padding: 10px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.multimeter-display {
+  background: #1e293b;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  text-align: center;
+  border: 2px inset #475569;
+}
+
+.mm-reading {
+  font-size: 28px;
+  font-weight: 700;
+  color: #22d3ee;
+  font-family: 'Courier New', monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 1px;
+}
+
+.mm-unit {
+  font-size: 18px;
+  color: #67e8f9;
+}
+
+.mm-mode-label {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 4px;
+}
+
+.multimeter-probes {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 0;
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+
+.probe {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+  font-size: 11px;
+}
+
+.probe-red {
+  color: #ef4444;
+}
+
+.probe-black {
+  color: #1e293b;
+}
+
+.probe-status {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: #ef4444;
+}

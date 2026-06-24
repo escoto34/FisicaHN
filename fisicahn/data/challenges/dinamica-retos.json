@@ -1,0 +1,65 @@
+[
+  {
+    "id": "din-1",
+    "type": "numeric",
+    "question": "Una fuerza de 50 N actúa sobre una masa de 10 kg. ¿Cuál es su aceleración?",
+    "answer": 5,
+    "unit": "m/s²",
+    "hint": "Usa la segunda ley de Newton: F = m × a",
+    "points": 10
+  },
+  {
+    "id": "din-2",
+    "type": "multiple",
+    "question": "La fuerza de rozamiento siempre se opone...",
+    "options": ["Al peso", "Al movimiento", "A la normal", "A la gravedad"],
+    "answer": 1,
+    "hint": "El rozamiento actúa en dirección contraria al deslizamiento",
+    "points": 10
+  },
+  {
+    "id": "din-3",
+    "type": "numeric",
+    "question": "Un bloque de 5 kg está en reposo sobre una superficie. ¿Cuál es la fuerza normal? (g = 9.8 m/s²)",
+    "answer": 49,
+    "unit": "N",
+    "hint": "Normal = peso = m × g en superficie horizontal",
+    "points": 10
+  },
+  {
+    "id": "din-4",
+    "type": "select",
+    "question": "La tercera ley de Newton establece que...",
+    "options": ["F = m × a", "A toda acción corresponde una reacción", "La energía se conserva", "La gravedad atrae"],
+    "answer": 1,
+    "hint": "Ley de acción y reacción: fuerzas iguales y opuestas",
+    "points": 10
+  },
+  {
+    "id": "din-5",
+    "type": "numeric",
+    "question": "¿Qué fuerza neta se necesita para acelerar un carro de 1200 kg a 3 m/s²?",
+    "answer": 3600,
+    "unit": "N",
+    "hint": "F = m × a; multiplica masa por aceleración",
+    "points": 15
+  },
+  {
+    "id": "din-6",
+    "type": "multiple",
+    "question": "Dos masas puntuales se atraen con una fuerza proporcional a...",
+    "options": ["La suma de las masas", "El producto de las masas", "La distancia", "La velocidad"],
+    "answer": 1,
+    "hint": "Ley de gravitación universal: F ∝ m₁ × m₂",
+    "points": 10
+  },
+  {
+    "id": "din-7",
+    "type": "numeric",
+    "question": "Un resorte se estira 0.2 m al aplicar 40 N. ¿Cuál es su constante k?",
+    "answer": 200,
+    "unit": "N/m",
+    "hint": "Ley de Hooke: F = k × x → k = F / x",
+    "points": 15
+  }
+]

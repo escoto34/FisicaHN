@@ -1,0 +1,10 @@
+{
+  "name": "Cinemática Básica",
+  "module": "kinematics",
+  "description": "Un auto en MRU con velocidad constante. Observa cómo la posición cambia linealmente con el tiempo.",
+  "controls": {
+    "v0": 10,
+    "x0": 0,
+    "t_max": 10
+  }
+}

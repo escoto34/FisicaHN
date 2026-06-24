@@ -1,0 +1,454 @@
+/* ============================================
+   simulator.css — Estilos del área de simulación
+   ============================================ */
+
+/* --- Contenedor principal --- */
+.sim-container {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: #f3f4f6;
+  color: #1f2937;
+}
+
+/* --- Área del canvas --- */
+.sim-canvas-area {
+  flex: 1;
+  position: relative;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  margin: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.sim-canvas-area canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Cuadrícula superpuesta al canvas */
+.canvas-grid {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(59, 130, 246, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59, 130, 246, 0.08) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.canvas-axis {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.canvas-axis::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(59, 130, 246, 0.3);
+}
+
+.canvas-axis::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(59, 130, 246, 0.3);
+}
+
+/* --- Panel de control lateral --- */
+.sim-control-panel {
+  width: 320px;
+  min-width: 280px;
+  background: #ffffff;
+  border-left: 1px solid #d1d5db;
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.control-group {
+  background: #f9fafb;
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+}
+
+.control-group-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* --- Sliders --- */
+.control-slider {
+  margin-bottom: 10px;
+  position: relative;
+}
+
+.slider-label {
+  display: block;
+  font-size: 12px;
+  color: #4b5563;
+  margin-bottom: 2px;
+  font-weight: 500;
+}
+
+.slider-value {
+  float: right;
+  font-size: 12px;
+  font-weight: 600;
+  color: #3b82f6;
+  font-variant-numeric: tabular-nums;
+}
+
+.slider-input {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(to right, #3b82f6 var(--fill-pct, 0%), #e5e7eb var(--fill-pct, 0%));
+  outline: none;
+  margin-top: 8px;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.slider-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform 0.1s;
+}
+
+.slider-input::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.slider-input::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.slider-input:active::-webkit-slider-thumb {
+  transform: scale(1.2);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+}
+
+/* --- Botones --- */
+.control-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  touch-action: manipulation;
+}
+
+.control-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.control-btn:active {
+  transform: scale(0.97);
+}
+
+.control-btn-primary {
+  background: #3b82f6;
+  color: #ffffff;
+  border-color: #3b82f6;
+}
+
+.control-btn-primary:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+.control-btn-danger {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #ef4444;
+}
+
+.control-btn-danger:hover {
+  background: #dc2626;
+  border-color: #dc2626;
+}
+
+.btn-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* --- Select --- */
+.control-select {
+  margin-bottom: 10px;
+}
+
+.select-label {
+  display: block;
+  font-size: 12px;
+  color: #4b5563;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.select-input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #ffffff;
+  font-size: 13px;
+  color: #1f2937;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.select-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+/* --- Panel de herramientas --- */
+.sim-tool-panel {
+  background: #f9fafb;
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+}
+
+.tool-panel-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* --- Responsive --- */
+@media (max-width: 768px) {
+  .sim-container {
+    flex-direction: column;
+  }
+
+  .sim-control-panel {
+    width: 100%;
+    min-width: unset;
+    max-height: 50vh;
+    border-left: none;
+    border-top: 1px solid #d1d5db;
+  }
+
+  .sim-canvas-area {
+    margin: 8px;
+  }
+}
+
+/* --- Scenario Manager --- */
+.scenario-manager {
+  margin-top: 16px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.scenario-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+.scenario-btn-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.scenario-btn {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.scenario-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--accent);
+}
+
+.scenario-btn-sm {
+  padding: 3px 8px;
+  font-size: 0.72rem;
+}
+
+.scenario-btn-danger {
+  color: var(--danger);
+  border-color: rgba(239, 83, 80, 0.3);
+}
+
+.scenario-btn-danger:hover {
+  background: rgba(239, 83, 80, 0.1);
+  border-color: var(--danger);
+}
+
+.scenario-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  margin-top: 8px;
+  padding-right: 4px;
+}
+
+.scenario-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  gap: 8px;
+}
+
+.scenario-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.scenario-item-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.scenario-item-desc {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+.scenario-item-meta {
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.scenario-item-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.scenario-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.scenario-dialog-content {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 20px;
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: var(--shadow);
+}
+
+.scenario-dialog-content h5 {
+  font-size: 1rem;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.scenario-save-name, .scenario-save-desc {
+  width: 100%;
+  padding: 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.scenario-save-desc {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.scenario-dialog-btns {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+

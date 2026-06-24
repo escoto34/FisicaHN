@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="es" class="dark-theme">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FísicaHN — Simulador Interactivo de Física</title>
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/simulator.css">
+  <link rel="stylesheet" href="css/tools.css">
+  <link rel="stylesheet" href="css/challenges.css">
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <svg class="logo-icon" viewBox="0 0 40 40" width="32" height="32" aria-hidden="true">
+        <circle cx="20" cy="20" r="16" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+        <path d="M20 8 L20 32 M8 20 L32 20" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="20" cy="20" r="4" fill="var(--accent)"/>
+      </svg>
+      <h1 class="sidebar-title">FísicaHN</h1>
+    </div>
+    <nav class="sidebar-nav" aria-label="Módulos de física">
+      <button class="module-btn active" data-module="kinematics" aria-label="Cinemática">
+        <svg class="module-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+          <line x1="3" y1="20" x2="21" y2="4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="18" cy="6" r="2.5" fill="currentColor"/>
+          <circle cx="6" cy="18" r="2.5" fill="currentColor"/>
+          <path d="M3 12 L8 12 L10 9 M21 12 L16 12 L14 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+        </svg>
+        <span>Cinemática</span>
+      </button>
+      <button class="module-btn" data-module="dynamics" aria-label="Dinámica">
+        <svg class="module-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+          <rect x="7" y="4" width="10" height="7" rx="1.5" stroke="currentColor" stroke-width="2" fill="none"/>
+          <rect x="7" y="13" width="10" height="7" rx="1.5" stroke="currentColor" stroke-width="2" fill="none"/>
+          <text x="12" y="9.5" text-anchor="middle" font-size="6" fill="currentColor" font-weight="700">F</text>
+          <text x="12" y="18.5" text-anchor="middle" font-size="6" fill="currentColor">m</text>
+          <path d="M2 17.5 L5 17.5 M19 17.5 L22 17.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <path d="M19 7.5 L22 7.5 M2 7.5 L5 7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <span>Dinámica</span>
+      </button>
+      <button class="module-btn" data-module="electricity" aria-label="Electricidad">
+        <svg class="module-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+          <path d="M12 2 L12 8 L15 8 L12 14 L12 20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <line x1="8" y1="5" x2="16" y2="5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="8" y1="17" x2="16" y2="17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="12" cy="2" r="1" fill="currentColor"/>
+          <circle cx="12" cy="20" r="1" fill="currentColor"/>
+        </svg>
+        <span>Electricidad</span>
+      </button>
+      <button class="module-btn" data-module="optics" aria-label="Óptica">
+        <svg class="module-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none"/>
+          <line x1="12" y1="3" x2="12" y2="21" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          <line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          <line x1="5.64" y1="5.64" x2="18.36" y2="18.36" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          <line x1="18.36" y1="5.64" x2="5.64" y2="18.36" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.3"/>
+          <circle cx="12" cy="12" r="1" fill="currentColor"/>
+        </svg>
+        <span>Óptica</span>
+      </button>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="settings-btn" id="settingsBtn" aria-label="Configuración">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" fill="none" stroke="currentColor" stroke-width="2"/>
+        </svg>
+      </button>
+      <span class="version-badge">v1.0</span>
+    </div>
+  </aside>
+
+  <!-- Main Area -->
+  <main class="main-area">
+    <div class="canvas-wrapper">
+      <div class="canvas-header">
+        <h2 class="module-title" id="moduleTitle">Cinemática</h2>
+        <div class="canvas-controls-top">
+          <button class="icon-btn" id="resetBtn" aria-label="Reiniciar simulación" title="Reiniciar (R)">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M3 12a9 9 0 1 1 3 6.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M3 3v6h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <button class="icon-btn" id="fullscreenBtn" aria-label="Pantalla completa" title="Pantalla completa">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <canvas id="simCanvas" width="800" height="600">
+        Tu navegador no soporta el elemento canvas de HTML5.
+      </canvas>
+      <div class="canvas-footer">
+        <span class="fps-counter" id="fpsCounter">0 FPS</span>
+        <span class="sim-status" id="simStatus">▶ En ejecución</span>
+      </div>
+    </div>
+  </main>
+
+  <!-- Right Panel -->
+  <aside class="right-panel" id="rightPanel">
+    <div class="panel-section">
+      <h3 class="panel-title">Controles</h3>
+      <div class="control-group">
+        <label class="control-label" for="speedSlider">Velocidad</label>
+        <div class="slider-row">
+          <input type="range" id="speedSlider" class="custom-slider" min="0.1" max="5" step="0.1" value="1">
+          <span class="slider-value" id="speedDisplay">1.0×</span>
+        </div>
+      </div>
+      <div class="control-group">
+        <div class="btn-row">
+          <button class="ctrl-btn primary" id="playPauseBtn" aria-label="Reproducir/Pausar">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><polygon points="6 4 20 12 6 20"/></svg>
+            <span id="playPauseLabel">Reproducir</span>
+          </button>
+          <button class="ctrl-btn" id="stepBtn" aria-label="Avanzar un paso">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><polygon points="6 4 18 12 6 20"/><rect x="4" y="4" width="2" height="16"/></svg>
+            <span>Paso</span>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="panel-section">
+      <h3 class="panel-title">Parámetros</h3>
+      <div id="paramsPanel" class="params-panel">
+        <p class="placeholder-text">Selecciona un módulo para ver sus parámetros.</p>
+      </div>
+    </div>
+    <div class="panel-section chart-panel">
+      <h3 class="panel-title">Gráficas</h3>
+      <div id="chartContainer" class="chart-container">
+        <svg id="chartSvg" class="chart-svg" viewBox="0 0 300 180" preserveAspectRatio="xMidYMid meet">
+          <text x="150" y="90" text-anchor="middle" fill="var(--text-secondary)" font-size="11">Gráfica</text>
+        </svg>
+      </div>
+    </div>
+    <div class="panel-section">
+      <h3 class="panel-title">Herramientas</h3>
+      <div class="tool-row" id="toolRow">
+        <button class="tool-btn" data-tool="pointer" aria-label="Seleccionar" title="Seleccionar">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M13 13l6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <button class="tool-btn" data-tool="ruler" aria-label="Regla" title="Medir distancias">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><line x1="4" y1="10" x2="20" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="4" y1="14" x2="20" y2="14" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="4" x2="10" y2="20" stroke="currentColor" stroke-width="1"/><line x1="14" y1="4" x2="14" y2="20" stroke="currentColor" stroke-width="1"/></svg>
+        </button>
+        <button class="tool-btn" data-tool="angle" aria-label="Transportador" title="Medir ángulos">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M3 12h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 3v18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
+        <button class="tool-btn" data-tool="erase" aria-label="Borrar trazados" title="Borrar trazados">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M20 20H7L3 16l9-9 8 8-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="18" y1="13" x2="11" y2="6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Bottom Panel -->
+  <footer class="bottom-panel" id="bottomPanel">
+    <div class="bottom-tabs" id="bottomTabs">
+      <button class="bottom-tab active" data-tab="info">Información</button>
+      <button class="bottom-tab" data-tab="formulas">Fórmulas</button>
+      <button class="bottom-tab" data-tab="data">Datos</button>
+      <button class="bottom-tab" data-tab="challenges">Desafíos</button>
+    </div>
+    <div class="bottom-content" id="bottomContent">
+      <div class="tab-panel active" id="tab-info">
+        <p class="tab-text">Bienvenido a <strong>FísicaHN</strong>. Selecciona un módulo en la barra lateral para comenzar. Usa <kbd>Espacio</kbd> para pausar/reanudar, <kbd>R</kbd> para reiniciar.</p>
+      </div>
+      <div class="tab-panel" id="tab-formulas">
+        <p class="tab-text placeholder-text">Las fórmulas del módulo activo aparecerán aquí.</p>
+      </div>
+      <div class="tab-panel" id="tab-data">
+        <p class="tab-text placeholder-text">Datos numéricos de la simulación en tiempo real.</p>
+      </div>
+      <div class="tab-panel" id="tab-challenges">
+        <p class="tab-text placeholder-text">Completa desafíos para poner a prueba tu aprendizaje.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

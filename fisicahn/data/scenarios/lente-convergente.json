@@ -1,0 +1,10 @@
+{
+  "name": "Lente Convergente",
+  "module": "optics",
+  "description": "Simulación de una lente convergente (biconvexa). Los rayos paralelos convergen en el foco. Ajusta la distancia focal y observa la formación de imágenes.",
+  "controls": {
+    "distancia_focal": 15,
+    "altura_objeto": 3,
+    "distancia_objeto": 30
+  }
+}

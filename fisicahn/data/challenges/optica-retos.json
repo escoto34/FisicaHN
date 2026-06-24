@@ -1,0 +1,65 @@
+[
+  {
+    "id": "opt-1",
+    "type": "numeric",
+    "question": "La luz viaja a 3×10⁸ m/s en el vacío. ¿Qué distancia recorre en 2×10⁻⁶ segundos?",
+    "answer": 600,
+    "unit": "m",
+    "hint": "d = c × t; multiplica 3×10⁸ por 2×10⁻⁶",
+    "points": 15
+  },
+  {
+    "id": "opt-2",
+    "type": "multiple",
+    "question": "Cuando la luz pasa del aire al agua, su velocidad...",
+    "options": ["Aumenta", "Disminuye", "Se mantiene", "Se duplica"],
+    "answer": 1,
+    "hint": "El agua tiene mayor índice de refracción que el aire",
+    "points": 10
+  },
+  {
+    "id": "opt-3",
+    "type": "multiple",
+    "question": "En una lente convergente, los rayos paralelos al eje principal convergen en...",
+    "options": ["El centro", "El foco", "El vértice", "El infinito"],
+    "answer": 1,
+    "hint": "El foco es el punto donde convergen los rayos paralelos",
+    "points": 10
+  },
+  {
+    "id": "opt-4",
+    "type": "numeric",
+    "question": "Si el ángulo de incidencia es 30° y el índice de refracción es 1.5, ¿cuál es el ángulo de refracción? (sen 30° = 0.5)",
+    "answer": 19.47,
+    "unit": "°",
+    "hint": "Ley de Snell: n₁ sen θ₁ = n₂ sen θ₂; usa sen⁻¹(0.5/1.5)",
+    "points": 20
+  },
+  {
+    "id": "opt-5",
+    "type": "multiple",
+    "question": "La reflexión total interna ocurre cuando la luz viaja de un medio...",
+    "options": ["Menos denso a más denso", "Más denso a menos denso", "En el mismo medio", "En el vacío"],
+    "answer": 1,
+    "hint": "Ocurre al pasar de un medio con mayor índice a uno con menor índice, superando el ángulo crítico",
+    "points": 10
+  },
+  {
+    "id": "opt-6",
+    "type": "numeric",
+    "question": "Una lente convergente tiene distancia focal de 10 cm. ¿Cuál es su potencia?",
+    "answer": 10,
+    "unit": "D",
+    "hint": "Potencia P = 1 / f (en metros); 10 cm = 0.1 m",
+    "points": 10
+  },
+  {
+    "id": "opt-7",
+    "type": "select",
+    "question": "El fenómeno de separación de la luz blanca en colores se llama...",
+    "options": ["Reflexión", "Refracción", "Dispersión", "Difracción"],
+    "answer": 2,
+    "hint": "La dispersión separa la luz en sus longitudes de onda componentes",
+    "points": 10
+  }
+]

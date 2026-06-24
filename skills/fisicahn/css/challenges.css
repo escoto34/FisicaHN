@@ -1,0 +1,371 @@
+/* ============================================
+   challenges.css — Panel de retos pedagógicos
+   ============================================ */
+
+/* --- Panel colapsable (anclado a la derecha) --- */
+.challenge-panel {
+  position: fixed;
+  top: 80px;
+  right: 0;
+  width: 360px;
+  max-width: 90vw;
+  max-height: calc(100vh - 120px);
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-right: none;
+  border-radius: 12px 0 0 12px;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.1);
+  z-index: 500;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+.challenge-collapsed {
+  transform: translateX(calc(100% - 48px));
+}
+
+.challenge-collapsed .challenge-body {
+  display: none;
+}
+
+/* --- Header --- */
+.challenge-header {
+  padding: 12px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8fafc;
+  border-radius: 12px 0 0 0;
+  border-bottom: 1px solid #e2e8f0;
+  user-select: none;
+  min-width: 48px;
+}
+
+.challenge-header:hover {
+  background: #f1f5f9;
+}
+
+.challenge-toggle {
+  font-size: 14px;
+  color: #64748b;
+  width: 20px;
+  text-align: center;
+  transition: transform 0.2s;
+}
+
+.challenge-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+  flex: 1;
+}
+
+.challenge-score-badge {
+  background: #3b82f6;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+}
+
+/* --- Body --- */
+.challenge-body {
+  padding: 12px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* --- Barra de progreso --- */
+.challenge-progress-bar {
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 3px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+.challenge-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #22c55e);
+  border-radius: 3px;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* --- Tarjeta de pregunta --- */
+.challenge-card {
+  min-height: 200px;
+}
+
+.challenge-question-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.challenge-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.challenge-num {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.challenge-points {
+  font-size: 11px;
+  font-weight: 700;
+  color: #f59e0b;
+  background: #fef3c7;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.challenge-question {
+  font-size: 14px;
+  font-weight: 500;
+  color: #0f172a;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* --- Opciones multiple choice --- */
+.challenge-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.challenge-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s;
+  touch-action: manipulation;
+}
+
+.challenge-option:hover {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.challenge-option input[type="radio"] {
+  accent-color: #3b82f6;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+/* --- Input numérico --- */
+.challenge-input-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.challenge-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #1f2937;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.challenge-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.challenge-select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-bottom: 8px;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+/* --- Botones de reto --- */
+.challenge-btn {
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.15s;
+  touch-action: manipulation;
+}
+
+.challenge-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.challenge-btn:active {
+  transform: scale(0.97);
+}
+
+.challenge-btn-submit {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.challenge-btn-submit:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+.challenge-btn-next {
+  background: #22c55e;
+  color: white;
+  border-color: #22c55e;
+  margin-top: 12px;
+  width: 100%;
+}
+
+.challenge-btn-next:hover {
+  background: #16a34a;
+  border-color: #16a34a;
+}
+
+.challenge-btn-hint {
+  background: transparent;
+  border: 1px dashed #94a3b8;
+  color: #64748b;
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+.challenge-btn-hint:hover {
+  background: #f8fafc;
+  border-style: solid;
+}
+
+.challenge-btn-restart {
+  background: #f59e0b;
+  color: white;
+  border-color: #f59e0b;
+  margin-top: 12px;
+}
+
+/* --- Feedback --- */
+.challenge-feedback {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.challenge-feedback-correct {
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  color: #166534;
+}
+
+.challenge-feedback-incorrect {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: #991b1b;
+}
+
+/* --- Pistas --- */
+.challenge-hints {
+  margin-top: 8px;
+}
+
+.challenge-hints p {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #92400e;
+  margin: 4px 0;
+}
+
+/* --- Pantalla de completado --- */
+.challenge-complete {
+  text-align: center;
+  padding: 24px 12px;
+}
+
+.challenge-complete h3 {
+  font-size: 18px;
+  color: #0f172a;
+  margin: 0 0 8px 0;
+}
+
+.challenge-complete p {
+  font-size: 14px;
+  color: #475569;
+  margin: 4px 0;
+}
+
+.challenge-empty {
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+  padding: 24px;
+}
+
+/* --- Scrollbar del panel --- */
+.challenge-body::-webkit-scrollbar {
+  width: 4px;
+}
+
+.challenge-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.challenge-body::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 2px;
+}
+
+/* --- Responsive --- */
+@media (max-width: 640px) {
+  .challenge-panel {
+    width: 100%;
+    max-width: 100vw;
+    top: auto;
+    bottom: 0;
+    border-radius: 12px 12px 0 0;
+    border-right: 1px solid #d1d5db;
+    max-height: 60vh;
+  }
+
+  .challenge-collapsed {
+    transform: translateY(calc(100% - 48px));
+  }
+
+  .challenge-header {
+    border-radius: 12px 12px 0 0;
+  }
+}

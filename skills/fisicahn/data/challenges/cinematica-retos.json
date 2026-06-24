@@ -1,0 +1,65 @@
+[
+  {
+    "id": "cin-1",
+    "type": "numeric",
+    "question": "Un auto viaja a 20 m/s durante 5 segundos. ¿Qué distancia recorre?",
+    "answer": 100,
+    "unit": "m",
+    "hint": "Usa la fórmula d = v × t",
+    "points": 10
+  },
+  {
+    "id": "cin-2",
+    "type": "multiple",
+    "question": "En MRUV, si la aceleración es negativa, la velocidad...",
+    "options": ["Aumenta", "Disminuye", "Se mantiene", "Cambia de dirección"],
+    "answer": 1,
+    "hint": "Aceleración negativa significa desaceleración",
+    "points": 10
+  },
+  {
+    "id": "cin-3",
+    "type": "numeric",
+    "question": "Un objeto se deja caer desde reposo. ¿Qué velocidad alcanza después de 3 segundos? (g = 9.8 m/s²)",
+    "answer": 29.4,
+    "unit": "m/s",
+    "hint": "Usa v = g × t;la aceleración de la gravedad es 9.8 m/s²",
+    "points": 15
+  },
+  {
+    "id": "cin-4",
+    "type": "select",
+    "question": "En un gráfico velocidad-tiempo, la pendiente representa...",
+    "options": ["La velocidad", "La aceleración", "La posición", "El tiempo"],
+    "answer": 1,
+    "hint": "La pendiente en v-t es el cambio de velocidad sobre el tiempo",
+    "points": 10
+  },
+  {
+    "id": "cin-5",
+    "type": "numeric",
+    "question": "Un tren parte del reposo con aceleración de 2 m/s² durante 10 s. ¿Qué distancia recorre?",
+    "answer": 100,
+    "unit": "m",
+    "hint": "Usa d = ½ × a × t² para MRUV desde reposo",
+    "points": 15
+  },
+  {
+    "id": "cin-6",
+    "type": "multiple",
+    "question": "En MRU, la gráfica posición-tiempo es una línea recta cuya pendiente es...",
+    "options": ["La aceleración", "La velocidad", "La posición inicial", "El tiempo"],
+    "answer": 1,
+    "hint": "Pendiente de x-t es Δx/Δt = velocidad",
+    "points": 10
+  },
+  {
+    "id": "cin-7",
+    "type": "numeric",
+    "question": "Un ciclista viaja a 36 km/h. ¿Cuánto es en m/s?",
+    "answer": 10,
+    "unit": "m/s",
+    "hint": "Divide km/h entre 3.6 para obtener m/s",
+    "points": 5
+  }
+]
