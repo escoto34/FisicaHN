@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="FísicaHN: simulador de física offline para colegios. Descarga gratis, evalúa alumnos y guarda trabajos en el navegador.">
+  <title>FísicaHN — Simulador de física para colegios</title>
+  <link rel="stylesheet" href="css/site.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='none' stroke='%233ecfbf' stroke-width='2'/><circle cx='16' cy='16' r='3' fill='%233ecfbf'/></svg>">
+</head>
+<body>
+  <header class="nav">
+    <div class="wrap nav-inner">
+      <a class="brand" href="./">
+        <span class="brand-mark">FH</span>
+        FísicaHN
+      </a>
+      <ul class="nav-links">
+        <li><a href="#modulos">Módulos</a></li>
+        <li><a href="#descarga">Descarga</a></li>
+        <li><a href="#docentes">Docentes</a></li>
+        <li><a href="teacher.html">Evaluación</a></li>
+        <li><a class="btn btn-ghost" href="sim/">Abrir simulador</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap hero-grid">
+        <div>
+          <p class="eyebrow">Colegios técnicos · Honduras</p>
+          <h1>Física que se ve, se mide y se evalúa sin internet</h1>
+          <p class="hero-lead">
+            Simulador web offline con cinemática, dinámica, circuitos, ondas y más.
+            Descárgalo para USB o úsalo en línea. Los trabajos se guardan en la caché del navegador
+            con sello de integridad para apoyar la evaluación honesta.
+          </p>
+          <div class="hero-cta">
+            <a class="btn btn-primary" href="downloads/fisicahn.zip" download id="btnDownload">Descargar para navegador (ZIP)</a>
+            <a class="btn btn-secondary" href="sim/">Usar en el navegador</a>
+            <a class="btn btn-secondary" href="teacher.html">Acceso docente</a>
+          </div>
+          <p class="hero-note">
+            ¿NetSupport bloquea el navegador? Hay app de escritorio multiplataforma (Electron) en
+            <span class="mono">desktop/</span> — genera un <strong>.exe portable</strong> sin instalar.
+            Ver <span class="mono">desktop/README.md</span>.
+          </p>
+        </div>
+
+        <aside class="hero-card" id="quickStart" aria-labelledby="quickTitle">
+          <h2 id="quickTitle">Entrada rápida al laboratorio</h2>
+          <form id="quickForm">
+            <div class="field">
+              <label for="qName">Nombre del alumno</label>
+              <input id="qName" name="name" required maxlength="80" autocomplete="name" placeholder="Nombre y apellido">
+            </div>
+            <div class="field">
+              <label for="qSchool">Colegio</label>
+              <input id="qSchool" name="school" required maxlength="120" autocomplete="organization" placeholder="Nombre del colegio">
+            </div>
+            <div class="field">
+              <label for="qMode">Modo</label>
+              <select id="qMode" name="mode">
+                <option value="practice">Práctica (libre)</option>
+                <option value="exam">Examen (código del docente)</option>
+              </select>
+            </div>
+            <div class="field" id="qCodeField" hidden>
+              <label for="qCode">Código de examen (el de la pizarra)</label>
+              <input id="qCode" name="code" inputmode="numeric" maxlength="8" placeholder="Ej. 482910">
+            </div>
+            <p class="form-msg" id="qMsg" role="status"></p>
+            <button type="submit" class="btn btn-primary" style="width:100%">Entrar al simulador</button>
+          </form>
+        </aside>
+      </div>
+    </section>
+
+    <section id="modulos">
+      <div class="wrap">
+        <h2>Qué incluye el simulador</h2>
+        <p class="section-lead">Módulos por nivel (secundaria, bachillerato y avanzado), pizarra docente, gráficas y modo espacio infinito.</p>
+        <div class="cards">
+          <article class="card">
+            <h3>Cinemática y dinámica</h3>
+            <p>MRU, MRUV, fuerzas, energía y colisiones con vectores y gráficas en vivo.</p>
+          </article>
+          <article class="card">
+            <h3>Circuitos y campos</h3>
+            <p>Ohm, Kirchhoff, constructor de circuitos y carga en campo magnético.</p>
+          </article>
+          <article class="card">
+            <h3>Ondas, sonido y gravedad</h3>
+            <p>Doppler, MHS, órbitas y herramientas de medición (regla, sonda, cronómetro).</p>
+          </article>
+          <article class="card">
+            <h3>Pizarra y evaluación</h3>
+            <p>Pizarra libre para la clase y trabajos guardados con nombre y sello anti-edición casual.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="descarga">
+      <div class="wrap">
+        <h2>Descarga para USB o lab sin red</h2>
+        <p class="section-lead">El ZIP web abre en el navegador. Si el lab usa NetSupport y bloquea Chrome/Edge, usa la <strong>app de escritorio</strong> (Electron) con Chromium propio.</p>
+        <div class="download-strip">
+          <div>
+            <strong>fisicahn.zip</strong>
+            <p class="muted" style="margin-top:0.25rem">HTML + CSS + JS · sin instalación · navegador</p>
+          </div>
+          <div class="hero-cta" style="margin:0">
+            <a class="btn btn-primary" href="downloads/fisicahn.zip" download>Descargar ZIP web</a>
+            <a class="btn btn-secondary" href="sim/">Probar online</a>
+          </div>
+        </div>
+        <div class="download-strip" style="margin-top:1rem">
+          <div>
+            <strong>FísicaHN Desktop (Windows / Linux / macOS)</strong>
+            <p class="muted" style="margin-top:0.25rem">
+              App instalable o <span class="mono">.exe</span> portable. No depende del navegador del sistema.
+              En el repo: <span class="mono">cd desktop && npm install && npm run dist:win</span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="docentes">
+      <div class="wrap">
+        <h2>Evaluación sin trampas fáciles</h2>
+        <p class="section-lead">
+          Flujo pensado para colegios y hosting estático en Cloudflare.
+          No sustituye vigilancia en aula, pero registra identidad, modo examen y sella cada trabajo.
+        </p>
+        <div class="steps">
+          <div class="step">
+            <h3>Registra el colegio</h3>
+            <p class="muted">En Acceso docente crea contraseña + nombre de colegio (se guarda en este navegador).</p>
+          </div>
+          <div class="step">
+            <h3>Código en la pizarra</h3>
+            <p class="muted">Generas un código offline y lo escribes en la pizarra. Cada alumno lo teclea en su PC (sin red).</p>
+          </div>
+          <div class="step">
+            <h3>USB al final</h3>
+            <p class="muted">Los alumnos exportan sus trabajos JSON; tú los importas y filtras por código de examen y sello.</p>
+          </div>
+        </div>
+        <p style="margin-top:1.5rem">
+          <a class="btn btn-primary" href="teacher.html">Ir al panel docente</a>
+        </p>
+        <p class="muted" style="margin-top:1rem;font-size:0.85rem;max-width:60ch">
+          Nota: en una web estática la contraseña no puede ser 100% secreta frente a un atacante técnico en el mismo PC.
+          Sirve para disciplina de aula, códigos de examen y detección de JSON alterados a mano.
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer-inner">
+      <span>FísicaHN · simulador educativo</span>
+      <span>Despliegue recomendado: Cloudflare Pages (carpeta <span class="mono">website/</span>)</span>
+    </div>
+  </footer>
+
+  <script type="module" src="js/site.js"></script>
+</body>
+</html>

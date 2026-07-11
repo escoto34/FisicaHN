@@ -1,0 +1,3 @@
+# Cloudflare Pages redirects
+/sim  /sim/  301
+/teacher  /teacher.html  301
