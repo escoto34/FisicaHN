@@ -46,34 +46,6 @@ Simulador de física orientado a clase: módulos interactivos, pizarra, usuarios
 | `supabase/schema.sql` | Esquema y RLS (ejecutar en el SQL Editor del backend) |
 | `docs/` | Despliegue (`SUPABASE_GITHUB_PAGES.md`) y seguridad (`SECURITY.md`) |
 
-```bash
-# Tras editar el lab
-./scripts/build-website.sh
-
-# Escritorio (elige UNO; no uses "npm start / npm run sync")
-cd desktop && npm start          # sync + abrir Electron
-# o solo sincronizar:
-cd desktop && npm run sync
-```
-
----
-
-## Inicio rápido (desarrollo)
-
-```bash
-./scripts/build-website.sh
-cd website && python3 -m http.server 8080
-```
-
-- Inicio: http://127.0.0.1:8080/
-- Laboratorio: http://127.0.0.1:8080/sim/
-- Docentes: http://127.0.0.1:8080/teacher.html
-
-Recarga con **Ctrl+Shift+R** si no ves cambios.
-
-El build genera el ZIP con `zip` o, si no está instalado, con **Python** (`zipfile`).
-
----
 
 ## Usuarios y exámenes
 
@@ -122,44 +94,13 @@ Lápiz denso, formas, texto, mover, borrador que no borra el fondo ni la cuadrí
 | `/downloads/fisicahn.zip` | Paquete offline |
 | `/_headers` | Cabeceras de seguridad (CSP, etc.) en hosts que las lean |
 
-No edites solo `website/sim/`: cambia `skills/fisicahn/` y vuelve a construir.
-
 Más detalle: `website/README.md`.
-
----
-
-## Backend en la nube (opcional)
-
-1. Proyecto con API compatible + ejecutar `supabase/schema.sql` (RLS endurecido).
-2. Solo **URL** + clave **anon/public** (nunca `service_role`).
-
-```bash
-cp website/js/supabase-config.example.js website/js/supabase-config.js
-# Edita url + anonKey
-./scripts/build-website.sh
-```
-
-- Config real: **no** se versiona (`.gitignore`).
-- El build la copia a `website/sim/js/` (ZIP) y el sync de desktop a `desktop/app/js/`.
-- GitHub Actions: secrets `SUPABASE_URL` y `SUPABASE_ANON_KEY`.
-
-Ver `docs/SUPABASE_GITHUB_PAGES.md` y `docs/SECURITY.md`.
-
----
 
 ## App de escritorio
 
-```bash
-cd desktop
-npm install          # Node 20+ recomendado; Electron 43 / electron-builder 26
-npm start            # sync + Electron
-npm run dist:win     # portable + NSIS
-npm run dist:linux   # AppImage + deb
-```
 
 | Detalle | Valor |
 |---------|--------|
-| Sync | `skills/fisicahn` → `desktop/app` |
 | Trabajos | Archivo en **userData** (`fisicahn-works-v1.json`) vía IPC |
 | RAM en uso (medida) | **~90–100 MB** con la app abierta (el instalable/portable en disco es mayor por Chromium) |
 | SO | Windows 10+, Linux, macOS (no Windows 7 con Electron actual) |
@@ -185,7 +126,3 @@ Publicar: genera `desktop/release/`, súbelo a **GitHub Releases** (`…/release
 | **Electron** | ~100–180 MB el portable/instalable | **~90–100 MB** de proceso en un PC típico (más si hay muchas pestañas del SO) |
 
 ---
-
-## Licencia
-
-MIT — ver el repositorio.
