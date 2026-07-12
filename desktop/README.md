@@ -15,14 +15,14 @@ En labs con **NetSupport** u otras herramientas de control de aula, a veces se *
 
 | Tecnología | Pros | Contras |
 |------------|------|---------|
-| **Electron** (elegida) | Canvas fiable, empaquetado fácil, portable Windows | Binario más pesado (~80–120 MB) |
+| **Electron** (elegida, v43) | Canvas fiable, empaquetado fácil, portable Windows | Binario más pesado (~100–180 MB); Windows 10+ |
 | Tauri | Binario pequeño | Depende del WebView del SO (WebView2); más fricción en labs viejos |
 | PWA | Sin instalar | Sigue siendo “navegador”; NetSupport puede bloquearla |
 
 ## Requisitos de desarrollo
 
-- Node.js 18+ (recomendado 20 LTS)
-- npm
+- Node.js **20+** (recomendado **22 LTS** o superior; con Electron 43 / electron-builder 26)
+- npm 10+
 
 ## Uso en desarrollo
 

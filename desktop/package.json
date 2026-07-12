@@ -16,8 +16,8 @@
     "dist:mac": "npm run sync && electron-builder --mac dmg"
   },
   "devDependencies": {
-    "electron": "^33.2.0",
-    "electron-builder": "^25.1.8"
+    "electron": "^43.1.0",
+    "electron-builder": "^26.15.3"
   },
   "build": {
     "appId": "hn.fisica.simulador",
@@ -76,6 +76,7 @@
     }
   },
   "allowScripts": {
-    "electron@33.2.0": true
+    "electron@43.1.0": true,
+    "electron-winstaller@5.4.0": true
   }
 }
