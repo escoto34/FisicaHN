@@ -39,6 +39,9 @@ jobs:
         run: |
           chmod +x scripts/build-website.sh
           ./scripts/build-website.sh
+          # Asegura index en la raíz del artefacto (no el README del repo)
+          test -f website/index.html
+          touch website/.nojekyll
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5

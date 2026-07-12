@@ -12,6 +12,8 @@ CFG="$DEST/js/supabase-config.js"
 echo "→ Sincronizando simulador → website/sim"
 rm -rf "$SIM"
 mkdir -p "$SIM" "$DL" "$DEST/js" "$DEST/assets"
+# Evita que Jekyll ignore rutas con _ (p. ej. _headers) en GitHub Pages
+touch "$DEST/.nojekyll"
 # copiar solo lo necesario del simulador
 rsync -a --delete \
   --exclude '.git' \
