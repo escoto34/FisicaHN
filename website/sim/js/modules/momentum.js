@@ -3,6 +3,13 @@
  */
 
 import { roundTo } from '../utils/math-helpers.js';
+import {
+  setModuleInfo,
+  setModuleFormulas,
+  paramControl,
+  bindParamControls,
+  clearChallenges
+} from '../module-ui.js';
 
 let _engine, _renderer, _ui;
 let t = 0;
@@ -54,19 +61,19 @@ export function init(engine, renderer, ui) {
   renderer.resetCamera();
   resetState();
 
-  ui.setInfo(`
-    <strong>Momentum</strong> — Colisiones 1D elásticas, inelásticas y perfectamente inelásticas.
-  `);
-  ui.setFormulas(`
-    <ul style="padding-left:18px;margin:0;line-height:1.8">
-      <li>p = m·v (se conserva)</li>
-      <li>Elástico: también se conserva Ec</li>
-      <li>e = −(v₂f − v₁f)/(v₂i − v₁i)</li>
-    </ul>
-  `);
-  ui.setChallenges(`
-    <p class="tab-text">Con m1=m2 y choque elástico, verifica que se intercambian las velocidades.</p>
-  `);
+  setModuleInfo(ui, {
+    title: 'Momentum',
+    blurb: 'Momento lineal y colisiones en una dimensión.',
+    story: 'La conservación del momento es central en choques y propulsión (cohetes).',
+    cases: ['Bolas de billar.', 'Vagones que se acoplan.', 'Retroceso de un arma.']
+  });
+
+  setModuleFormulas(ui, { items: [
+    { name: 'Momento lineal', formula: 'p = m · v' },
+    { name: 'Conservación', formula: 'Σ p<sub>i</sub> = Σ p<sub>f</sub>', note: 'En un sistema aislado de fuerzas externas netas.' }
+  ]});
+
+  clearChallenges(ui);
   renderParams();
 }
 

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FísicaHN — Página no encontrada</title>
+  <meta http-equiv="refresh" content="0; url=./">
+  <script>
+    // GitHub Pages: rutas profundas → redirigir a la raíz del sitio
+    (function () {
+      var base = location.pathname.replace(/\/[^/]*$/, '/');
+      if (base.indexOf('/sim') !== -1) {
+        location.replace(base.replace(/\/sim.*/, '/sim/'));
+      } else {
+        location.replace(base || './');
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+  <main class="wrap" style="padding:48px 16px;text-align:center">
+    <h1>Página no encontrada</h1>
+    <p><a href="./">Volver al inicio de FísicaHN</a> · <a href="sim/">Abrir simulador</a></p>
+  </main>
+</body>
+</html>

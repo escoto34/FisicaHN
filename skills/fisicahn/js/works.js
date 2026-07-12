@@ -7,16 +7,40 @@ import { sha256, getSession, logAudit, normalizeSchool } from './auth.js';
 
 const WORKS_KEY = 'fisicahn_works_v1';
 
+function storageAvailable() {
+  try {
+    const k = '__fisicahn_ls_test__';
+    localStorage.setItem(k, '1');
+    localStorage.removeItem(k);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function listWorks() {
   try {
-    return JSON.parse(localStorage.getItem(WORKS_KEY) || '[]');
+    const raw = localStorage.getItem(WORKS_KEY);
+    if (!raw) return [];
+    const data = JSON.parse(raw);
+    return Array.isArray(data) ? data : [];
   } catch {
     return [];
   }
 }
 
 function saveAll(list) {
+  if (!storageAvailable()) {
+    throw new Error(
+      'Este navegador bloquea localStorage (modo privado o permisos). Desactívalo o usa otro navegador.'
+    );
+  }
   localStorage.setItem(WORKS_KEY, JSON.stringify(list));
+  // verificar escritura
+  const check = listWorks();
+  if (check.length !== list.length) {
+    throw new Error('No se pudo verificar el guardado en localStorage.');
+  }
 }
 
 function payloadForHash(work) {
@@ -77,16 +101,42 @@ export async function saveWork(data) {
     savedAt: new Date().toISOString(),
     snapshot: data.snapshot || {},
     notes: data.notes || (mode === 'exam' ? `Examen código ${examCode || '?'}` : ''),
-    integrity: ''
+    integrity: '',
+    source: 'local' // local | imported
   };
-  work.integrity = await computeIntegrity(work);
+
+  // El sello NUNCA debe impedir guardar el trabajo
+  try {
+    work.integrity = await computeIntegrity(work);
+  } catch (err) {
+    console.warn('Integrity hash falló; se guarda sin sello fuerte:', err);
+    work.integrity = `unsigned_${work.id}_${work.savedAt}`;
+    work.integrityWeak = true;
+  }
 
   const list = listWorks();
   list.unshift(work);
-  // límite de almacenamiento
   while (list.length > 200) list.pop();
   saveAll(list);
   logAudit('work_save', { id: work.id, name: work.name, moduleId: work.moduleId, mode });
+
+  // Sync opcional a Supabase (dinámico: no rompe el módulo si falla la carga)
+  try {
+    const { uploadWorkToCloud } = await import('./supabase-client.js');
+    const cloud = await uploadWorkToCloud({
+      ...work,
+      hash: work.integrity
+    });
+    if (cloud.ok) {
+      work.cloudSynced = true;
+      logAudit('work_cloud_sync', { id: work.id });
+    } else if (!cloud.skipped) {
+      logAudit('work_cloud_sync_fail', { id: work.id, error: cloud.error || 'unknown' });
+    }
+  } catch {
+    /* sin nube / offline */
+  }
+
   return work;
 }
 
@@ -105,34 +155,85 @@ export function worksForSchool(schoolName) {
   return listWorks().filter((w) => w.schoolKey === key);
 }
 
+/**
+ * Exporta trabajos a un archivo JSON descargable.
+ * @param {Array|undefined} works - si se omite, lee de localStorage
+ * @returns {{ count: number, filename: string }}
+ */
 export function exportWorksJSON(works) {
-  const blob = new Blob([JSON.stringify(works, null, 2)], { type: 'application/json' });
+  const list = Array.isArray(works) ? works : listWorks();
+  const filename = `fisicahn-trabajos-${Date.now()}.json`;
+  const payload = JSON.stringify(list, null, 2);
+  const blob = new Blob([payload], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `fisicahn-trabajos-${Date.now()}.json`;
+  a.download = filename;
+  a.rel = 'noopener';
+  // Firefox: debe estar en el DOM un momento
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+  return { count: list.length, filename };
 }
 
 export async function importWorksJSON(file) {
   const text = await file.text();
-  const data = JSON.parse(text);
-  const incoming = Array.isArray(data) ? data : data.works;
-  if (!Array.isArray(incoming)) throw new Error('JSON inválido.');
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error('El archivo no es un JSON válido.');
+  }
+  const incoming = Array.isArray(data) ? data : data?.works;
+  if (!Array.isArray(incoming)) {
+    throw new Error('JSON inválido: se esperaba un array de trabajos o { "works": [...] }.');
+  }
+  if (incoming.length === 0) {
+    return { added: 0, total: listWorks().length, skipped: 0 };
+  }
+
   const list = listWorks();
   const ids = new Set(list.map((w) => w.id));
   let added = 0;
-  for (const w of incoming) {
-    if (!w || !w.id || ids.has(w.id)) continue;
-    const check = await verifyWork(w);
+  let skipped = 0;
+  const now = new Date().toISOString();
+
+  for (const raw of incoming) {
+    if (!raw || typeof raw !== 'object') {
+      skipped++;
+      continue;
+    }
+    // Aceptar trabajos sin id (generar uno) para JSON hechos a mano
+    const w = { ...raw };
+    if (!w.id) {
+      w.id = `w_imp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    }
+    if (ids.has(w.id)) {
+      skipped++;
+      continue;
+    }
+    if (!w.name) w.name = w.moduleTitle || w.moduleId || 'Trabajo importado';
+    if (!w.savedAt) w.savedAt = now;
+
+    let check = { ok: false, reason: 'Sin sello' };
+    try {
+      check = await verifyWork(w);
+    } catch {
+      check = { ok: false, reason: 'No se pudo verificar el sello' };
+    }
     w._importVerified = check.ok;
     w._importReason = check.reason;
+    w.source = 'imported';
+    w.importedAt = now;
+
     list.unshift(w);
     ids.add(w.id);
     added++;
   }
+
   saveAll(list);
-  logAudit('work_import', { added });
-  return { added, total: list.length };
+  logAudit('work_import', { added, skipped });
+  return { added, skipped, total: list.length };
 }

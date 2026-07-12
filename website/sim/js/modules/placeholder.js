@@ -1,3 +1,4 @@
+import { clearChallenges, setModuleInfo, setModuleFormulas } from '../module-ui.js';
 /**
  * Módulo placeholder para entradas del catálogo aún sin simulación dedicada.
  */
@@ -19,7 +20,7 @@ export function init(engine, renderer, ui, meta = {}) {
   ui.setInfo(`<strong>${title}</strong><br>${blurb}<br><br>Estado: <em>próximamente</em>.`);
   ui.setFormulas('<p class="tab-text placeholder-text">Fórmulas cuando la simulación esté implementada.</p>');
   ui.setData('<p class="tab-text placeholder-text">Sin datos en vivo.</p>');
-  ui.setChallenges('<p class="tab-text placeholder-text">Sin retos todavía.</p>');
+  clearChallenges(ui);
 }
 
 export function update(dt) {

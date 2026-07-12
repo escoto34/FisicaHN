@@ -1,269 +1,156 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/Versión-1.0.0-00e5ff?style=for-the-badge" alt="Versión">
-  <img src="https://img.shields.io/badge/Licencia-MIT-7c4dff?style=for-the-badge" alt="Licencia">
-  <img src="https://img.shields.io/badge/JS_Puro-ES6+-f5c842?style=for-the-badge&logo=javascript&logoColor=black" alt="JavaScript">
-  <img src="https://img.shields.io/badge/Offline-100%25-00c853?style=for-the-badge" alt="Offline">
-  <img src="https://img.shields.io/badge/Peso-~400KB-ff6d00?style=for-the-badge" alt="Peso">
+  <img src="website/assets/logo.svg" width="72" height="72" alt="FísicaHN">
 </p>
 
-<h1 align="center">⚛️ FísicaHN</h1>
-<h3 align="center">Laboratorio Virtual de Física para Colegios Técnicos de Honduras</h3>
+<h1 align="center">FísicaHN</h1>
+<p align="center">
+  <strong>Laboratorio virtual de física para el aula</strong><br>
+  JavaScript puro · HTML5 Canvas · catálogo unificado · web / ZIP / escritorio
+</p>
 
 <p align="center">
-  Simulador interactivo de física web construido con <b>JavaScript puro</b>, <b>HTML5 Canvas</b> y <b>CSS3</b>.<br>
-  100% offline · Cero dependencias · Cero instalación · Ejecuta desde USB.
+  <a href="https://github.com/escoto34/FisicaHN">github.com/escoto34/FisicaHN</a>
 </p>
 
 ---
 
-## 🎯 ¿Qué es FísicaHN?
+## ¿Qué es?
 
-**FísicaHN** es un laboratorio virtual diseñado para que estudiantes de colegios técnicos hondureños realicen prácticas de física de manera interactiva, sin necesitar Internet, servidores, ni software adicional. Solo basta con abrir `index.html` en un navegador moderno.
+**FísicaHN** es un simulador de física orientado a clase: módulos interactivos, pizarra docente, guardado de trabajos y panel de evaluación.
 
-El simulador cubre los cuatro pilares fundamentales de la física de nivel medio:
+| Uso | Cómo |
+|-----|------|
+| **En el navegador** | Carpeta `website/` (landing + laboratorio) |
+| **Sin instalación** | `website/downloads/fisicahn.zip` |
+| **Escritorio** | App Electron en `desktop/` (útil si el lab bloquea el navegador del sistema) |
 
-| Módulo | Sub-módulos | Descripción |
-|--------|-------------|-------------|
-| 🏎️ **Cinemática** | MRU · MRUV · Caída Libre · Tiro Parabólico | Movimiento en 1D y 2D con animaciones, vectores y gráficos en tiempo real |
-| ⚙️ **Dinámica** | Leyes de Newton · Trabajo y Energía | Diagramas de cuerpo libre, planos inclinados, conservación de energía |
-| ⚡ **Electricidad** | Ley de Ohm · Kirchhoff · Constructor de Circuitos | Circuitos DC con electrones animados, análisis nodal (MNA), drag & drop |
-| 🔭 **Óptica** | Reflexión · Refracción · Lentes Delgadas | Trazado de rayos, Ley de Snell, TIR, clasificación de imágenes |
-
-> **13 sub-módulos** simulando fenómenos físicos reales con control paramétrico en tiempo real.
+El logo es un **círculo unitario con vector de posición** (geometría / cinemática).
 
 ---
 
-## ✨ Características Principales
+## Estructura del repositorio
 
-### 🎨 Interfaz de Laboratorio Oscuro
-- Tema oscuro de alto contraste optimizado para reducir la fatiga visual
-- Diseño inspirado en instrumental científico profesional
-- Micro-animaciones y transiciones suaves en todos los controles
-- Layout responsivo que se adapta a diferentes resoluciones
+| Ruta | Contenido |
+|------|-----------|
+| `skills/fisicahn/` | **Fuente** del simulador (editar aquí) |
+| `website/` | Sitio público: inicio, acceso docente, `sim/`, ZIP |
+| `desktop/` | Empaquetado Electron |
+| `scripts/build-website.sh` | Copia el sim a `website/sim` y regenera el ZIP |
+| `supabase/` | Esquema SQL opcional (backend en la nube) |
+| `docs/` | Notas de despliegue y backend |
 
-### 📊 Gráficos SVG Dinámicos
-- Sistema de graficación vectorial propio (sin Chart.js ni D3)
-- Auto-escalado inteligente de ejes según los datos
-- Soporte para múltiples conjuntos de datos superpuestos
-- Integración con el tema oscuro del laboratorio
-
-### 🧪 Instrumentos Virtuales
-- **Regla** — Mide distancias arrastrando sobre el canvas
-- **Transportador** — Cuantifica ángulos de inclinación y tiro
-- **Multímetro Flotante** — Muestra V, I y P al pasar sobre resistencias
-
-### 🎓 Capa Pedagógica Integrada
-- **Motor de Desafíos** — Retos de opción múltiple, cálculo numérico y experimentales
-- **Gestor de Escenarios** — Guarda, exporta e importa configuraciones de laboratorio en JSON
-- **Puntuación persistente** — Almacenada en `localStorage` del navegador
-
-### ⌨️ Atajos de Teclado
-| Tecla | Acción |
-|-------|--------|
-| `Espacio` | ⏯️ Pausar / Reanudar |
-| `R` | 🔄 Reiniciar simulación |
-| `Esc` | 🧹 Limpiar herramientas activas |
-| `1` `2` `3` `4` | 📖 Cambiar módulo rápidamente |
+> Tras cambiar el simulador, ejecuta siempre `./scripts/build-website.sh`.
 
 ---
 
-## 🚀 Inicio Rápido
+## Inicio rápido (desarrollo)
 
 ```bash
-# Opción 1: Clonar el repositorio
-git clone https://github.com/tu-usuario/simulador_fisica.git
-cd simulador_fisica/fisicahn
+# 1) Sincronizar simulador → website y regenerar ZIP
+./scripts/build-website.sh
 
-# Opción 2: Copiar la carpeta fisicahn/ a una USB
-
-# Abrir en el navegador:
-# → Hacer doble clic en index.html
-# → O arrastrar index.html a Chrome/Firefox/Edge
+# 2) Servir el sitio (necesario para ES modules)
+cd website && python3 -m http.server 8080
 ```
 
-> [!NOTE]
-> No se necesita `npm install`, ni servidor local, ni compilación. **Solo abrir el archivo HTML.**
+- Inicio: http://127.0.0.1:8080/
+- Laboratorio: http://127.0.0.1:8080/sim/
+- Docentes: http://127.0.0.1:8080/teacher.html
+
+Recarga con **Ctrl+Shift+R** si no ves cambios.
 
 ---
 
-## 🏗️ Arquitectura
+## Laboratorio (`/sim/`)
 
-```
-simulador_fisica/
-├── README.md                          ← Este archivo
-├── implementation_plan.md             ← Plan de implementación técnico
-├── skills/                            ← Especificaciones de diseño por módulo
-│   ├── 01-cinematica.md
-│   ├── 02-dinamica-energia.md
-│   ├── 03-electricidad-dc.md
-│   ├── 04-optica-geometrica.md
-│   ├── 05-interactividad-uiux.md
-│   ├── 06-capa-pedagogica.md
-│   └── 07-arquitectura-motor.md
-│
-└── fisicahn/                          ← ⭐ APLICACIÓN PRINCIPAL
-    ├── index.html                     ← Punto de entrada (abrir este archivo)
-    ├── css/
-    │   ├── main.css                   ← Variables globales, reset, tema oscuro
-    │   ├── simulator.css              ← Canvas, controles, ScenarioManager
-    │   ├── tools.css                  ← Instrumentos virtuales
-    │   └── challenges.css             ← Panel de desafíos
-    ├── js/
-    │   ├── app.js                     ← Inicializador, enrutamiento, listeners
-    │   ├── physics-engine.js          ← Bucle rAF con fixed timestep
-    │   ├── renderer.js                ← Canvas 2D, trazado vectorial
-    │   ├── ui-controls.js             ← Sliders y controles dinámicos
-    │   ├── charts.js                  ← Graficador SVG vectorial
-    │   ├── tools.js                   ← Regla, transportador, multímetro
-    │   ├── challenges.js              ← ChallengeEngine
-    │   ├── scenarios.js               ← ScenarioManager
-    │   ├── utils/
-    │   │   ├── math-helpers.js        ← Funciones matemáticas comunes
-    │   │   ├── unit-converter.js      ← Conversión de unidades SI
-    │   │   └── vector2d.js            ← Clase Vector2D inmutable
-    │   └── modules/
-    │       ├── kinematics.js          ← Facade router → kinematics/
-    │       ├── dynamics.js            ← Facade router → dynamics/
-    │       ├── electricity.js         ← Facade router → electricity/
-    │       ├── optics.js              ← Facade router → optics/
-    │       ├── kinematics/
-    │       │   ├── mru.js             ← Movimiento Rectilíneo Uniforme
-    │       │   ├── mruv.js            ← Mov. Rectilíneo Unif. Variado
-    │       │   ├── free-fall.js       ← Caída Libre
-    │       │   └── projectile.js      ← Tiro Parabólico
-    │       ├── dynamics/
-    │       │   ├── newton-laws.js     ← Leyes de Newton con fricción
-    │       │   └── work-energy.js     ← Trabajo, Energía y Potencia
-    │       ├── electricity/
-    │       │   ├── ohm-law.js         ← Ley de Ohm y asociación
-    │       │   ├── kirchhoff.js       ← Leyes de Kirchhoff (2 lazos)
-    │       │   └── circuit-builder.js ← Constructor drag & drop + MNA
-    │       └── optics/
-    │           ├── reflection.js      ← Espejos (plano/cóncavo/convexo)
-    │           ├── refraction.js      ← Ley de Snell + TIR
-    │           └── lenses.js          ← Lentes delgadas
-    └── data/
-        ├── challenges/                ← Bancos de preguntas JSON
-        │   ├── cinematica-retos.json
-        │   ├── dinamica-retos.json
-        │   ├── electricidad-retos.json
-        │   └── optica-retos.json
-        └── scenarios/                 ← Plantillas de laboratorios
-            ├── cinematica-basica.json
-            ├── circuito-serie.json
-            └── lente-convergente.json
+### Catálogo
+- **Un solo listado** de módulos (sin pestañas por grado).
+- Tarjeta **Mis trabajos**: importar/exportar JSON, listar guardados e importados, evaluar con **Ver**, y generar **código de examen** (si hay sesión docente en línea).
+
+### Dentro de un módulo
+- **Información**: descripción breve + botón *Historia y casos prácticos*.
+- **Fórmulas**: tarjetas legibles (notación clara en la página).
+- **Datos**: valores en tiempo real.
+- **Parámetros**: control deslizante **y** campo numérico.
+- **Controles**: velocidad, play/pausa, paso.
+- **Gráficas**: solo en módulos donde aportan (p. ej. cinemática); ocultas en el resto.
+- **Herramientas** (iconos + tooltip al pasar el mouse): puntero, regla, ángulo, sonda, cronómetro, espacio infinito, limpiar medidas.
+- Clic en **FísicaHN** (logo/título de la barra lateral) = volver al catálogo (igual que *Todos los módulos*).
+- **Guardar trabajo** en la barra superior del canvas.
+
+### Motores incluidos
+Cinemática, dinámica, electricidad, óptica, momentum, sonido/Doppler, campos magnéticos, gravedad, oscilatorio, pizarra, y placeholders de temas en desarrollo.
+
+### Pizarra
+Lápiz, formas, texto, **mover** objetos, borrador que **no** borra el fondo ni la cuadrícula, exportar PNG.
+
+---
+
+## Sitio web y docentes
+
+- **Inicio**: entrada rápida del alumno, descarga ZIP, botones Desktop (Windows / Linux / macOS → GitHub Releases), sección docentes e ideas de mejora.
+- **Acceso docente**: registro/inicio con **email + colegio + contraseña** (en línea).
+- **Código de examen**: se genera y publica en la nube; los alumnos lo escriben en modo Examen.
+- **Trabajos**: lista, import/export JSON y botón **Ver** para evaluar.
+
+---
+
+## Backend en la nube (opcional)
+
+El sitio **no muestra** detalles del proveedor al usuario final. Para desarrolladores:
+
+1. Crea un proyecto en [supabase.com](https://supabase.com).
+2. SQL Editor → ejecuta `supabase/schema.sql`.
+3. Project Settings → API → copia **URL** y clave **anon public**.
+
+```bash
+cp website/js/supabase-config.example.js website/js/supabase-config.js
+# Edita url + anonKey  (NUNCA la service_role en el frontend)
+./scripts/build-website.sh
 ```
 
----
+**GitHub Actions** (deploy Pages): secrets  
+`SUPABASE_URL` y `SUPABASE_ANON_KEY`.
 
-## 🔬 Detalle Técnico por Módulo
-
-### 🏎️ Cinemática (4 sub-módulos)
-
-| Sub-módulo | Ecuación Principal | Visualización |
-|------------|-------------------|---------------|
-| **MRU** | x(t) = x₀ + v₀·t | Vehículo animado con regla de referencia |
-| **MRUV** | x(t) = x₀ + v₀·t + ½·a·t² | Vectores en vivo, gráficos triple (a, v, x) |
-| **Caída Libre** | y(t) = y₀ + ½·g·t² | Objeto con estela, cronómetro, impacto |
-| **Tiro Parabólico** | x = v₀·cos(θ)·t, y = v₀·sin(θ)·t − ½·g·t² | Cañón rotable por arrastre, trayectoria |
-
-### ⚙️ Dinámica y Energía (2 sub-módulos)
-
-| Sub-módulo | Física | Visualización |
-|------------|--------|---------------|
-| **Leyes de Newton** | F = ma, fricción μₛ/μₖ | DCL vectorial completo en plano inclinado |
-| **Trabajo y Energía** | Ec + Ep = Em | Barras de energía animadas en rampa |
-
-### ⚡ Electricidad DC (3 sub-módulos)
-
-| Sub-módulo | Análisis | Visualización |
-|------------|----------|---------------|
-| **Ley de Ohm** | V = IR, serie/paralelo/mixto | Electrones animados, LEDs con brillo variable |
-| **Kirchhoff** | Regla de Cramer (2 lazos) | Corrientes de rama, malla dual |
-| **Constructor** | MNA + Eliminación Gaussiana | Drag & drop en rejilla 40px, interruptores |
-
-### 🔭 Óptica Geométrica (3 sub-módulos)
-
-| Sub-módulo | Ley | Visualización |
-|------------|-----|---------------|
-| **Reflexión** | 1/f = 1/do + 1/di | 3 rayos principales, clasificación de imagen |
-| **Refracción** | n₁·sin(θ₁) = n₂·sin(θ₂) | Interfaz dual, TIR, ángulo crítico |
-| **Lentes** | 1/f = 1/do + 1/di | Convergente/divergente, trazado completo |
+Sin configuración, el laboratorio sigue en **localStorage** del navegador.
 
 ---
 
-## 📋 Requisitos del Sistema
+## App de escritorio
 
-| Requisito | Especificación |
-|-----------|----------------|
-| **Navegador** | Chrome 80+, Firefox 78+, Edge 80+ |
-| **JavaScript** | ES6+ (módulos, clases, arrow functions) |
-| **Resolución mínima** | 1024 × 768 px |
-| **Memoria** | < 50 MB RAM |
-| **Disco** | ~400 KB (toda la aplicación) |
-| **Red** | ❌ No requerida (100% offline) |
-| **Servidor** | ❌ No requerido (abre directo desde el archivo) |
-| **Instalación** | ❌ No requerida (copiar y abrir) |
+```bash
+cd desktop
+npm install
+npm start           # sync + Electron
+npm run dist:win    # Windows (portable / instalador)
+npm run dist:linux  # AppImage / deb
+# npm run dist:mac  # en macOS
+```
 
----
+Los artefactos salen en `desktop/release/`.
 
-## 🎓 Uso Pedagógico
+### Publicar un GitHub Release
 
-### Para Docentes
-
-1. **Preparar el laboratorio**: Abra el simulador, seleccione el módulo deseado y configure los parámetros iniciales.
-2. **Guardar escenario**: Use el panel **Información** → **Guardar Escenario** para almacenar la configuración actual.
-3. **Exportar a USB**: Haga clic en **Exportar JSON** para descargar un archivo liviano con toda la configuración.
-4. **Distribuir**: Copie el archivo `.json` y la carpeta `fisicahn/` a las memorias USB de los estudiantes.
-
-### Para Estudiantes
-
-1. **Abrir el simulador**: Doble clic en `index.html`.
-2. **Importar escenario** (opcional): Cargue el archivo `.json` proporcionado por el docente.
-3. **Experimentar**: Manipule los controles y observe cómo cambian las variables físicas en tiempo real.
-4. **Resolver desafíos**: Abra la pestaña de **Desafíos** en el panel inferior para practicar.
+1. Genera los binarios con los comandos `dist:*` de arriba.
+2. En GitHub → **Releases** → **Draft a new release**.
+3. Crea un tag (`v1.0.0`), título y notas.
+4. Sube los archivos de `desktop/release/`.
+5. Publica. Los botones del sitio apuntan a  
+   `https://github.com/escoto34/FisicaHN/releases/latest`.
 
 ---
 
-## 📈 Estadísticas del Proyecto
+## Despliegue web
 
-| Métrica | Valor |
-|---------|-------|
-| Archivos totales | 40 |
-| Líneas de JavaScript | ~9,100 |
-| Líneas de CSS | ~1,700 |
-| Sub-módulos de física | 12 |
-| Bancos de desafíos | 4 |
-| Escenarios de ejemplo | 3 |
-| Dependencias externas | **0** |
+| Destino | Cómo |
+|---------|------|
+| **GitHub Pages** | Workflow `.github/workflows/deploy-pages.yml` (carpeta `website/`) |
+| **Cloudflare Pages** | Build: `./scripts/build-website.sh` · Output: `website` |
+
+Cada build actualiza `website/downloads/fisicahn.zip`.
 
 ---
 
-## 🤝 Contribuir
+## Licencia
 
-Las contribuciones son bienvenidas. Para contribuir:
-
-1. Haz un fork del repositorio
-2. Crea una rama para tu feature (`git checkout -b feature/nuevo-modulo`)
-3. Realiza tus cambios siguiendo la arquitectura de facade routers
-4. Asegúrate de mantener el tema oscuro y las variables CSS globales
-5. Envía un Pull Request con descripción detallada
-
-### Convenciones de Código
-
-- **Módulos**: Cada sub-módulo exporta `init()`, `reset()`, `destroy()`, `update(dt)`, `render(ctx)`
-- **CSS**: Usar variables de `main.css` (`--bg-primary`, `--accent`, `--text-primary`), nunca hex directos
-- **Archivos**: Nombres en inglés con kebab-case (`circuit-builder.js`)
-- **Comentarios**: En español, alineados con el público objetivo
-
----
-
-## 📄 Licencia
-
-Este proyecto es de código abierto bajo la licencia **MIT**. Siéntase libre de usarlo, modificarlo y distribuirlo en instituciones educativas.
-
----
-
-<p align="center">
-  Hecho con ❤️ para la educación técnica de Honduras 🇭🇳
-</p>
+MIT — ver el repositorio.

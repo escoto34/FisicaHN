@@ -3,24 +3,24 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="FísicaHN: simulador de física offline para colegios. Descarga gratis, evalúa alumnos y guarda trabajos en el navegador.">
-  <title>FísicaHN — Simulador de física para colegios</title>
+  <meta name="description" content="FísicaHN: laboratorio virtual de física para el aula. Simulaciones, pizarra, evaluación y descarga offline.">
+  <title>FísicaHN — Laboratorio virtual de física</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/site.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='none' stroke='%233ecfbf' stroke-width='2'/><circle cx='16' cy='16' r='3' fill='%233ecfbf'/></svg>">
 </head>
 <body>
   <header class="nav">
     <div class="wrap nav-inner">
       <a class="brand" href="./">
-        <span class="brand-mark">FH</span>
+        <img src="assets/logo.svg" width="36" height="36" alt="" class="brand-logo">
         FísicaHN
       </a>
       <ul class="nav-links">
         <li><a href="#modulos">Módulos</a></li>
         <li><a href="#descarga">Descarga</a></li>
         <li><a href="#docentes">Docentes</a></li>
-        <li><a href="teacher.html">Evaluación</a></li>
-        <li><a class="btn btn-ghost" href="sim/">Abrir simulador</a></li>
+        <li><a href="teacher.html">Acceso docente</a></li>
+        <li><a class="btn btn-ghost" href="sim/">Abrir laboratorio</a></li>
       </ul>
     </div>
   </header>
@@ -29,27 +29,24 @@
     <section class="hero">
       <div class="wrap hero-grid">
         <div>
-          <p class="eyebrow">Colegios técnicos · Honduras</p>
-          <h1>Física que se ve, se mide y se evalúa sin internet</h1>
+          <p class="eyebrow">Laboratorio virtual de física</p>
+          <h1>Simulaciones claras para aprender midiendo</h1>
           <p class="hero-lead">
-            Simulador web offline con cinemática, dinámica, circuitos, ondas y más.
-            Descárgalo para USB o úsalo en línea. Los trabajos se guardan en la caché del navegador
-            con sello de integridad para apoyar la evaluación honesta.
+            Movimiento, fuerzas, circuitos, ondas y más — en el navegador o en USB.
+            Los alumnos guardan trabajos; los docentes generan códigos de examen y recogen resultados.
           </p>
           <div class="hero-cta">
-            <a class="btn btn-primary" href="downloads/fisicahn.zip" download id="btnDownload">Descargar para navegador (ZIP)</a>
-            <a class="btn btn-secondary" href="sim/">Usar en el navegador</a>
+            <a class="btn btn-primary" href="downloads/fisicahn.zip" download id="btnDownload">Descargar ZIP (navegador)</a>
+            <a class="btn btn-secondary" href="sim/">Usar ahora</a>
             <a class="btn btn-secondary" href="teacher.html">Acceso docente</a>
           </div>
           <p class="hero-note">
-            ¿NetSupport bloquea el navegador? Hay app de escritorio multiplataforma (Electron) en
-            <span class="mono">desktop/</span> — genera un <strong>.exe portable</strong> sin instalar.
-            Ver <span class="mono">desktop/README.md</span>.
+            ¿El lab bloquea el navegador? Usa la <a href="#descarga">app de escritorio</a> (Windows / Linux / macOS).
           </p>
         </div>
 
         <aside class="hero-card" id="quickStart" aria-labelledby="quickTitle">
-          <h2 id="quickTitle">Entrada rápida al laboratorio</h2>
+          <h2 id="quickTitle">Entrar al laboratorio</h2>
           <form id="quickForm">
             <div class="field">
               <label for="qName">Nombre del alumno</label>
@@ -62,16 +59,16 @@
             <div class="field">
               <label for="qMode">Modo</label>
               <select id="qMode" name="mode">
-                <option value="practice">Práctica (libre)</option>
+                <option value="practice">Práctica</option>
                 <option value="exam">Examen (código del docente)</option>
               </select>
             </div>
             <div class="field" id="qCodeField" hidden>
-              <label for="qCode">Código de examen (el de la pizarra)</label>
-              <input id="qCode" name="code" inputmode="numeric" maxlength="8" placeholder="Ej. 482910">
+              <label for="qCode">Código de examen</label>
+              <input id="qCode" name="code" inputmode="numeric" maxlength="8" placeholder="El de la pizarra">
             </div>
             <p class="form-msg" id="qMsg" role="status"></p>
-            <button type="submit" class="btn btn-primary" style="width:100%">Entrar al simulador</button>
+            <button type="submit" class="btn btn-primary" style="width:100%">Entrar</button>
           </form>
         </aside>
       </div>
@@ -79,24 +76,24 @@
 
     <section id="modulos">
       <div class="wrap">
-        <h2>Qué incluye el simulador</h2>
-        <p class="section-lead">Módulos por nivel (secundaria, bachillerato y avanzado), pizarra docente, gráficas y modo espacio infinito.</p>
+        <h2>Qué puedes hacer</h2>
+        <p class="section-lead">Un catálogo unificado de módulos (sin etiquetas de grado), pizarra y herramientas de medición.</p>
         <div class="cards">
           <article class="card">
-            <h3>Cinemática y dinámica</h3>
-            <p>MRU, MRUV, fuerzas, energía y colisiones con vectores y gráficas en vivo.</p>
+            <h3>Movimiento y fuerzas</h3>
+            <p>MRU, fuerzas, energía, colisiones y espacio infinito con vectores en vivo.</p>
           </article>
           <article class="card">
             <h3>Circuitos y campos</h3>
             <p>Ohm, Kirchhoff, constructor de circuitos y carga en campo magnético.</p>
           </article>
           <article class="card">
-            <h3>Ondas, sonido y gravedad</h3>
-            <p>Doppler, MHS, órbitas y herramientas de medición (regla, sonda, cronómetro).</p>
+            <h3>Ondas y gravedad</h3>
+            <p>Sonido, MHS, órbitas; regla, sonda y cronómetro en el laboratorio.</p>
           </article>
           <article class="card">
-            <h3>Pizarra y evaluación</h3>
-            <p>Pizarra libre para la clase y trabajos guardados con nombre y sello anti-edición casual.</p>
+            <h3>Trabajos y pizarra</h3>
+            <p>Guardar / importar JSON, pizarra con mover objetos y evaluación con código de examen.</p>
           </article>
         </div>
       </div>
@@ -104,25 +101,35 @@
 
     <section id="descarga">
       <div class="wrap">
-        <h2>Descarga para USB o lab sin red</h2>
-        <p class="section-lead">El ZIP web abre en el navegador. Si el lab usa NetSupport y bloquea Chrome/Edge, usa la <strong>app de escritorio</strong> (Electron) con Chromium propio.</p>
+        <h2>Descarga</h2>
+        <p class="section-lead">Usa el ZIP en el navegador o la app de escritorio si el lab bloquea Chrome/Edge.</p>
         <div class="download-strip">
           <div>
-            <strong>fisicahn.zip</strong>
-            <p class="muted" style="margin-top:0.25rem">HTML + CSS + JS · sin instalación · navegador</p>
+            <strong>fisicahn.zip (navegador)</strong>
+            <p class="muted" style="margin-top:0.25rem">Para USB o PCs sin instalación</p>
           </div>
           <div class="hero-cta" style="margin:0">
-            <a class="btn btn-primary" href="downloads/fisicahn.zip" download>Descargar ZIP web</a>
+            <a class="btn btn-primary" href="downloads/fisicahn.zip" download>Descargar ZIP</a>
             <a class="btn btn-secondary" href="sim/">Probar online</a>
           </div>
         </div>
         <div class="download-strip" style="margin-top:1rem">
-          <div>
-            <strong>FísicaHN Desktop (Windows / Linux / macOS)</strong>
+          <div style="width:100%">
+            <strong>FísicaHN Desktop</strong>
             <p class="muted" style="margin-top:0.25rem">
-              App instalable o <span class="mono">.exe</span> portable. No depende del navegador del sistema.
-              En el repo: <span class="mono">cd desktop && npm install && npm run dist:win</span>
+              App con navegador propio. Elige tu sistema (últimas versiones publicadas en GitHub Releases):
             </p>
+            <div class="download-os-grid">
+              <a class="btn btn-primary" href="https://github.com/escoto34/FisicaHN/releases/latest" target="_blank" rel="noopener">
+                Windows
+              </a>
+              <a class="btn btn-primary" href="https://github.com/escoto34/FisicaHN/releases/latest" target="_blank" rel="noopener">
+                Linux
+              </a>
+              <a class="btn btn-primary" href="https://github.com/escoto34/FisicaHN/releases/latest" target="_blank" rel="noopener">
+                macOS
+              </a>
+            </div>
           </div>
         </div>
       </div>
@@ -130,40 +137,55 @@
 
     <section id="docentes">
       <div class="wrap">
-        <h2>Evaluación sin trampas fáciles</h2>
+        <h2>Para docentes</h2>
         <p class="section-lead">
-          Flujo pensado para colegios y hosting estático en Cloudflare.
-          No sustituye vigilancia en aula, pero registra identidad, modo examen y sella cada trabajo.
+          Entra con email y colegio, genera un código de examen y compártelo con la clase.
+          Los alumnos lo escriben al entrar al laboratorio.
         </p>
         <div class="steps">
           <div class="step">
-            <h3>Registra el colegio</h3>
-            <p class="muted">En Acceso docente crea contraseña + nombre de colegio (se guarda en este navegador).</p>
+            <h3>1. Acceso</h3>
+            <p class="muted">Crea o inicia sesión con email en Acceso docente.</p>
           </div>
           <div class="step">
-            <h3>Código en la pizarra</h3>
-            <p class="muted">Generas un código offline y lo escribes en la pizarra. Cada alumno lo teclea en su PC (sin red).</p>
+            <h3>2. Código de examen</h3>
+            <p class="muted">Generas un código y lo escribes en la pizarra del aula.</p>
           </div>
           <div class="step">
-            <h3>USB al final</h3>
-            <p class="muted">Los alumnos exportan sus trabajos JSON; tú los importas y filtras por código de examen y sello.</p>
+            <h3>3. Evaluar</h3>
+            <p class="muted">Revisa los trabajos de la clase y usa «Ver» para evaluar.</p>
           </div>
         </div>
         <p style="margin-top:1.5rem">
           <a class="btn btn-primary" href="teacher.html">Ir al panel docente</a>
         </p>
-        <p class="muted" style="margin-top:1rem;font-size:0.85rem;max-width:60ch">
-          Nota: en una web estática la contraseña no puede ser 100% secreta frente a un atacante técnico en el mismo PC.
-          Sirve para disciplina de aula, códigos de examen y detección de JSON alterados a mano.
-        </p>
+
+        <div class="panel" style="margin-top:2rem;padding:1.25rem;border:1px solid var(--border);border-radius:12px;max-width:640px">
+          <h3 style="font-size:1.05rem;margin:0 0 0.5rem">Ideas para mejorar FísicaHN</h3>
+          <p class="muted" style="font-size:0.88rem;margin-bottom:1rem">
+            Solo docentes con sesión de <strong>email</strong>.
+            Máximo una idea cada <strong>3 horas</strong> por usuario.
+          </p>
+          <form id="ideaForm">
+            <div class="field">
+              <label for="ideaText">Tu idea</label>
+              <textarea id="ideaText" rows="4" maxlength="4000" required placeholder="Describe la mejora con claridad…" style="width:100%;padding:0.65rem;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:inherit"></textarea>
+            </div>
+            <p class="form-msg" id="ideaMsg" role="status"></p>
+            <button type="submit" class="btn btn-secondary" id="ideaSubmit">Enviar idea</button>
+          </form>
+          <p class="muted" style="font-size:0.8rem;margin-top:0.75rem">
+            ¿Sin sesión? <a href="teacher.html">Inicia sesión con email</a> y vuelve aquí.
+          </p>
+        </div>
       </div>
     </section>
   </main>
 
   <footer class="footer">
     <div class="wrap footer-inner">
-      <span>FísicaHN · simulador educativo</span>
-      <span>Despliegue recomendado: Cloudflare Pages (carpeta <span class="mono">website/</span>)</span>
+      <span>FísicaHN · laboratorio educativo de física</span>
+      <a href="https://github.com/escoto34/FisicaHN" target="_blank" rel="noopener noreferrer">GitHub · escoto34/FisicaHN</a>
     </div>
   </footer>
 

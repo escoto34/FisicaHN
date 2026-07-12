@@ -4,53 +4,237 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FísicaHN — Simulador Interactivo de Física</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/main.css">
   <link rel="stylesheet" href="css/catalog.css">
 </head>
-<body>
-  <!-- Catálogo: pestañas por nivel + botones a cada módulo -->
-  <div id="catalogView" class="catalog-view" hidden>
+<body class="view-catalog">
+  <!-- Catálogo visible de entrada (JS lo gestiona; no quedar en blanco si hay error) -->
+  <div id="catalogView" class="catalog-view">
     <header class="catalog-header">
       <div class="catalog-brand">
-        <svg class="logo-icon" viewBox="0 0 40 40" width="36" height="36" aria-hidden="true">
-          <circle cx="20" cy="20" r="16" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
-          <path d="M20 8 L20 32 M8 20 L32 20" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/>
-          <circle cx="20" cy="20" r="4" fill="var(--accent)"/>
-        </svg>
+        <img class="logo-icon" src="assets/logo.svg" width="40" height="40" alt="FísicaHN">
         <div>
           <h1 class="catalog-title">FísicaHN</h1>
-          <p class="catalog-subtitle">Elige un módulo para entrar al laboratorio</p>
+          <p class="catalog-subtitle">Laboratorio virtual — elige un módulo o gestiona tus trabajos</p>
         </div>
       </div>
-      <button type="button" class="catalog-pizarra-btn" id="openWhiteboardBtn" aria-label="Abrir pizarra docente">
-        Pizarra docente
-      </button>
+      <div class="catalog-header-actions">
+        <div id="networkStatusCatalog" class="network-status-host" aria-label="Estado de red"></div>
+        <div id="userChipHost" class="user-chip-host" aria-label="Usuario"></div>
+        <button type="button" class="catalog-pizarra-btn" id="openAccountBtn" aria-label="Cuenta y examen">
+          Cuenta
+        </button>
+        <button type="button" class="catalog-pizarra-btn" id="openWhiteboardBtn" aria-label="Abrir pizarra docente">
+          Pizarra docente
+        </button>
+      </div>
     </header>
 
-    <div class="catalog-tabs" role="tablist" aria-label="Nivel escolar">
-      <button type="button" class="catalog-tab active" role="tab" aria-selected="true" data-level="middle" id="tab-middle">
-        Secundaria
-        <span class="catalog-tab-en">Middle School</span>
-      </button>
-      <button type="button" class="catalog-tab" role="tab" aria-selected="false" data-level="high" id="tab-high">
-        Bachillerato
-        <span class="catalog-tab-en">High School</span>
-      </button>
-      <button type="button" class="catalog-tab" role="tab" aria-selected="false" data-level="advanced" id="tab-advanced">
-        Avanzado
-        <span class="catalog-tab-en">Advanced</span>
-      </button>
-    </div>
-
-    <div class="catalog-panels">
-      <section class="catalog-panel active" role="tabpanel" id="panel-middle" aria-labelledby="tab-middle" data-level="middle">
-        <div class="catalog-grid" id="grid-middle"></div>
-      </section>
-      <section class="catalog-panel" role="tabpanel" id="panel-high" aria-labelledby="tab-high" data-level="high" hidden>
-        <div class="catalog-grid" id="grid-high"></div>
-      </section>
-      <section class="catalog-panel" role="tabpanel" id="panel-advanced" aria-labelledby="tab-advanced" data-level="advanced" hidden>
-        <div class="catalog-grid" id="grid-advanced"></div>
+    <div class="catalog-panels catalog-panels-unified">
+      <section class="catalog-panel active" aria-label="Módulos del laboratorio">
+        <div class="catalog-grid" id="catalogGrid">
+        <button type="button" class="catalog-card catalog-card-works" data-catalog-id="my-works" aria-label="Mis trabajos. Importar / ver">
+          <div class="catalog-card-top">
+            <div>
+              <div class="catalog-card-title">Mis trabajos</div>
+              <div class="catalog-card-en">My works</div>
+            </div>
+            <span class="catalog-badge works">Importar / ver</span>
+          </div>
+          <p class="catalog-card-blurb">Importar o exportar JSON, y ver trabajos guardados o importados en este navegador.</p>
+        </button>
+        <button type="button" class="catalog-card" data-catalog-id="whiteboard" aria-label="Pizarra. Disponible">
+          <div class="catalog-card-top">
+            <div>
+              <div class="catalog-card-title">Pizarra</div>
+              <div class="catalog-card-en">Whiteboard</div>
+            </div>
+            <span class="catalog-badge ready">Disponible</span>
+          </div>
+          <p class="catalog-card-blurb">Pizarra en blanco para ejemplos del profesor.</p>
+        </button>
+        <button type="button" class="catalog-card" data-catalog-id="magnetic-fields" aria-label="Campos magnéticos. Disponible">
+          <div class="catalog-card-top">
+            <div>
+              <div class="catalog-card-title">Campos magnéticos</div>
+              <div class="catalog-card-en">Magnetic Fields</div>
+            </div>
+            <span class="catalog-badge ready">Disponible</span>
+          </div>
+          <p class="catalog-card-blurb">Carga en B uniforme: órbita circular y F = qvB.</p>
+        </button>
+        <button type="button" class="catalog-card" data-catalog-id="forces-motion" aria-label="Fuerzas y movimiento. Disponible">
+          <div class="catalog-card-top">
+            <div>
+              <div class="catalog-card-title">Fuerzas y movimiento</div>
+              <div class="catalog-card-en">Forces &amp; Motion</div>
+            </div>
+            <span class="catalog-badge ready">Disponible</span>
+          </div>
+          <p class="catalog-card-blurb">Fuerza neta, masa y aceleración (F = ma). Espacio infinito disponible.</p>
+        </button>
+        <button type="button" class="catalog-card" data-catalog-id="circuits" aria-label="Circuitos. Disponible">
+          <div class="catalog-card-top">
+            <div>
+              <div class="catalog-card-title">Circuitos</div>
+              <div class="catalog-card-en">Circuits</div>
+            </div>
+            <span class="catalog-badge ready">Disponible</span>
+          </div>
+          <p class="catalog-card-blurb">Ley de Ohm, serie/paralelo y Kirchhoff.</p>
+        </button>
+        <button type="button" class="catalog-card" data-catalog-id="potential-kinetic" aria-label="Energía potencial y cinética. Disponible">
+          <div class="catalog-card-top">
+            <div>
+              <div class="catalog-card-title">Energía potencial y cinética</div>
+              <div class="catalog-card-en">Potential &amp; Kinetic Energy</div>
+            </div>
+            <span class="catalog-badge ready">Disponible</span>
+          </div>
+          <p class="catalog-card-blurb">Energía y fuerzas: exploración con dinámica.</p>
+        </button>
+        <button type="button" class="catalog-card" data-catalog-id="waves-energy-transfer" aria-label="Ondas y transferencia de energía. Disponible">
+          <div class="catalog-card-top">
+            <div>
+              <div class="catalog-card-title">Ondas y transferencia de energía</div>
+              <div class="catalog-card-en">Waves &amp; Energy Transfer</div>
+            </div>
+            <span class="catalog-badge ready">Disponible</span>
+          </div>
+          <p class="catalog-card-blurb">Frentes de onda y propagación (vista con módulo de sonido).</p>
+        </button>
+        <button type="button" class="catalog-card" data-catalog-id="conservation-energy" aria-label="Conservación de la energía. Disponible">
+          <div class="catalog-card-top">
+            <div>
+              <div class="catalog-card-title">Conservación de la energía</div>
+              <div class="catalog-card-en">Conservation of Energy</div>
+            </div>
+            <span class="catalog-badge ready">Disponible</span>
+          </div>
+          <p class="catalog-card-blurb">Em en el oscilador y sistemas dinámicos.</p>
+        </button>
+        <button type="button" class="catalog-card" data-catalog-id="light" aria-label="Luz. Disponible">
+          <div class="catalog-card-top">
+            <div>
+              <div class="catalog-card-title">Luz</div>
+              <div class="catalog-card-en">Light</div>
+            </div>
+            <span class="catalog-badge ready">Disponible</span>
+          </div>
+          <p class="catalog-card-blurb">Óptica geométrica: espejos y lentes.</p>
+        </button>
+        <button type="button" class="catalog-card" data-catalog-id="one-d-motion" aria-label="Movimiento unidimensional. Disponible">
+          <div class="catalog-card-top">
+            <div>
+              <div class="catalog-card-title">Movimiento unidimensional</div>
+              <div class="catalog-card-en">One-dimensional Motion</div>
+            </div>
+            <span class="catalog-badge ready">Disponible</span>
+          </div>
+          <p class="catalog-card-blurb">MRU/MRUV con espacio infinito y cámara.</p>
+        </button>
+        <button type="button" class="catalog-card" data-catalog-id="momentum" aria-label="Momentum. Disponible">
+          <div class="catalog-card-top">
+            <div>
+              <div class="catalog-card-title">Momentum</div>
+              <div class="catalog-card-en">Momentum</div>
+            </div>
+            <span class="catalog-badge ready">Disponible</span>
+          </div>
+          <p class="catalog-card-blurb">Colisiones 1D elásticas e inelásticas.</p>
+        </button>
+        <button type="button" class="catalog-card" data-catalog-id="sound" aria-label="Sonido. Disponible">
+          <div class="catalog-card-top">
+            <div>
+              <div class="catalog-card-title">Sonido</div>
+              <div class="catalog-card-en">Sound</div>
+            </div>
+            <span class="catalog-badge ready">Disponible</span>
+          </div>
+          <p class="catalog-card-blurb">Velocidad del sonido y efecto Doppler.</p>
+        </button>
+        <button type="button" class="catalog-card" data-catalog-id="electrodynamics" aria-label="Electrodinámica. Disponible">
+          <div class="catalog-card-top">
+            <div>
+              <div class="catalog-card-title">Electrodinámica</div>
+              <div class="catalog-card-en">Electrodynamics</div>
+            </div>
+            <span class="catalog-badge ready">Disponible</span>
+          </div>
+          <p class="catalog-card-blurb">Circuitos y cargas en movimiento (base).</p>
+        </button>
+        <button type="button" class="catalog-card" data-catalog-id="universal-gravity" aria-label="Gravedad universal. Disponible">
+          <div class="catalog-card-top">
+            <div>
+              <div class="catalog-card-title">Gravedad universal</div>
+              <div class="catalog-card-en">Universal Gravity</div>
+            </div>
+            <span class="catalog-badge ready">Disponible</span>
+          </div>
+          <p class="catalog-card-blurb">Órbitas 2D con masa central fija.</p>
+        </button>
+        <button type="button" class="catalog-card" data-catalog-id="two-d-motion" aria-label="Movimiento bidimensional. Disponible">
+          <div class="catalog-card-top">
+            <div>
+              <div class="catalog-card-title">Movimiento bidimensional</div>
+              <div class="catalog-card-en">Two-dimensional Motion</div>
+            </div>
+            <span class="catalog-badge ready">Disponible</span>
+          </div>
+          <p class="catalog-card-blurb">Movimiento en el plano con vectores (cinemática).</p>
+        </button>
+        <button type="button" class="catalog-card" data-catalog-id="oscillatory-motion" aria-label="Movimiento oscilatorio. Disponible">
+          <div class="catalog-card-top">
+            <div>
+              <div class="catalog-card-title">Movimiento oscilatorio</div>
+              <div class="catalog-card-en">Oscillatory Motion</div>
+            </div>
+            <span class="catalog-badge ready">Disponible</span>
+          </div>
+          <p class="catalog-card-blurb">MHS: resorte, periodo y energía.</p>
+        </button>
+        <button type="button" class="catalog-card" data-catalog-id="atomic-physics" aria-label="Física atómica. Pronto">
+          <div class="catalog-card-top">
+            <div>
+              <div class="catalog-card-title">Física atómica</div>
+              <div class="catalog-card-en">Atomic Physics</div>
+            </div>
+            <span class="catalog-badge soon">Pronto</span>
+          </div>
+          <p class="catalog-card-blurb">Introducción conceptual (en desarrollo).</p>
+        </button>
+        <button type="button" class="catalog-card" data-catalog-id="particle-physics" aria-label="Física de partículas. Pronto">
+          <div class="catalog-card-top">
+            <div>
+              <div class="catalog-card-title">Física de partículas</div>
+              <div class="catalog-card-en">Particle Physics</div>
+            </div>
+            <span class="catalog-badge soon">Pronto</span>
+          </div>
+          <p class="catalog-card-blurb">Introducción conceptual (en desarrollo).</p>
+        </button>
+        <button type="button" class="catalog-card" data-catalog-id="wave-optics" aria-label="Óptica ondulatoria. Disponible">
+          <div class="catalog-card-top">
+            <div>
+              <div class="catalog-card-title">Óptica ondulatoria</div>
+              <div class="catalog-card-en">Wave Optics</div>
+            </div>
+            <span class="catalog-badge ready">Disponible</span>
+          </div>
+          <p class="catalog-card-blurb">Base óptica; interferencia dedicada próximamente.</p>
+        </button>
+        <button type="button" class="catalog-card" data-catalog-id="rotational-motion" aria-label="Movimiento rotacional. Disponible">
+          <div class="catalog-card-top">
+            <div>
+              <div class="catalog-card-title">Movimiento rotacional</div>
+              <div class="catalog-card-en">Rotational Motion</div>
+            </div>
+            <span class="catalog-badge ready">Disponible</span>
+          </div>
+          <p class="catalog-card-blurb">Órbita y movimiento circular (usa gravedad / B).</p>
+        </button>
+      </div>
       </section>
     </div>
   </div>
@@ -59,14 +243,10 @@
   <div id="simShell" class="sim-shell" hidden>
   <!-- Sidebar -->
   <aside class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-      <svg class="logo-icon" viewBox="0 0 40 40" width="32" height="32" aria-hidden="true">
-        <circle cx="20" cy="20" r="16" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
-        <path d="M20 8 L20 32 M8 20 L32 20" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/>
-        <circle cx="20" cy="20" r="4" fill="var(--accent)"/>
-      </svg>
+    <button type="button" class="sidebar-header sidebar-brand-btn" id="sidebarBrandBtn" title="Volver a todos los módulos" aria-label="Volver a todos los módulos">
+      <img class="logo-icon" src="assets/logo.svg" width="32" height="32" alt="">
       <h1 class="sidebar-title">FísicaHN</h1>
-    </div>
+    </button>
     <button type="button" class="catalog-back-btn" id="catalogBackBtn" aria-label="Volver al catálogo de módulos">
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
         <path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -108,6 +288,7 @@
               <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
             </svg>
           </button>
+          <div id="networkStatusSim" class="network-status-host" aria-label="Estado de red"></div>
         </div>
       </div>
       <canvas id="simCanvas" width="800" height="600">
@@ -122,13 +303,7 @@
 
   <!-- Right Panel -->
   <aside class="right-panel" id="rightPanel">
-    <div class="panel-section">
-      <h3 class="panel-title">Mis trabajos</h3>
-      <div id="worksList" class="works-list">
-        <p class="placeholder-text">Los trabajos guardados aparecerán aquí (caché del navegador).</p>
-      </div>
-      <button type="button" class="ctrl-btn" id="exportMyWorksBtn" style="width:100%;margin-top:8px">Exportar mis trabajos JSON</button>
-    </div>
+    <input type="file" id="importWorksFile" accept="application/json,.json" hidden>
     <div class="panel-section">
       <h3 class="panel-title">Controles</h3>
       <div class="control-group">
@@ -157,7 +332,7 @@
         <p class="placeholder-text">Selecciona un módulo para ver sus parámetros.</p>
       </div>
     </div>
-    <div class="panel-section chart-panel">
+    <div class="panel-section chart-panel" id="chartPanel" hidden>
       <h3 class="panel-title">Gráficas</h3>
       <div id="chartContainer" class="chart-container">
         <svg id="chartSvg" class="chart-svg" viewBox="0 0 300 180" preserveAspectRatio="xMidYMid meet">
@@ -168,14 +343,27 @@
     <div class="panel-section">
       <h3 class="panel-title">Herramientas</h3>
       <div class="tool-row" id="toolRow">
-        <button class="tool-btn active" data-tool="pointer" aria-label="Seleccionar" title="Seleccionar">·</button>
-        <button class="tool-btn" data-tool="ruler" aria-label="Regla" title="Regla (2 clics)">Regla</button>
-        <button class="tool-btn" data-tool="angle" aria-label="Ángulo" title="Ángulo (3 clics)">Ángulo</button>
-        <button class="tool-btn" data-tool="probe" aria-label="Sonda" title="Sonda (x,y)">Sonda</button>
-        <button class="tool-btn" data-tool="stopwatch" aria-label="Cronómetro" title="Cronómetro">⏱</button>
-        <button class="tool-btn" data-tool="unbounded" aria-label="Espacio infinito" title="Espacio infinito (I)">∞</button>
-        <button class="tool-btn" data-tool="whiteboard" aria-label="Pizarra" title="Pizarra docente">Pizarra</button>
-        <button class="tool-btn" data-tool="erase" aria-label="Borrar medidas" title="Borrar medidas">Borrar</button>
+        <button type="button" class="tool-btn active" data-tool="pointer" aria-label="Puntero" title="Puntero — seleccionar / mover en pizarra">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 4l7 16 2-6 6-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        </button>
+        <button type="button" class="tool-btn" data-tool="ruler" aria-label="Regla" title="Regla — 2 clics para medir distancia">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M3 8h18v8H3zM7 8v4m4-4v3m4-3v4m4-4v3" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+        </button>
+        <button type="button" class="tool-btn" data-tool="angle" aria-label="Ángulo" title="Ángulo — 3 clics (vértice y dos lados)">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 20L12 4l8 16M8 14h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <button type="button" class="tool-btn" data-tool="probe" aria-label="Sonda" title="Sonda — coordenadas (x, y) al clic">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+        </button>
+        <button type="button" class="tool-btn" data-tool="stopwatch" aria-label="Cronómetro" title="Cronómetro — medir intervalos de tiempo">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="13" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 9v4l2 2M9 2h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <button type="button" class="tool-btn" data-tool="unbounded" aria-label="Espacio infinito" title="Espacio infinito — sin paredes, la cámara sigue al objeto (I)">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 12c2-4 4-6 8-6s6 2 8 6c-2 4-4 6-8 6s-6-2-8-6z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>
+        </button>
+        <button type="button" class="tool-btn" data-tool="erase" aria-label="Limpiar medidas" title="Limpiar medidas — borra regla, ángulo y sonda">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2m-8 0l1 12h8l1-12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
       </div>
     </div>
   </aside>
@@ -186,11 +374,10 @@
       <button class="bottom-tab active" data-tab="info">Información</button>
       <button class="bottom-tab" data-tab="formulas">Fórmulas</button>
       <button class="bottom-tab" data-tab="data">Datos</button>
-      <button class="bottom-tab" data-tab="challenges">Desafíos</button>
     </div>
     <div class="bottom-content" id="bottomContent">
       <div class="tab-panel active" id="tab-info">
-        <p class="tab-text">Bienvenido a <strong>FísicaHN</strong>. Selecciona un módulo en la barra lateral para comenzar. Usa <kbd>Espacio</kbd> para pausar/reanudar, <kbd>R</kbd> para reiniciar.</p>
+        <p class="tab-text">Bienvenido a <strong>FísicaHN</strong>. Selecciona un módulo para comenzar. Usa <kbd>Espacio</kbd> para pausar/reanudar, <kbd>R</kbd> para reiniciar.</p>
       </div>
       <div class="tab-panel" id="tab-formulas">
         <p class="tab-text placeholder-text">Las fórmulas del módulo activo aparecerán aquí.</p>
@@ -198,9 +385,7 @@
       <div class="tab-panel" id="tab-data">
         <p class="tab-text placeholder-text">Datos numéricos de la simulación en tiempo real.</p>
       </div>
-      <div class="tab-panel" id="tab-challenges">
-        <p class="tab-text placeholder-text">Completa desafíos para poner a prueba tu aprendizaje.</p>
-      </div>
+      <div class="tab-panel" id="tab-challenges" hidden></div>
     </div>
   </footer>
   </div><!-- /#simShell -->

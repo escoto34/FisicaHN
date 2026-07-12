@@ -5,10 +5,18 @@
 
 import { PhysicsEngine } from './physics-engine.js';
 import { Renderer } from './renderer.js';
-import { CATALOG, LEVELS, getByLevel, getById } from './catalog.js';
+import { CATALOG, getById, getUnifiedCatalog, getSimulationCatalog, WORKS_MODULE } from './catalog.js';
 import { getSession, logAudit } from './auth.js';
-import { saveWork, listWorks, exportWorksJSON, deleteWork } from './works.js';
-import { ensureSessionGate, renderSessionBadge } from './session-gate.js';
+import { saveWork, listWorks } from './works.js';
+import {
+  bindWorksPanelControls,
+  renderWorksSidebar,
+  updateWorksCountBadges,
+  openWorksModal
+} from './works-panel.js';
+import { ensureSessionGate, renderSessionBadge, renderUserChip } from './session-gate.js';
+import { bindUserMenu } from './user-menu.js';
+import { initNetworkStatusUI } from './network-status.js';
 
 /* ============================================
    Estado
@@ -85,22 +93,49 @@ const bottomTabs = document.querySelectorAll('.bottom-tab');
 const bottomContent = document.getElementById('bottomContent');
 const toolBtns = document.querySelectorAll('.tool-btn');
 
-const engine = new PhysicsEngine(canvas);
-const renderer = new Renderer(canvas, { worldWidth: 20, worldHeight: 15 });
+/** Motor / renderer se crean de forma segura (si fallan, el catálogo sigue usable) */
+let engine = null;
+let renderer = null;
+try {
+  if (canvas && typeof canvas.getContext === 'function') {
+    engine = new PhysicsEngine(canvas);
+    renderer = new Renderer(canvas, { worldWidth: 20, worldHeight: 15 });
+  } else {
+    console.error('FísicaHN: no se encontró #simCanvas');
+  }
+} catch (err) {
+  console.error('FísicaHN: error al crear motor/renderer', err);
+}
 
 /* ============================================
    UI API para módulos
    ============================================ */
+const chartPanel = document.getElementById('chartPanel');
+
 const ui = {
   setParams(html) {
-    paramsPanel.innerHTML = html;
+    if (paramsPanel) paramsPanel.innerHTML = html;
   },
-  setChart(svgContent) {
-    chartSvg.innerHTML = svgContent;
+  /** Muestra gráfica solo si enableCharts(true) o se pasa contenido no vacío con show=true */
+  setChart(svgContent, opts = {}) {
+    if (!chartSvg) return;
+    const show = opts.show === true || (opts.show !== false && svgContent && !opts.hide);
+    if (chartPanel) chartPanel.hidden = !show;
+    if (show) chartSvg.innerHTML = svgContent;
+  },
+  showCharts(on) {
+    if (chartPanel) chartPanel.hidden = !on;
   },
   setInfo(msg) {
     const infoPanel = document.getElementById('tab-info');
-    if (infoPanel) infoPanel.innerHTML = `<p class="tab-text">${msg}</p>`;
+    if (infoPanel) {
+      // Si ya viene marcado como bloque, no envolver
+      if (String(msg).includes('module-info-block') || String(msg).includes('tab-text')) {
+        infoPanel.innerHTML = msg;
+      } else {
+        infoPanel.innerHTML = `<p class="tab-text">${msg}</p>`;
+      }
+    }
   },
   setFormulas(html) {
     const panel = document.getElementById('tab-formulas');
@@ -110,11 +145,11 @@ const ui = {
     const panel = document.getElementById('tab-data');
     if (panel) panel.innerHTML = html;
   },
-  setChallenges(html) {
-    const panel = document.getElementById('tab-challenges');
-    if (panel) panel.innerHTML = html;
+  setChallenges() {
+    /* Desafíos eliminados de la UI */
   },
   showTab(tabId) {
+    if (tabId === 'challenges') tabId = 'info';
     bottomTabs.forEach((btn) => {
       btn.classList.toggle('active', btn.dataset.tab === tabId);
     });
@@ -129,36 +164,86 @@ const ui = {
    Catálogo UI
    ============================================ */
 
+/** Enlaza clics de tarjetas del catálogo (estáticas o generadas). */
+function bindCatalogCardClicks() {
+  const grid = document.getElementById('catalogGrid');
+  if (!grid) return;
+  grid.querySelectorAll('[data-catalog-id], [data-catalogId]').forEach((btn) => {
+    if (btn.dataset.boundClick === '1') return;
+    btn.dataset.boundClick = '1';
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-catalog-id') || btn.dataset.catalogId;
+      if (id) openCatalogModule(id);
+    });
+  });
+}
+
 function renderCatalogGrids() {
-  for (const level of LEVELS) {
-    const grid = document.getElementById(`grid-${level.id}`);
-    if (!grid) continue;
-    grid.innerHTML = '';
-    for (const mod of getByLevel(level.id)) {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'catalog-card';
-      btn.dataset.catalogId = mod.id;
-      btn.setAttribute(
-        'aria-label',
-        `${mod.title}. ${mod.status === 'ready' ? 'Disponible' : 'Próximamente'}`
-      );
-      btn.innerHTML = `
-        <div class="catalog-card-top">
-          <div>
-            <div class="catalog-card-title">${escapeHtml(mod.title)}</div>
-            <div class="catalog-card-en">${escapeHtml(mod.titleEn)}</div>
-          </div>
-          <span class="catalog-badge ${mod.status}">${
-            mod.status === 'ready' ? 'Disponible' : 'Pronto'
-          }</span>
-        </div>
-        <p class="catalog-card-blurb">${escapeHtml(mod.blurb)}</p>
-      `;
-      btn.addEventListener('click', () => openCatalogModule(mod.id));
-      grid.appendChild(btn);
-    }
+  const grid = document.getElementById('catalogGrid');
+  if (!grid) return;
+
+  let worksCount = 0;
+  try {
+    worksCount = listWorks().length;
+  } catch {
+    worksCount = 0;
   }
+
+  // Si ya hay tarjetas estáticas en el HTML, solo actualiza badges y enlaza clics
+  const existing = grid.querySelectorAll('.catalog-card');
+  if (existing.length > 0) {
+    existing.forEach((btn) => {
+      const id = btn.getAttribute('data-catalog-id') || btn.dataset.catalogId;
+      if (id === 'my-works' || btn.classList.contains('catalog-card-works')) {
+        const badge = btn.querySelector('.catalog-badge');
+        if (badge) {
+          badge.textContent = worksCount ? `${worksCount} en caché` : 'Importar / ver';
+          badge.className = 'catalog-badge works';
+        }
+      }
+      // normalizar atributo
+      if (id && !btn.getAttribute('data-catalog-id')) {
+        btn.setAttribute('data-catalog-id', id);
+      }
+    });
+    bindCatalogCardClicks();
+    return;
+  }
+
+  grid.innerHTML = '';
+  for (const mod of getUnifiedCatalog()) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'catalog-card' + (mod.special === 'works' ? ' catalog-card-works' : '');
+    btn.setAttribute('data-catalog-id', mod.id);
+    btn.dataset.catalogId = mod.id;
+    const statusLabel =
+      mod.special === 'works'
+        ? worksCount
+          ? `${worksCount} en caché`
+          : 'Importar / ver'
+        : mod.status === 'ready'
+          ? 'Disponible'
+          : 'Pronto';
+    btn.setAttribute(
+      'aria-label',
+      `${mod.title}. ${mod.special === 'works' ? 'Gestionar trabajos guardados e importados' : statusLabel}`
+    );
+    btn.innerHTML = `
+      <div class="catalog-card-top">
+        <div>
+          <div class="catalog-card-title">${escapeHtml(mod.title)}</div>
+          <div class="catalog-card-en">${escapeHtml(mod.titleEn || '')}</div>
+        </div>
+        <span class="catalog-badge ${mod.special === 'works' ? 'works' : mod.status}">${escapeHtml(
+          statusLabel
+        )}</span>
+      </div>
+      <p class="catalog-card-blurb">${escapeHtml(mod.blurb)}</p>
+    `;
+    grid.appendChild(btn);
+  }
+  bindCatalogCardClicks();
 }
 
 function escapeHtml(str) {
@@ -169,21 +254,6 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
-function setCatalogLevel(levelId) {
-  state.catalogLevel = levelId;
-  document.querySelectorAll('.catalog-tab').forEach((tab) => {
-    const on = tab.dataset.level === levelId;
-    tab.classList.toggle('active', on);
-    tab.setAttribute('aria-selected', on ? 'true' : 'false');
-  });
-  document.querySelectorAll('.catalog-panel').forEach((panel) => {
-    const on = panel.dataset.level === levelId;
-    panel.classList.toggle('active', on);
-    panel.hidden = !on;
-  });
-  saveProgress();
-}
-
 function showCatalog() {
   state.view = 'catalog';
   catalogView.hidden = false;
@@ -191,8 +261,14 @@ function showCatalog() {
   document.body.classList.add('view-catalog');
   document.body.classList.remove('view-sim');
   // Pausar simulación en segundo plano
-  engine.pause(true);
+  try {
+    engine?.pause?.(true);
+  } catch {
+    /* ignore */
+  }
   updatePlayPauseUI();
+  renderCatalogGrids();
+  bindCatalogCardClicks();
   saveProgress();
 }
 
@@ -204,10 +280,21 @@ function showSimShell() {
   document.body.classList.remove('view-catalog');
 }
 
-function fillSidebarForLevel(levelId) {
+/** Barra lateral: todos los módulos de simulación (+ acceso a trabajos). */
+function fillSidebarUnified() {
   if (!sidebarNav) return;
   sidebarNav.innerHTML = '';
-  for (const mod of getByLevel(levelId)) {
+
+  // Acceso rápido a trabajos desde el lab
+  const worksBtn = document.createElement('button');
+  worksBtn.type = 'button';
+  worksBtn.className = 'module-btn module-btn-works';
+  worksBtn.dataset.catalogId = WORKS_MODULE.id;
+  worksBtn.innerHTML = `<span>${escapeHtml(WORKS_MODULE.title)}</span>`;
+  worksBtn.addEventListener('click', () => openWorksModal({ filter: 'saved', hub: false }));
+  sidebarNav.appendChild(worksBtn);
+
+  for (const mod of getSimulationCatalog()) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'module-btn';
@@ -221,15 +308,35 @@ function fillSidebarForLevel(levelId) {
 
 /**
  * Entra a un módulo del catálogo (carga motor real o placeholder).
+ * “Mis trabajos” abre el gestor sin salir del menú principal.
  */
 async function openCatalogModule(catalogId) {
   const entry = getById(catalogId);
   if (!entry) return;
 
+  // Hub Mis trabajos: import/export + evaluación + código examen online
+  if (entry.special === 'works' || catalogId === WORKS_MODULE.id) {
+    openWorksModal({
+      hub: true,
+      filter: 'all',
+      onChanged: () => {
+        renderCatalogGrids();
+        refreshWorksList();
+      }
+    });
+    return;
+  }
+
   state.catalogId = catalogId;
-  state.catalogLevel = entry.level;
+  state.catalogLevel = entry.level || 'all';
   showSimShell();
-  fillSidebarForLevel(entry.level);
+  fillSidebarUnified();
+
+  if (!engine || !renderer) {
+    alert('No se pudo iniciar el motor de simulación. Recarga la página (Ctrl+Shift+R).');
+    showCatalog();
+    return;
+  }
 
   const engineKey = entry.engineKey || 'placeholder';
   await loadEngineModule(engineKey, entry);
@@ -279,12 +386,13 @@ async function loadEngineModule(engineKey, catalogEntry = null) {
   try {
     const mod = await import(path);
     state.moduleInstances[resolvedKey] = mod;
-    engine.reset();
-    renderer.resetCamera();
-    renderer.clearOverlays();
+    engine?.reset?.();
+    renderer?.resetCamera?.();
+    renderer?.clearOverlays?.();
     measureState.rulerPoints = [];
     measureState.anglePoints = [];
     measureState.probe = null;
+    ui.showCharts(false);
     if (typeof mod.init === 'function') {
       if (resolvedKey === 'placeholder') {
         mod.init(engine, renderer, ui, {
@@ -295,23 +403,27 @@ async function loadEngineModule(engineKey, catalogEntry = null) {
         mod.init(engine, renderer, ui);
       }
     }
+    // Activar panel de gráficas solo si el módulo lo pide
+    if (mod.useCharts === true) ui.showCharts(true);
     // Pizarra se queda pausada; resto corre
     if (resolvedKey === 'whiteboard') {
-      engine.pause(true);
+      engine?.pause?.(true);
       updatePlayPauseUI();
     } else {
       ensureRunning();
     }
   } catch (err) {
     console.error(`Error cargando motor ${resolvedKey}:`, err);
-    paramsPanel.innerHTML = `<p class="placeholder-text" style="color: var(--danger)">Error al cargar ${escapeHtml(
-      title
-    )}. Verifica la consola.</p>`;
+    if (paramsPanel) {
+      paramsPanel.innerHTML = `<p class="placeholder-text" style="color: var(--danger)">Error al cargar ${escapeHtml(
+        title
+      )}. Verifica la consola.</p>`;
+    }
   }
 }
 
 function ensureRunning() {
-  engine.pause(false);
+  engine?.pause?.(false);
   updatePlayPauseUI();
 }
 
@@ -344,12 +456,13 @@ function loadProgress() {
    ============================================ */
 
 function togglePause() {
-  engine.pause();
+  engine?.pause?.();
   updatePlayPauseUI();
 }
 
 function updatePlayPauseUI() {
-  const paused = engine.isPaused();
+  if (!playPauseBtn || !playPauseLabel || !simStatus) return;
+  const paused = engine?.isPaused?.() ?? true;
   const icon = playPauseBtn.querySelector('svg');
   playPauseLabel.textContent = paused ? 'Reproducir' : 'Pausa';
   simStatus.textContent = paused ? 'Pausado' : 'En ejecución';
@@ -362,25 +475,25 @@ function updatePlayPauseUI() {
   }
 }
 
-speedSlider.addEventListener('input', () => {
+speedSlider?.addEventListener('input', () => {
   const val = parseFloat(speedSlider.value);
-  speedDisplay.textContent = val.toFixed(1) + '×';
-  engine.setSpeed(val);
+  if (speedDisplay) speedDisplay.textContent = val.toFixed(1) + '×';
+  engine?.setSpeed?.(val);
 });
 
-playPauseBtn.addEventListener('click', togglePause);
+playPauseBtn?.addEventListener('click', togglePause);
 
-resetBtn.addEventListener('click', () => {
-  engine.reset();
+resetBtn?.addEventListener('click', () => {
+  engine?.reset?.();
   const inst = state.moduleInstances[state.currentModule];
   if (inst && typeof inst.reset === 'function') {
     inst.reset(engine, renderer, ui);
   }
 });
 
-stepBtn.addEventListener('click', () => {
-  if (!engine.isPaused()) engine.pause();
-  engine.step();
+stepBtn?.addEventListener('click', () => {
+  if (engine && !engine.isPaused()) engine.pause();
+  engine?.step?.();
   updatePlayPauseUI();
 });
 
@@ -408,16 +521,6 @@ bottomTabs.forEach((btn) => {
 toolBtns.forEach((btn) => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool || 'pointer';
-    if (tool === 'whiteboard') {
-      openCatalogModule(
-        state.catalogLevel === 'high'
-          ? 'whiteboard-hs'
-          : state.catalogLevel === 'advanced'
-            ? 'whiteboard-adv'
-            : 'whiteboard'
-      );
-      return;
-    }
     if (tool === 'unbounded') {
       const inst = state.moduleInstances[state.currentModule];
       if (inst && typeof inst.setUnbounded === 'function') {
@@ -521,18 +624,11 @@ function toggleStopwatchPanel() {
   });
 }
 
-document.querySelectorAll('.catalog-tab').forEach((tab) => {
-  tab.addEventListener('click', () => setCatalogLevel(tab.dataset.level));
-});
-
 document.addEventListener('keydown', (e) => {
   const tag = document.activeElement?.tagName || '';
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
   if (state.view === 'catalog') {
-    if (e.code === 'Digit1') setCatalogLevel('middle');
-    if (e.code === 'Digit2') setCatalogLevel('high');
-    if (e.code === 'Digit3') setCatalogLevel('advanced');
     return;
   }
 
@@ -564,14 +660,80 @@ document.addEventListener('keydown', (e) => {
    Loop
    ============================================ */
 
-engine.onUpdate = (dt) => {
+function onEngineUpdate(dt) {
   if (state.view !== 'sim') return;
   const inst = state.moduleInstances[state.currentModule];
   if (inst && typeof inst.update === 'function') inst.update(dt);
-};
+  // Solo módulos que declaran useCharts = true
+  try {
+    if (inst && inst.useCharts === true && typeof inst.getCharts === 'function') {
+      const charts = inst.getCharts();
+      if (charts != null) applyModuleCharts(charts);
+    }
+  } catch {
+    /* no bloquear el loop */
+  }
+}
 
-engine.onRender = (ctx, alpha, elapsed) => {
-  if (state.view !== 'sim') return;
+if (engine) {
+  engine.onUpdate = onEngineUpdate;
+}
+
+/** Acepta string SVG o { series: [{label, points:[{x,y}]}] } */
+function applyModuleCharts(charts) {
+  if (typeof charts === 'string') {
+    ui.setChart(charts, { show: true });
+    return;
+  }
+  if (!charts || !Array.isArray(charts.series)) return;
+  const W = 300;
+  const H = 180;
+  const pad = { l: 36, r: 12, t: 16, b: 28 };
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (const s of charts.series) {
+    for (const p of s.points || []) {
+      if (p.x < minX) minX = p.x;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.y > maxY) maxY = p.y;
+    }
+  }
+  if (!Number.isFinite(minX)) {
+    minX = 0;
+    maxX = 1;
+    minY = 0;
+    maxY = 1;
+  }
+  if (maxX === minX) maxX = minX + 1;
+  if (maxY === minY) maxY = minY + 1;
+  const pw = W - pad.l - pad.r;
+  const ph = H - pad.t - pad.b;
+  const sx = (x) => pad.l + ((x - minX) / (maxX - minX)) * pw;
+  const sy = (y) => pad.t + ph - ((y - minY) / (maxY - minY)) * ph;
+  const colors = ['#4fc3f7', '#66bb6a', '#ffb74d', '#ef5350'];
+  let paths = '';
+  charts.series.forEach((s, i) => {
+    const pts = s.points || [];
+    if (pts.length < 2) return;
+    const d = pts.map((p, j) => `${j ? 'L' : 'M'}${sx(p.x).toFixed(1)},${sy(p.y).toFixed(1)}`).join(' ');
+    paths += `<path d="${d}" fill="none" stroke="${colors[i % colors.length]}" stroke-width="2"/>`;
+  });
+  const title = charts.title
+    ? `<text x="${W / 2}" y="12" text-anchor="middle" fill="var(--text-secondary)" font-size="10">${escapeHtml(
+        charts.title
+      )}</text>`
+    : '';
+  ui.setChart(
+    `${title}<line x1="${pad.l}" y1="${pad.t}" x2="${pad.l}" y2="${pad.t + ph}" stroke="var(--border-color)"/><line x1="${pad.l}" y1="${pad.t + ph}" x2="${pad.l + pw}" y2="${pad.t + ph}" stroke="var(--border-color)"/>${paths}`,
+    { show: true }
+  );
+}
+
+function onEngineRender(ctx, alpha, elapsed) {
+  if (state.view !== 'sim' || !renderer || !engine) return;
   renderer.clear();
   const inst = state.moduleInstances[state.currentModule];
   const skipGrid = inst && inst.skipWorldGrid === true;
@@ -583,13 +745,19 @@ engine.onRender = (ctx, alpha, elapsed) => {
   }
   drawMeasureOverlays(ctx);
   renderer.drawOverlays();
-  fpsCounter.textContent = `${engine.getFps()} FPS`;
-  if (!engine.isPaused()) {
+  if (fpsCounter) fpsCounter.textContent = `${engine.getFps()} FPS`;
+  if (!engine.isPaused() && simStatus) {
     simStatus.textContent = `En ejecución · ${elapsed.toFixed(1)}s`;
   }
-};
+}
+
+if (engine) {
+  engine.onRender = onEngineRender;
+  engine.onPauseChanged = () => updatePlayPauseUI();
+}
 
 function drawMeasureOverlays(ctx) {
+  if (!renderer) return;
   if (measureState.probe) {
     const p = measureState.probe;
     renderer.drawTooltip(p.x, p.y, `x=${p.x.toFixed(2)}  y=${p.y.toFixed(2)}`);
@@ -652,8 +820,6 @@ function drawMeasureOverlays(ctx) {
   }
 }
 
-engine.onPauseChanged = () => updatePlayPauseUI();
-
 /* ============================================
    Init
    ============================================ */
@@ -663,8 +829,8 @@ function collectModuleSnapshot() {
   const snap = {
     catalogId: state.catalogId,
     engineKey: state.currentModule,
-    simTime: engine._elapsed ?? 0,
-    paused: engine.isPaused?.() ?? false
+    simTime: engine?._elapsed ?? 0,
+    paused: engine?.isPaused?.() ?? false
   };
   if (inst && typeof inst.getState === 'function') {
     try {
@@ -701,41 +867,31 @@ async function handleSaveWork() {
       notes: session?.mode === 'exam' ? 'Modo examen' : ''
     });
     refreshWorksList();
-    alert(`Trabajo guardado: “${work.name}”\nQueda en la caché de este navegador (sello de integridad incluido).`);
+    const total = listWorks().length;
+    const cloudNote = work.cloudSynced ? '\nTambién se envió a la nube (Supabase).' : '';
+    const weakNote = work.integrityWeak ? '\n(Aviso: sello de integridad débil en este navegador.)' : '';
+    alert(
+      `Trabajo guardado: “${work.name}”\n` +
+        `Total en este navegador: ${total}\n` +
+        `Queda en la caché local.${weakNote}${cloudNote}`
+    );
   } catch (e) {
-    alert(e.message || 'No se pudo guardar.');
+    console.error('Guardar trabajo:', e);
+    alert(e?.message || String(e) || 'No se pudo guardar.');
   }
 }
 
 function refreshWorksList() {
-  const host = document.getElementById('worksList');
-  if (!host) return;
-  const works = listWorks().slice(0, 12);
-  if (!works.length) {
-    host.innerHTML =
-      '<p class="placeholder-text">Aún no hay trabajos. Usa “Guardar trabajo” en un módulo.</p>';
-    return;
-  }
-  host.innerHTML = works
-    .map(
-      (w) => `
-    <div class="work-item" data-id="${w.id}">
-      <div class="work-item-title">${escapeHtml(w.name)}</div>
-      <div class="work-item-meta">${escapeHtml(w.moduleTitle)} · ${new Date(w.savedAt).toLocaleString()}${
-        w.mode === 'exam' ? ' · EXAMEN' : ''
-      }</div>
-      <button type="button" class="work-del" data-del="${w.id}" aria-label="Eliminar trabajo">×</button>
-    </div>`
-    )
-    .join('');
-  host.querySelectorAll('[data-del]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      if (confirm('¿Eliminar este trabajo de la caché?')) {
-        deleteWork(btn.dataset.del);
-        refreshWorksList();
-      }
-    });
-  });
+  // Lista de trabajos solo en el hub / barra lateral, no en panel derecho
+  updateWorksCountBadges();
+}
+
+// Enlazar tarjetas del HTML estático en cuanto el módulo carga
+try {
+  bindCatalogCardClicks();
+  renderCatalogGrids();
+} catch (e) {
+  console.error('Catálogo bootstrap:', e);
 }
 
 async function init() {
@@ -745,44 +901,99 @@ async function init() {
     document.body.classList.add('is-desktop');
   }
 
-  await ensureSessionGate();
-  renderSessionBadge(document.getElementById('sessionBadgeHost'));
+  // Mostrar catálogo YA (antes del gate) para que la app no quede en blanco
+  try {
+    showCatalog();
+    renderCatalogGrids();
+    bindCatalogCardClicks();
+  } catch (e) {
+    console.error('Catálogo inicial:', e);
+  }
+
+  // Indicador Wi‑Fi Online/Offline + Reconectar
+  try {
+    initNetworkStatusUI();
+  } catch (e) {
+    console.warn('Network UI:', e);
+  }
+
+  try {
+    await ensureSessionGate();
+  } catch (e) {
+    console.warn('Session gate:', e);
+  }
+  try {
+    bindUserMenu();
+  } catch (e) {
+    console.warn('User menu:', e);
+    renderSessionBadge(document.getElementById('sessionBadgeHost'));
+    renderUserChip(document.getElementById('userChipHost'));
+  }
   logAudit('app_start', {
     modules: CATALOG.length,
     desktop: !!window.FisicaHNDesktop?.isDesktop
   });
 
-  renderCatalogGrids();
+  bindWorksPanelControls({
+    onChanged: () => {
+      refreshWorksList();
+      if (state.view === 'catalog') renderCatalogGrids();
+    }
+  });
   refreshWorksList();
 
   document.getElementById('openWhiteboardBtn')?.addEventListener('click', () => {
     openCatalogModule('whiteboard');
   });
-  document.getElementById('saveWorkBtn')?.addEventListener('click', () => handleSaveWork());
-  document.getElementById('exportMyWorksBtn')?.addEventListener('click', () => {
-    exportWorksJSON(listWorks());
+  document.getElementById('sidebarBrandBtn')?.addEventListener('click', () => {
+    showCatalog();
   });
+  document.getElementById('saveWorkBtn')?.addEventListener('click', () => handleSaveWork());
 
   const saved = loadProgress();
-  if (saved.lastLevel) setCatalogLevel(saved.lastLevel);
-  else setCatalogLevel('middle');
+  if (canvas && engine) {
+    engine.start();
+  } else {
+    console.error('Canvas o motor no disponible');
+  }
 
-  engine.start();
-
-  if (saved.lastView === 'sim' && saved.lastCatalogId && getById(saved.lastCatalogId)) {
-    await openCatalogModule(saved.lastCatalogId);
+  // No restaurar "my-works" como vista sim
+  const resumeId = saved.lastCatalogId;
+  if (
+    saved.lastView === 'sim' &&
+    resumeId &&
+    resumeId !== WORKS_MODULE.id &&
+    getById(resumeId) &&
+    getById(resumeId).special !== 'works'
+  ) {
+    try {
+      await openCatalogModule(resumeId);
+    } catch (e) {
+      console.error('Reabrir módulo:', e);
+      showCatalog();
+    }
   } else {
     showCatalog();
   }
 
-  // En examen, avisar en catálogo
   const session = getSession();
   if (session?.mode === 'exam') {
     document.body.classList.add('exam-mode');
   }
 
   state.loaded = true;
-  console.log('FísicaHN: catálogo listo —', CATALOG.length, 'módulos');
+  console.log('FísicaHN: listo —', CATALOG.length, 'módulos');
 }
 
-init().catch(console.error);
+init().catch((err) => {
+  console.error('Init falló:', err);
+  try {
+    showCatalog();
+    renderCatalogGrids();
+  } catch {
+    /* último recurso */
+  }
+  alert(
+    'Hubo un error al iniciar FísicaHN. Recarga la página.\nSi persiste, abre la consola (F12) y reporta el mensaje.'
+  );
+});

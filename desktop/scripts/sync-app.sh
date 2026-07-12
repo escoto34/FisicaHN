@@ -18,6 +18,14 @@ rsync -a --delete \
   --exclude 'node_modules' \
   "$SRC/" "$DEST/"
 
+# Config en línea (opcional) para login docente / códigos desde Electron
+WEBSITE_CFG="$ROOT/website/js/supabase-config.js"
+if [[ -f "$WEBSITE_CFG" ]]; then
+  mkdir -p "$DEST/js"
+  cp -f "$WEBSITE_CFG" "$DEST/js/supabase-config.js"
+  echo "→ Incluida config en línea en desktop/app/js/supabase-config.js"
+fi
+
 # Marca desktop en el HTML (fallback si preload no corrió)
 if [[ -f "$DEST/index.html" ]]; then
   if ! grep -q 'data-desktop' "$DEST/index.html"; then

@@ -1,5 +1,7 @@
 /**
- * Catálogo curricular de simulaciones por nivel.
+ * Catálogo de simulaciones.
+ * Los campos `level` se conservan solo para datos internos / progreso;
+ * la UI muestra un único listado unificado (sin etiquetas de grado).
  */
 
 export const LEVELS = [
@@ -8,15 +10,32 @@ export const LEVELS = [
   { id: 'advanced', label: 'Avanzado', labelEn: 'Advanced' }
 ];
 
-/** @type {import('./catalog.js').CatalogModule[]} */
+/**
+ * Módulo especial del menú: importar / exportar / ver trabajos en caché.
+ * No abre un motor de simulación.
+ */
+export const WORKS_MODULE = {
+  id: 'my-works',
+  title: 'Mis trabajos',
+  titleEn: 'My works',
+  level: 'all',
+  blurb:
+    'Importar o exportar JSON, y ver trabajos guardados o importados en este navegador.',
+  engineKey: null,
+  status: 'ready',
+  special: 'works',
+  hub: true
+};
+
+/** @type {Array<Record<string, unknown>>} */
 export const CATALOG = [
-  // Docente
+  // Docente (una sola entrada de pizarra en el menú unificado)
   {
     id: 'whiteboard',
     title: 'Pizarra',
     titleEn: 'Whiteboard',
     level: 'middle',
-    blurb: 'Pizarra en blanco para ejemplos del profesor (también en Bachillerato y Avanzado).',
+    blurb: 'Pizarra en blanco para ejemplos del profesor.',
     engineKey: 'whiteboard',
     status: 'ready',
     teacher: true
@@ -78,17 +97,7 @@ export const CATALOG = [
     status: 'ready'
   },
 
-  // —— High School ——
-  {
-    id: 'whiteboard-hs',
-    title: 'Pizarra',
-    titleEn: 'Whiteboard',
-    level: 'high',
-    blurb: 'Pizarra docente para ejemplos en bachillerato.',
-    engineKey: 'whiteboard',
-    status: 'ready',
-    teacher: true
-  },
+  // —— High School (level solo metadato; menú unificado) ——
   {
     id: 'light',
     title: 'Luz',
@@ -144,17 +153,7 @@ export const CATALOG = [
     status: 'ready'
   },
 
-  // —— Advanced ——
-  {
-    id: 'whiteboard-adv',
-    title: 'Pizarra',
-    titleEn: 'Whiteboard',
-    level: 'advanced',
-    blurb: 'Pizarra docente para temas avanzados.',
-    engineKey: 'whiteboard',
-    status: 'ready',
-    teacher: true
-  },
+  // —— Advanced (level solo metadato; menú unificado) ——
   {
     id: 'two-d-motion',
     title: 'Movimiento bidimensional',
@@ -216,5 +215,30 @@ export function getByLevel(levelId) {
 }
 
 export function getById(id) {
+  if (id === WORKS_MODULE.id) return { ...WORKS_MODULE };
   return CATALOG.find((m) => m.id === id) || null;
+}
+
+/**
+ * Listado único para el menú principal y la barra lateral:
+ * sin pestañas por grado y sin pizarras duplicadas.
+ * “Mis trabajos” va primero.
+ */
+export function getUnifiedCatalog() {
+  const list = [{ ...WORKS_MODULE }];
+  const seenEngineTeacher = new Set();
+
+  for (const m of CATALOG) {
+    if (m.teacher && m.engineKey === 'whiteboard') {
+      if (seenEngineTeacher.has('whiteboard')) continue;
+      seenEngineTeacher.add('whiteboard');
+    }
+    list.push(m);
+  }
+  return list;
+}
+
+/** Módulos de simulación (sin el hub de trabajos). */
+export function getSimulationCatalog() {
+  return getUnifiedCatalog().filter((m) => m.special !== 'works');
 }

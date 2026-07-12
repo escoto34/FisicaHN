@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="FísicaHN — círculo unitario y vector">
+  <!-- Significado: círculo unitario + ejes + vector de posición (geometría / cinemática) -->
+  <rect width="64" height="64" rx="14" fill="#0c0f14"/>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <!-- ejes -->
+    <path d="M10 32h44M32 10v44" stroke="#3d4a5c" stroke-width="1.5"/>
+    <!-- círculo unitario -->
+    <circle cx="32" cy="32" r="16" stroke="#3ecfbf" stroke-width="2.2"/>
+    <!-- vector de posición r → -->
+    <path d="M32 32 L44.5 21.5" stroke="#4fc3f7" stroke-width="2.4"/>
+    <path d="M44.5 21.5 l-5.2 0.4 2.4 4.6 z" fill="#4fc3f7" stroke="none"/>
+    <!-- punto en la trayectoria -->
+    <circle cx="44.5" cy="21.5" r="2.4" fill="#e8eef6" stroke="none"/>
+    <!-- origen -->
+    <circle cx="32" cy="32" r="2" fill="#3ecfbf" stroke="none"/>
+  </g>
+</svg>

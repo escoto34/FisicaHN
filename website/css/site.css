@@ -60,6 +60,13 @@ img { max-width: 100%; }
   text-decoration: none;
 }
 .brand:hover { text-decoration: none; }
+.brand-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: block;
+  flex-shrink: 0;
+}
 .brand-mark {
   width: 36px;
   height: 36px;
@@ -286,6 +293,13 @@ section h2 {
   color: var(--muted);
   font-size: 0.85rem;
 }
+.footer a {
+  color: var(--accent, #3ecfbf);
+  text-decoration: none;
+}
+.footer a:hover {
+  text-decoration: underline;
+}
 .footer-inner {
   display: flex;
   flex-wrap: wrap;
@@ -294,13 +308,63 @@ section h2 {
 }
 
 /* Teacher page */
-.teacher-layout {
-  display: grid;
-  gap: 1.25rem;
-  padding: 2rem 0 3rem;
+.teacher-main {
+  min-height: calc(100vh - 140px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 2.5rem 1rem 3rem;
 }
-@media (min-width: 900px) {
-  .teacher-layout { grid-template-columns: 320px 1fr; }
+.teacher-center {
+  width: min(640px, 100%);
+  margin: 0 auto;
+}
+.teacher-auth-panel {
+  width: 100%;
+  max-width: 640px;
+  padding: 2rem 2.25rem 2.25rem;
+}
+.teacher-auth-lead {
+  font-size: 0.95rem;
+  line-height: 1.55;
+  margin-bottom: 1.35rem;
+}
+.teacher-auth-form .field {
+  margin-bottom: 1rem;
+}
+.teacher-auth-actions {
+  margin-top: 1.25rem;
+}
+.teacher-auth-actions .btn {
+  min-width: 140px;
+}
+.teacher-dash-panel {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1.75rem 2rem 2rem;
+}
+.teacher-dash-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.teacher-block {
+  margin-top: 1.5rem;
+  padding: 1.15rem 1.2rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+}
+.teacher-block h3 {
+  font-size: 1rem;
+  margin: 0 0 0.5rem;
+}
+.btn-sm {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.8rem;
 }
 .panel {
   background: var(--bg-elev);
@@ -308,7 +372,18 @@ section h2 {
   border-radius: var(--radius);
   padding: 1.25rem;
 }
-.panel h2 { font-size: 1.1rem; margin-bottom: 0.75rem; }
+.panel h2 { font-size: 1.25rem; margin-bottom: 0.75rem; }
+.download-os-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.download-os-grid .btn {
+  width: 100%;
+  text-align: center;
+  justify-content: center;
+}
 .table-wrap { overflow-x: auto; }
 table {
   width: 100%;

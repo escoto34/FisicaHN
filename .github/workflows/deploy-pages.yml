@@ -1,0 +1,53 @@
+# Despliega website/ en GitHub Pages.
+# Secrets opcionales (Settings → Secrets and variables → Actions):
+#   SUPABASE_URL       — https://xxxx.supabase.co
+#   SUPABASE_ANON_KEY  — anon public key (NUNCA service_role)
+#
+# Activa Pages: Settings → Pages → Source: GitHub Actions
+
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build website
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          chmod +x scripts/build-website.sh
+          ./scripts/build-website.sh
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: website
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

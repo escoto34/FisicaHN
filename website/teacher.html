@@ -4,13 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FísicaHN — Acceso docente</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/site.css">
 </head>
 <body>
   <header class="nav">
     <div class="wrap nav-inner">
       <a class="brand" href="./">
-        <span class="brand-mark">FH</span>
+        <img src="assets/logo.svg" width="32" height="32" alt="" class="brand-logo">
         FísicaHN Docente
       </a>
       <ul class="nav-links">
@@ -21,98 +22,100 @@
     </div>
   </header>
 
-  <main class="wrap teacher-layout">
-    <aside class="panel" id="authPanel">
-      <h2 id="authTitle">Registro / inicio de sesión</h2>
-      <p class="muted" style="font-size:0.88rem;margin-bottom:1rem">
-        Colegio + contraseña se guardan solo en <strong>este navegador</strong> (hash SHA-256).
-        Ideal para la PC del docente o el lab.
-      </p>
-      <form id="authForm">
-        <div class="field">
-          <label for="tSchool">Nombre del colegio</label>
-          <input id="tSchool" required maxlength="120" placeholder="Ej. Instituto Técnico Central">
-        </div>
-        <div class="field">
-          <label for="tPass">Contraseña</label>
-          <input id="tPass" type="password" required minlength="4" autocomplete="current-password">
-        </div>
-        <p class="form-msg" id="authMsg" role="status"></p>
-        <div class="row-actions">
-          <button type="submit" class="btn btn-primary" id="btnLogin">Entrar</button>
-          <button type="button" class="btn btn-secondary" id="btnRegister">Crear cuenta en este PC</button>
-        </div>
-      </form>
-    </aside>
-
-    <section class="panel hidden" id="dashPanel">
-      <div style="display:flex;flex-wrap:wrap;gap:0.75rem;justify-content:space-between;align-items:flex-start">
-        <div>
-          <h2>Panel de evaluación</h2>
-          <p class="muted" id="dashSchool"></p>
-        </div>
-        <button type="button" class="btn btn-secondary" id="btnLogout">Cerrar sesión</button>
-      </div>
-
-      <div style="margin-top:1.25rem;padding:1rem;border:1px solid var(--border);border-radius:10px;background:var(--bg)">
-        <h3 style="font-size:1rem;margin-bottom:0.35rem">Código de examen (funciona offline)</h3>
-        <ol class="muted" style="font-size:0.88rem;margin:0 0 0.75rem 1.1rem;line-height:1.55">
-          <li>Pulsa <strong>Generar código</strong> en tu PC (no necesita internet).</li>
-          <li><strong>Escríbelo en la pizarra</strong> o dictalo a la clase.</li>
-          <li>Cada alumno, en su PC offline, elige modo <strong>Examen</strong> y escribe ese mismo código.</li>
-          <li>Al terminar, exportan su JSON y tú los importas aquí (USB) para evaluar.</li>
-        </ol>
-        <p class="muted" style="font-size:0.85rem;margin-bottom:0.5rem">
-          El código <strong>no viaja por la red</strong>: lo lleva la voz o la pizarra. Queda grabado en cada trabajo del alumno.
+  <main class="teacher-main">
+    <div class="teacher-center">
+      <aside class="panel teacher-auth-panel" id="authPanel">
+        <h2>Acceso docente</h2>
+        <p class="muted teacher-auth-lead">
+          Inicia sesión con <strong>email</strong>, <strong>colegio</strong> y contraseña
+          para generar códigos de examen y revisar trabajos de la clase.
         </p>
-        <div class="exam-code" id="examCodeDisplay">———</div>
-        <div class="row-actions">
-          <button type="button" class="btn btn-primary" id="btnStartExam">Generar código</button>
-          <button type="button" class="btn btn-secondary" id="btnEndExam">Ocultar / finalizar</button>
-          <button type="button" class="btn btn-secondary" id="btnExportToken">Token USB (opcional)</button>
-          <label class="btn btn-secondary" style="cursor:pointer">
-            Importar token
-            <input type="file" id="importToken" accept="application/json,.json" hidden>
-          </label>
-        </div>
-      </div>
 
-      <div style="margin-top:1.5rem">
-        <h3 style="font-size:1rem;margin-bottom:0.5rem">Trabajos (caché del navegador)</h3>
-        <div class="row-actions" style="margin-bottom:0.75rem">
-          <button type="button" class="btn btn-secondary" id="btnRefresh">Actualizar lista</button>
-          <button type="button" class="btn btn-secondary" id="btnExport">Exportar JSON</button>
-          <label class="btn btn-secondary" style="cursor:pointer">
-            Importar JSON
-            <input type="file" id="importFile" accept="application/json,.json" hidden>
-          </label>
-        </div>
-        <p class="form-msg" id="dashMsg" role="status"></p>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Alumno</th>
-                <th>Trabajo</th>
-                <th>Módulo</th>
-                <th>Modo</th>
-                <th>Fecha</th>
-                <th>Sello</th>
-              </tr>
-            </thead>
-            <tbody id="worksBody">
-              <tr><td colspan="6" class="muted">Sin trabajos aún.</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+        <form id="authForm" class="teacher-auth-form">
+          <div class="field">
+            <label for="tEmail">Email</label>
+            <input id="tEmail" type="email" required autocomplete="username" placeholder="docente@colegio.edu">
+          </div>
+          <div class="field">
+            <label for="tSchool">Nombre del colegio</label>
+            <input id="tSchool" required maxlength="120" placeholder="Ej. Instituto Técnico">
+          </div>
+          <div class="field">
+            <label for="tPass">Contraseña</label>
+            <input id="tPass" type="password" required minlength="6" autocomplete="current-password">
+          </div>
+          <p class="form-msg" id="authMsg" role="status"></p>
+          <div class="row-actions teacher-auth-actions">
+            <button type="submit" class="btn btn-primary" id="btnLogin">Entrar</button>
+            <button type="button" class="btn btn-secondary" id="btnRegister">Crear cuenta</button>
+          </div>
+        </form>
+      </aside>
 
-      <div style="margin-top:1.5rem">
-        <h3 style="font-size:1rem;margin-bottom:0.5rem">Registro de eventos (auditoría local)</h3>
-        <pre class="mono muted" id="auditBox" style="max-height:160px;overflow:auto;white-space:pre-wrap;background:var(--bg);padding:0.75rem;border-radius:8px;border:1px solid var(--border)"></pre>
-      </div>
-    </section>
+      <section class="panel teacher-dash-panel hidden" id="dashPanel">
+        <div class="teacher-dash-head">
+          <div>
+            <h2>Panel docente</h2>
+            <p class="muted" id="dashSchool"></p>
+            <p class="muted" id="dashEmail" style="font-size:0.85rem"></p>
+          </div>
+          <button type="button" class="btn btn-secondary" id="btnLogout">Cerrar sesión</button>
+        </div>
+
+        <div class="teacher-block">
+          <h3>Código de examen (en línea)</h3>
+          <p class="muted" style="font-size:0.88rem;line-height:1.55;margin-bottom:0.75rem">
+            Genera un código en la nube. Los alumnos, con internet, eligen modo Examen y escriben el mismo código
+            para vincular sus trabajos a tu colegio.
+          </p>
+          <div class="exam-code" id="examCodeDisplay">———</div>
+          <div class="row-actions">
+            <button type="button" class="btn btn-primary" id="btnStartExam">Generar código</button>
+            <button type="button" class="btn btn-secondary" id="btnEndExam">Finalizar examen</button>
+          </div>
+          <p class="form-msg" id="examMsg" role="status"></p>
+        </div>
+
+        <div class="teacher-block">
+          <h3>Trabajos de alumnos</h3>
+          <div class="row-actions" style="margin-bottom:0.75rem">
+            <button type="button" class="btn btn-secondary" id="btnRefresh">Actualizar</button>
+            <button type="button" class="btn btn-secondary" id="btnExport">Exportar JSON</button>
+            <label class="btn btn-secondary" style="cursor:pointer">
+              Importar JSON
+              <input type="file" id="importFile" accept="application/json,.json" hidden>
+            </label>
+          </div>
+          <p class="form-msg" id="dashMsg" role="status"></p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Alumno</th>
+                  <th>Trabajo</th>
+                  <th>Módulo</th>
+                  <th>Modo</th>
+                  <th>Fecha</th>
+                  <th>Sello</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="worksBody">
+                <tr><td colspan="7" class="muted">Sin trabajos aún.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
   </main>
+
+  <footer class="footer">
+    <div class="wrap footer-inner">
+      <span>FísicaHN · panel docente</span>
+      <a href="https://github.com/escoto34/FisicaHN" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </footer>
 
   <script type="module" src="js/teacher.js"></script>
 </body>

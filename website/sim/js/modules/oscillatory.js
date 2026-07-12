@@ -3,6 +3,13 @@
  */
 
 import { roundTo } from '../utils/math-helpers.js';
+import {
+  setModuleInfo,
+  setModuleFormulas,
+  paramControl,
+  bindParamControls,
+  clearChallenges
+} from '../module-ui.js';
 
 let _engine, _renderer, _ui;
 let t = 0;
@@ -20,14 +27,13 @@ export function init(engine, renderer, ui) {
   t = 0;
   renderer.resetCamera();
   ui.setInfo('<strong>Movimiento oscilatorio</strong> — MHS en un resorte: x = A cos(ωt + φ).');
-  ui.setFormulas(`
-    <ul style="padding-left:18px;line-height:1.8">
-      <li>x = A cos(ωt + φ)</li>
-      <li>v = −Aω sin(ωt + φ)</li>
-      <li>T = 2π/ω · Ec + Ep = ½kA²</li>
-    </ul>
-  `);
-  ui.setChallenges('<p class="tab-text">Relaciona ω con el periodo midiendo un ciclo con el cronómetro.</p>');
+  setModuleFormulas(ui, { items: [
+    { name: 'Ley de Hooke', formula: 'F = −k · x' },
+    { name: 'Pulsación angular', formula: 'ω = √(k/m)', note: 'T = 2π/ω' },
+    { name: 'Posición', formula: 'x = A · cos(ωt + φ)' }
+  ]});
+
+  clearChallenges(ui);
   renderParams();
 }
 

@@ -3,6 +3,13 @@
  */
 
 import { Vector2D } from '../utils/vector2d.js';
+import {
+  setModuleInfo,
+  setModuleFormulas,
+  paramControl,
+  bindParamControls,
+  clearChallenges
+} from '../module-ui.js';
 import { roundTo } from '../utils/math-helpers.js';
 
 let _engine, _renderer, _ui;
@@ -23,14 +30,12 @@ export function init(engine, renderer, ui) {
   resetState();
   renderer.resetCamera();
   ui.setInfo('<strong>Gravedad universal</strong> — Órbita 2D alrededor de una masa central fija (GM).');
-  ui.setFormulas(`
-    <ul style="padding-left:18px;line-height:1.8">
-      <li>F = GMm / r²</li>
-      <li>a = −GM r̂ / r²</li>
-      <li>Órbita circular: v = √(GM/r)</li>
-    </ul>
-  `);
-  ui.setChallenges('<p class="tab-text">Ajusta v₀ ≈ √(GM/r) para una órbita casi circular.</p>');
+  setModuleFormulas(ui, { items: [
+    { name: 'Gravedad (magnitud)', formula: 'F = G·m₁·m₂ / r²' },
+    { name: 'Velocidad circular', formula: 'v = √(GM / r)' }
+  ]});
+
+  clearChallenges(ui);
   renderParams();
 }
 

@@ -4,6 +4,13 @@
  */
 
 import { Vector2D } from '../utils/vector2d.js';
+import {
+  setModuleInfo,
+  setModuleFormulas,
+  paramControl,
+  bindParamControls,
+  clearChallenges
+} from '../module-ui.js';
 import { roundTo } from '../utils/math-helpers.js';
 
 let _engine, _renderer, _ui;
@@ -24,17 +31,19 @@ export function init(engine, renderer, ui) {
   _ui = ui;
   resetState();
   renderer.resetCamera();
-  ui.setInfo(`
-    <strong>Campos magnéticos</strong> — Carga en B uniforme (hacia nosotros). F = q(v × B) produce órbita circular.
-  `);
-  ui.setFormulas(`
-    <ul style="padding-left:18px;line-height:1.8">
-      <li>F = q v B (⊥ a v y B)</li>
-      <li>R = m v / (|q| B)</li>
-      <li>ω = |q| B / m</li>
-    </ul>
-  `);
-  ui.setChallenges('<p class="tab-text">Duplica B y observa cómo se reduce el radio.</p>');
+  setModuleInfo(ui, {
+    title: 'Campos magnéticos',
+    blurb: 'Carga en un campo B uniforme: fuerza de Lorentz y órbita circular.',
+    story: 'La fuerza de Lorentz describe cómo un campo magnético desvía cargas en movimiento. Es la base de motores y espectrómetros.',
+    cases: ['Haz de electrones en un tubo.', 'Partícula en un ciclotrón.', 'Iones en un espectrómetro de masa.']
+  });
+
+  setModuleFormulas(ui, { items: [
+    { name: 'Fuerza (B ⊥ v)', formula: 'F = q · v · B' },
+    { name: 'Radio de órbita', formula: 'r = m·v / (q·B)', note: 'Mayor B → menor radio.' }
+  ]});
+
+  clearChallenges(ui);
   renderParams();
 }
 

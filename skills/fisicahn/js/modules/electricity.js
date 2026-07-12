@@ -3,6 +3,13 @@
  */
 
 import { Vector2D } from '../utils/vector2d.js';
+import {
+  setModuleInfo,
+  setModuleFormulas,
+  paramControl,
+  bindParamControls,
+  clearChallenges
+} from '../module-ui.js';
 import { roundTo } from '../utils/math-helpers.js';
 
 const K = 8.99e9;
@@ -22,29 +29,25 @@ export function init(engine, renderer, ui) {
   charges.push({ pos: new Vector2D(3, 0), charge: -1e-6, color: '#4fc3f7' });
   isRunning = true;
 
-  ui.setInfo(`
-    <strong>Electricidad</strong> — Interacción entre cargas eléctricas.<br>
-    La ley de Coulomb describe la fuerza entre dos cargas: F = k·q₁·q₂ / r².<br>
-    Las cargas del mismo signo se repelen; las de signo opuesto se atraen.
-  `);
-
-  ui.setFormulas(`
-    <ul style="padding-left:18px;margin:0;line-height:1.8">
-      <li><strong>Ley de Coulomb:</strong> F = k · |q₁·q₂| / r²</li>
-      <li><strong>Campo eléctrico:</strong> E = k · q / r²</li>
-      <li><strong>Potencial:</strong> V = k · q / r</li>
-      <li><strong>k</strong> = 8.99 × 10⁹ N·m²/C²</li>
-    </ul>
-  `);
-
+  setModuleInfo(ui, {
+    title: 'Electricidad',
+    blurb: 'Interacción entre cargas: Coulomb, campo y potencial.',
+    story: 'Coulomb midió la fuerza entre cargas; Faraday y Maxwell construyeron la visión de campo que usamos hoy en circuitos y telecomunicaciones.',
+    cases: [
+      'Dos cargas del mismo signo se repelen.',
+      'Un pararrayos concentra el campo en la punta.',
+      'Medir resistencia de un bombillo con multímetro.'
+    ]
+  });
+  setModuleFormulas(ui, {
+    items: [
+      { name: 'Ley de Coulomb', formula: 'F = k · |q₁·q₂| / r²', note: 'k ≈ 8.99×10⁹ N·m²/C²' },
+      { name: 'Campo eléctrico', formula: 'E = k · q / r²' },
+      { name: 'Potencial', formula: 'V = k · q / r' }
+    ]
+  });
   ui.setData('<p class="tab-text">Las cargas se muestran en el canvas.</p>');
-
-  ui.setChallenges(`
-    <p class="tab-text">
-      🎯 <strong>Desafío 1:</strong> Coloca dos cargas positivas y observa la repulsión.<br>
-      🎯 <strong>Desafío 2:</strong> ¿A qué distancia se igualan la fuerza eléctrica y el peso de un electrón?
-    </p>
-  `);
+  clearChallenges(ui);
 
   renderParams();
 }

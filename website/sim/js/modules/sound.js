@@ -3,6 +3,13 @@
  */
 
 import { roundTo } from '../utils/math-helpers.js';
+import {
+  setModuleInfo,
+  setModuleFormulas,
+  paramControl,
+  bindParamControls,
+  clearChallenges
+} from '../module-ui.js';
 
 let _engine, _renderer, _ui;
 let t = 0;
@@ -37,13 +44,12 @@ export function init(engine, renderer, ui) {
   waves.length = 0;
   renderer.resetCamera();
   ui.setInfo('<strong>Sonido / Doppler</strong> — Frentes de onda y frecuencia percibida con fuente en movimiento.');
-  ui.setFormulas(`
-    <ul style="padding-left:18px;line-height:1.8">
-      <li>v ≈ 331 + 0.6·T (°C)</li>
-      <li>f' = f · v / (v − v<sub>s</sub>) (obs. fijo)</li>
-    </ul>
-  `);
-  ui.setChallenges('<p class="tab-text">Acerca la fuente al observador y observa cómo se comprimen los frentes.</p>');
+  setModuleFormulas(ui, { items: [
+    { name: 'Velocidad de onda', formula: 'v = f · λ' },
+    { name: 'Doppler (fuente móvil)', formula: "f′ = f · v / (v ± v<sub>s</sub>)", note: 'El signo depende de si se acerca o se aleja.' }
+  ]});
+
+  clearChallenges(ui);
   renderParams();
 }
 

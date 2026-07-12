@@ -4,6 +4,13 @@
 
 import { Vector2D } from '../utils/vector2d.js';
 import { roundTo } from '../utils/math-helpers.js';
+import {
+  setModuleInfo,
+  setModuleFormulas,
+  paramControl,
+  bindParamControls,
+  clearChallenges
+} from '../module-ui.js';
 
 let pos = new Vector2D(0, 0);
 let vel = new Vector2D(0, 0);
@@ -37,26 +44,25 @@ export function init(engine, renderer, ui) {
   renderer.resetCamera();
   applyForce();
 
-  ui.setInfo(`
-    <strong>Dinámica</strong> — Segunda Ley: F = m·a.<br>
-    Activa <strong>Espacio infinito</strong> para seguir al bloque sin rebotes.
-  `);
-
-  ui.setFormulas(`
-    <ul style="padding-left:18px;margin:0;line-height:1.8">
-      <li><strong>F = m · a</strong></li>
-      <li><strong>a = F / m</strong></li>
-      <li><strong>v = v₀ + a·t</strong></li>
-    </ul>
-  `);
-
+  setModuleInfo(ui, {
+    title: 'Dinámica',
+    blurb: 'Segunda ley de Newton: la fuerza neta determina la aceleración (F = m·a).',
+    story: 'Newton relacionó fuerza, masa y aceleración en el siglo XVII. Es la base del diseño de vehículos, elevadores y estructuras.',
+    cases: [
+      'Empujar un carrito de supermercado (más masa → menos aceleración).',
+      'Frenar un camión vs una bicicleta con la misma fuerza de freno.',
+      'Cohete: empuje del motor menos el peso.'
+    ]
+  });
+  setModuleFormulas(ui, {
+    items: [
+      { name: 'Segunda ley', formula: 'F = m · a', note: 'Fuerza neta en newtons (N), masa en kg, a en m/s².' },
+      { name: 'Aceleración', formula: 'a = F / m', note: 'A mayor masa, menor aceleración para la misma F.' },
+      { name: 'Velocidad con a constante', formula: 'v = v<sub>0</sub> + a · t' }
+    ]
+  });
+  clearChallenges(ui);
   ui.setData('<p class="tab-text">Ajusta los parámetros para ver los datos.</p>');
-  ui.setChallenges(`
-    <p class="tab-text">
-      <strong>Desafío 1:</strong> Con m=5 kg y F=10 N, ¿cuál es a?<br>
-      <strong>Desafío 2:</strong> Con espacio infinito, alcanza x=30 m.
-    </p>
-  `);
 
   renderParams();
 }
@@ -213,46 +219,19 @@ function renderParams() {
         Espacio infinito: OFF
       </button>
     </div>
-    <div class="control-group">
-      <label class="control-label" for="param_mass">Masa (kg)</label>
-      <div class="slider-row">
-        <input type="range" class="custom-slider" id="param_mass" min="0.5" max="10" step="0.5" value="${params.mass}">
-        <span class="slider-value" id="disp_mass">${params.mass}</span>
-      </div>
-    </div>
-    <div class="control-group">
-      <label class="control-label" for="param_fx">Fuerza X (N)</label>
-      <div class="slider-row">
-        <input type="range" class="custom-slider" id="param_fx" min="-20" max="20" step="0.5" value="${params.fx}">
-        <span class="slider-value" id="disp_fx">${params.fx}</span>
-      </div>
-    </div>
-    <div class="control-group">
-      <label class="control-label" for="param_fy">Fuerza Y (N)</label>
-      <div class="slider-row">
-        <input type="range" class="custom-slider" id="param_fy" min="-20" max="20" step="0.5" value="${params.fy}">
-        <span class="slider-value" id="disp_fy">${params.fy}</span>
-      </div>
-    </div>
+    ${paramControl({ id: 'mass', label: 'Masa', min: 0.5, max: 10, step: 0.5, value: params.mass, unit: 'kg' })}
+    ${paramControl({ id: 'fx', label: 'Fuerza X', min: -20, max: 20, step: 0.5, value: params.fx, unit: 'N' })}
+    ${paramControl({ id: 'fy', label: 'Fuerza Y', min: -20, max: 20, step: 0.5, value: params.fy, unit: 'N' })}
   `);
 
   setTimeout(() => {
     document.getElementById('param_unbounded')?.addEventListener('click', () =>
       setUnbounded(!unbounded)
     );
-    const bind = (id, key) => {
-      const el = document.getElementById(id);
-      const disp = document.getElementById(id.replace('param_', 'disp_'));
-      if (!el) return;
-      el.addEventListener('input', () => {
-        params[key] = parseFloat(el.value);
-        if (disp) disp.textContent = String(params[key]);
-        applyForce();
-        reset(_engine, _renderer, _ui);
-      });
-    };
-    bind('param_mass', 'mass');
-    bind('param_fx', 'fx');
-    bind('param_fy', 'fy');
+    bindParamControls(['mass', 'fx', 'fy'], (id, val) => {
+      params[id] = val;
+      applyForce();
+      reset(_engine, _renderer, _ui);
+    });
   }, 0);
 }

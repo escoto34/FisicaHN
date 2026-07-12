@@ -3,6 +3,13 @@
  */
 
 import { Vector2D } from '../utils/vector2d.js';
+import {
+  setModuleInfo,
+  setModuleFormulas,
+  paramControl,
+  bindParamControls,
+  clearChallenges
+} from '../module-ui.js';
 import { toRad, roundTo } from '../utils/math-helpers.js';
 
 let isRunning = false;
@@ -27,28 +34,25 @@ export function init(engine, renderer, ui) {
   isRunning = true;
   updateRay();
 
-  ui.setInfo(`
-    <strong>Óptica</strong> — Comportamiento de la luz al cambiar de medio.<br>
-    Ley de Snell: n₁ · sen(θ₁) = n₂ · sen(θ₂).<br>
-    Ajusta el ángulo de incidencia y los índices de refracción.
-  `);
-
-  ui.setFormulas(`
-    <ul style="padding-left:18px;margin:0;line-height:1.8">
-      <li><strong>Ley de Snell:</strong> n₁ · sen θ₁ = n₂ · sen θ₂</li>
-      <li><strong>Reflexión:</strong> θ<sub>r</sub> = θ<sub>i</sub></li>
-      <li><strong>Ángulo crítico:</strong> θ<sub>c</sub> = arcsen(n₂ / n₁)</li>
-    </ul>
-  `);
-
+  setModuleInfo(ui, {
+    title: 'Óptica',
+    blurb: 'Luz al cambiar de medio: reflexión, refracción y ángulo crítico.',
+    story: 'Snell formuló la refracción; las lentes de Galileo y Newton impulsaron la astronomía y la microscopia.',
+    cases: [
+      'Espejo plano del baño.',
+      'Lápiz “roto” en un vaso con agua.',
+      'Fibra óptica y reflexión total interna.'
+    ]
+  });
+  setModuleFormulas(ui, {
+    items: [
+      { name: 'Reflexión', formula: 'θ<sub>i</sub> = θ<sub>r</sub>' },
+      { name: 'Ley de Snell', formula: 'n₁ · sen θ₁ = n₂ · sen θ₂' },
+      { name: 'Ángulo crítico', formula: 'θ<sub>c</sub> = arcsen(n₂ / n₁)', note: 'Solo si n₁ > n₂ (hacia un medio menos denso).' }
+    ]
+  });
   ui.setData('<p class="tab-text">Ajusta los parámetros para ver los datos.</p>');
-
-  ui.setChallenges(`
-    <p class="tab-text">
-      🎯 <strong>Desafío 1:</strong> Encuentra el ángulo de refracción para n₁=1.0, n₂=1.5, θ=30°.<br>
-      🎯 <strong>Desafío 2:</strong> ¿Cuál es el ángulo crítico para n₁=1.5, n₂=1.0?
-    </p>
-  `);
+  clearChallenges(ui);
 
   renderParams();
 }
