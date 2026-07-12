@@ -98,14 +98,42 @@ Más detalle: `website/README.md`.
 
 ## App de escritorio
 
-
 | Detalle | Valor |
 |---------|--------|
 | Trabajos | Archivo en **userData** (`fisicahn-works-v1.json`) vía IPC |
 | RAM en uso (medida) | **~90–100 MB** con la app abierta (el instalable/portable en disco es mayor por Chromium) |
-| SO | Windows 10+, Linux, macOS (no Windows 7 con Electron actual) |
+| SO | Windows 10+, Linux (no Windows 7 con Electron actual) |
 
 Publicar: genera `desktop/release/`, súbelo a **GitHub Releases** (`…/releases/latest`). Los botones del sitio apuntan ahí.
+
+### Linux (AppImage)
+
+Tras descargar el archivo desde Releases (p. ej. `FisicaHN-1.1.0.AppImage`):
+
+1. Ábrelo en la carpeta donde lo guardaste (Descargas, USB, etc.).
+2. Dale permiso de ejecución (solo hace falta una vez):
+
+```bash
+chmod +x FisicaHN-1.1.0.AppImage
+```
+
+(Sustituye el nombre si la versión es otra.)
+
+3. Ejecútalo:
+
+```bash
+./FisicaHN-1.1.0.AppImage
+```
+
+También puedes hacerlo desde el gestor de archivos: clic derecho en el AppImage → **Propiedades** → **Permisos** → marcar **Permitir ejecutar como programa**, y luego doble clic.
+
+**Paquete `.deb` (Debian/Ubuntu):**
+
+```bash
+sudo apt install ./fisicahn-desktop_1.1.0_amd64.deb
+```
+
+Luego busca “FísicaHN” o “FisicaHN” en el menú de aplicaciones.
 
 ---
 
