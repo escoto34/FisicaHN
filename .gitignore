@@ -16,10 +16,11 @@ graphify-out/
 
 # Config en línea con keys reales (usa supabase-config.example.js en el repo)
 website/js/supabase-config.js
-# Copias generadas por build / sync (ZIP, lab servido, desktop)
+# Copias generadas por build / sync (ZIP, lab servido, desktop, mobile)
 website/sim/js/supabase-config.js
 skills/fisicahn/js/supabase-config.js
 desktop/app/js/supabase-config.js
+mobile/www/js/supabase-config.js
 
 # --- Desktop (Electron) ---
 desktop/node_modules/
@@ -28,6 +29,35 @@ desktop/release/
 desktop/dist/
 desktop/*.log
 desktop/out/
+
+# --- Android (Capacitor) ---
+mobile/node_modules/
+mobile/www/
+mobile/release/
+mobile/android/.gradle/
+mobile/android/**/build/
+mobile/android/app/build/
+mobile/android/build/
+mobile/android/capacitor-cordova-android-plugins/build/
+mobile/android/local.properties
+mobile/android/captures/
+mobile/android/.idea/
+mobile/android/*.iml
+mobile/android/app/*.iml
+mobile/android/.cxx/
+mobile/*.log
+
+# Keystores / firmas (NUNCA subir — backup local obligatorio)
+mobile/keystore/
+mobile/android/key.properties
+*.jks
+*.keystore
+*.p12
+
+# --- Tooling local (JDK portable, etc.) ---
+tools/jdk-*/
+tools/*.tar.gz
+tools/*.zip
 
 # --- OS / editor ---
 .DS_Store
@@ -46,7 +76,6 @@ Desktop.ini
 *.bak
 *.orig
 website/js/*.tmp
-*.swp
 
 # --- Logs y cobertura ---
 *.log

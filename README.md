@@ -16,13 +16,16 @@
 
 ## Estado
 
-El producto está **listo para usar** en tres formas:
+Versión de empaquetado actual: **1.2.0** (`desktop` / `mobile`).
+
+El producto está **listo para usar** en varias formas:
 
 | Entrega | Cómo | Notas medidas |
 |---------|------|----------------|
 | **Web** | `website/` (Pages o servidor local) | Landing + lab + docentes |
-| **ZIP** | `website/downloads/fisicahn.zip` (~160 KB) | USB / sin instalar; regenerar con `./scripts/build-website.sh` |
-| **Desktop** | `desktop/` → `npm start` o Releases | Electron; en uso real suele ir por **~90–100 MB de RAM** |
+| **ZIP** | `website/downloads/fisicahn.zip` | USB / sin instalar; regenerar con `./scripts/build-website.sh` |
+| **Desktop** | `desktop/` → `npm run dist:linux` / `dist:win` | Electron → `desktop/release/` |
+| **Android** | `mobile/` → `npm run build:release` | Capacitor; APK firmado ~3.5 MB |
 
 Stack del laboratorio: **HTML + CSS + JS vanilla + Canvas** (sin React/Vue).  
 El logo es un **círculo unitario con vector de posición**.
@@ -42,6 +45,7 @@ Simulador de física orientado a clase: módulos interactivos, pizarra, usuarios
 | `skills/fisicahn/` | **Fuente** del simulador (editar aquí) |
 | `website/` | Sitio público: inicio, docentes, `sim/`, ZIP, cabeceras |
 | `desktop/` | Electron (`app/` se genera al sincronizar; no editar a mano) |
+| `mobile/` | Android / Capacitor (`www/` se genera al sincronizar; ver `mobile/README.md`) |
 | `scripts/build-website.sh` | `skills/fisicahn` → `website/sim` + ZIP (+ config en línea si hay) |
 | `supabase/schema.sql` | Esquema y RLS (ejecutar en el SQL Editor del backend) |
 | `docs/` | Despliegue (`SUPABASE_GITHUB_PAGES.md`) y seguridad (`SECURITY.md`) |
@@ -100,40 +104,102 @@ Más detalle: `website/README.md`.
 
 | Detalle | Valor |
 |---------|--------|
+| Versión | **1.2.0** (`desktop/package.json`) |
 | Trabajos | Archivo en **userData** (`fisicahn-works-v1.json`) vía IPC |
-| RAM en uso (medida) | **~90–100 MB** con la app abierta (el instalable/portable en disco es mayor por Chromium) |
-| SO | Windows 10+, Linux (no Windows 7 con Electron actual) |
+| RAM en uso (medida) | **~90–100 MB** con la app abierta |
+| SO | Windows 10+, Linux (AppImage / .deb) |
 
-Publicar: genera `desktop/release/`, súbelo a **GitHub Releases** (`…/releases/latest`). Los botones del sitio apuntan ahí.
+Documentación extra: `desktop/README.md`.
 
-### Linux (AppImage)
+### Generar instaladores (v1.2.0)
 
-Tras descargar el archivo desde Releases (p. ej. `FisicaHN-1.1.0.AppImage`):
-
-1. Ábrelo en la carpeta donde lo guardaste (Descargas, USB, etc.).
-2. Dale permiso de ejecución (solo hace falta una vez):
+Desde la raíz del repo (o ajusta la ruta):
 
 ```bash
-chmod +x FisicaHN-1.1.0.AppImage
+# 1) Desktop Linux → AppImage + .deb
+cd "/home/escoto/Documentos/simulador fisica/desktop"
+npm install
+npm run dist:linux
+
+# 2) Desktop Windows → portable + Setup NSIS
+npm run dist:win
+
+# 3) Android APK firmado (release)
+cd "/home/escoto/Documentos/simulador fisica/mobile"
+npm install
+export ANDROID_HOME="$HOME/Android/Sdk"   # o /opt/android-sdk
+export JAVA_HOME="/home/escoto/Documentos/simulador fisica/tools/jdk-21"
+export PATH="$JAVA_HOME/bin:$PATH"
+npm run build:release
 ```
 
-(Sustituye el nombre si la versión es otra.)
+Cada comando hace `sync` de `skills/fisicahn` automáticamente.
 
-3. Ejecútalo:
+**Salida desktop** (`desktop/release/`):
+
+| Archivo | Uso |
+|---------|-----|
+| `FisicaHN-1.2.0.AppImage` (~122 MB) | Linux, sin instalar |
+| `fisicahn-desktop_1.2.0_amd64.deb` (~96 MB) | Debian/Ubuntu |
+| `FisicaHN-Portable-1.2.0.exe` (~86 MB) | Windows USB / NetSupport |
+| `FisicaHN Setup 1.2.0.exe` (~86 MB) | Instalador Windows |
+
+**Salida Android** (`mobile/release/`):
+
+| Archivo | Uso |
+|---------|-----|
+| `FisicaHN-1.2.0-release.apk` (~3.5 MB) | **Distribución** (firmado) |
+| `FisicaHN-1.2.0-debug.apk` (~4.4 MB) | Solo pruebas de desarrollo |
+
+### Qué subir a GitHub Releases (`v1.2.0`)
+
+Sube **solo los instaladores** (no carpetas `*-unpacked`, ni `.yml` de autoupdate, ni keystores):
+
+1. `desktop/release/FisicaHN-1.2.0.AppImage`
+2. `desktop/release/fisicahn-desktop_1.2.0_amd64.deb`
+3. `desktop/release/FisicaHN-Portable-1.2.0.exe`
+4. `desktop/release/FisicaHN Setup 1.2.0.exe`
+5. `mobile/release/FisicaHN-1.2.0-release.apk`
+
+Opcional: `website/downloads/fisicahn.zip` (lab web offline).
+
+**No subas:** `linux-unpacked/`, `win-unpacked/`, `*.blockmap`, `latest.yml`, `builder-*.yaml`, APK **debug**, ni nada de `mobile/keystore/`.
+
+Tag sugerido:
 
 ```bash
-./FisicaHN-1.1.0.AppImage
+git tag v1.2.0
+git push origin v1.2.0
+# Luego en GitHub → Releases → Draft a new release → adjuntar los 5 archivos
 ```
 
-También puedes hacerlo desde el gestor de archivos: clic derecho en el AppImage → **Propiedades** → **Permisos** → marcar **Permitir ejecutar como programa**, y luego doble clic.
-
-**Paquete `.deb` (Debian/Ubuntu):**
+### Linux (AppImage) — uso del usuario
 
 ```bash
-sudo apt install ./fisicahn-desktop_1.1.0_amd64.deb
+chmod +x FisicaHN-1.2.0.AppImage
+./FisicaHN-1.2.0.AppImage
 ```
 
-Luego busca “FísicaHN” o “FisicaHN” en el menú de aplicaciones.
+**Paquete `.deb`:**
+
+```bash
+sudo apt install ./fisicahn-desktop_1.2.0_amd64.deb
+```
+
+### Android — instalación
+
+```bash
+adb install -r FisicaHN-1.2.0-release.apk
+```
+
+O copia el APK al tablet y ábrelo (permitir “orígenes desconocidos” si hace falta).  
+Detalle: `mobile/README.md`.
+
+### Subir versión la próxima vez
+
+1. `desktop/package.json` y `mobile/package.json` → `"version": "1.3.0"`
+2. `mobile/android/app/build.gradle` → `versionName "1.3.0"` y **`versionCode` +1** (entero)
+3. Regenerar builds y publicar tag `v1.3.0`
 
 ---
 
@@ -141,16 +207,17 @@ Luego busca “FísicaHN” o “FisicaHN” en el menú de aplicaciones.
 
 | Destino | Cómo |
 |---------|------|
-| **GitHub Pages** | `.github/workflows/deploy-pages.yml` (checkout sin submódulos rotos) |
+| **GitHub Pages** | `.github/workflows/deploy-pages.yml` |
 | **Cloudflare Pages** | Build `./scripts/build-website.sh` · output `website` |
 
 ---
 
 ## Requisitos orientativos
 
-| Entrega | Disco | RAM en ejecución |
-|---------|-------|------------------|
-| **ZIP** | ~0,16 MB el `.zip` | La del navegador (~cientos de MB del SO) |
-| **Electron** | ~100–180 MB el portable/instalable | **~90–100 MB** de proceso en un PC típico (más si hay muchas pestañas del SO) |
+| Entrega | Disco (aprox. v1.2.0) | RAM en ejecución |
+|---------|------------------------|------------------|
+| **ZIP** | ~0,5 MB el `.zip` | La del navegador |
+| **Electron Linux/Windows** | ~86–122 MB por instalable | **~90–100 MB** |
+| **Android APK release** | **~3.5 MB** | WebView del sistema |
 
 ---

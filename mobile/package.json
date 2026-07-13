@@ -1,0 +1,24 @@
+{
+  "name": "fisicahn-android",
+  "version": "1.2.0",
+  "description": "FísicaHN — app Android (Capacitor) del simulador offline",
+  "private": true,
+  "scripts": {
+    "sync": "bash scripts/sync-www.sh",
+    "cap:sync": "npm run sync && npx cap sync android",
+    "open": "npm run cap:sync && npx cap open android",
+    "assets": "bash scripts/copy-icons.sh",
+    "build:debug": "npm run cap:sync && bash scripts/build-apk.sh debug",
+    "build:release": "npm run cap:sync && bash scripts/build-apk.sh release",
+    "apk": "npm run build:debug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/app": "^7.0.2",
+    "@capacitor/core": "^7.4.3",
+    "@capacitor/status-bar": "^7.0.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.3"
+  }
+}

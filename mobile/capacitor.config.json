@@ -1,0 +1,20 @@
+{
+  "appId": "hn.fisica.simulador",
+  "appName": "FísicaHN",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": true,
+    "backgroundColor": "#0f0f1a",
+    "webContentsDebuggingEnabled": true
+  },
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "backgroundColor": "#0f0f1a"
+    }
+  }
+}
