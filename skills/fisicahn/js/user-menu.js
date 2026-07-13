@@ -225,11 +225,13 @@ export async function openUserMenu() {
   });
 
   overlay.querySelector('#userEndExamBtn')?.addEventListener('click', () => {
-    endExamSession();
+    endExamSession({ archiveWorks: true, endCloud: true });
     leaveExamMode();
     const disp = overlay.querySelector('#userExamCodeDisplay');
     if (disp) disp.textContent = '———';
-    setOk('Examen finalizado en este equipo.');
+    setOk(
+      'Examen finalizado. Los trabajos de los alumnos quedan en Mis trabajos (importados) para evaluarlos.'
+    );
     refreshAllUi();
   });
 

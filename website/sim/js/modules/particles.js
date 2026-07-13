@@ -53,23 +53,26 @@ function spawn(kindIndex) {
   while (particles.length > 12) particles.shift();
 }
 
-export function init(engine, renderer, ui) {
+export function init(engine, renderer, ui, meta = null) {
   _engine = engine;
   _renderer = renderer;
   _ui = ui;
   particles = [];
+  // meta se usa abajo en setModuleInfo si existe
   fireCooldown = 0;
   renderer.resetCamera();
 
   setModuleInfo(ui, {
-    title: 'Física de partículas',
-    blurb: 'Cargas en un campo magnético uniforme: la trayectoria curva según q, m y v (base de muchos detectores).',
+    title: meta?.title || 'Cargas en campo B (partículas)',
+    blurb:
+      meta?.blurb ||
+      'Varias especies (e⁻, p⁺, α…) en B: curvatura y r = mv/|q|B.',
     story:
-      'En cámaras de burbujas y detectores modernos, el campo B curva las trayectorias: el signo de la carga y el momento p = mv se leen del radio y el sentido del giro.',
+      'Mismo principio que “Campos magnéticos” (Lorentz), pero aquí se lanzan varias especies con distinta m y q para comparar radios — enfoque de espectrómetro/detector. El módulo de campos magnéticos es la intro con una sola carga.',
     cases: [
       'Espectrómetro de masas: separar iones por m/q.',
       'Detectores en colisionadores (curvatura → momento).',
-      'Rayos cósmicos: partículas cargadas en el campo terrestre.'
+      'Comparar e⁻ vs p⁺: mismo |q| pero distinta masa → distinto r.'
     ]
   });
   setModuleFormulas(ui, {
@@ -190,10 +193,10 @@ function updateData() {
 
 function renderParams() {
   _ui.setParams(`
-    ${paramControl({ id: 'B', label: 'Campo B', min: 0.2, max: 3, step: 0.1, value: params.B, unit: 'T' })}
-    ${paramControl({ id: 'v0', label: 'Velocidad inicial', min: 1, max: 8, step: 0.5, value: params.v0, unit: 'm/s' })}
-    ${paramControl({ id: 'm', label: 'Factor de masa', min: 0.5, max: 2, step: 0.1, value: params.m, unit: '×' })}
-    ${paramControl({ id: 'q', label: 'Factor de carga', min: 0.5, max: 2, step: 0.1, value: params.q, unit: '×' })}
+    ${paramControl({ id: 'B', labelTex: 'B', labelRest: 'campo', min: 0.2, max: 3, step: 0.1, value: params.B, unit: 'T' })}
+    ${paramControl({ id: 'v0', labelTex: 'v_0', labelRest: 'velocidad inicial', min: 1, max: 8, step: 0.5, value: params.v0, unit: 'm/s' })}
+    ${paramControl({ id: 'm', labelTex: 'm', labelRest: 'factor de masa', min: 0.5, max: 2, step: 0.1, value: params.m, unit: '×' })}
+    ${paramControl({ id: 'q', labelTex: 'q', labelRest: 'factor de carga', min: 0.5, max: 2, step: 0.1, value: params.q, unit: '×' })}
     <div class="control-group">
       <label class="gate-check">
         <input type="checkbox" id="param_autoFire" ${params.autoFire ? 'checked' : ''}>

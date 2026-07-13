@@ -55,7 +55,24 @@ export class PhysicsEngine {
      */
     this.onPauseChanged = null;
 
+    /**
+     * Callback tras redimensionar el canvas (p. ej. invalidar caché del renderer).
+     * @type {function(): void|undefined}
+     */
+    this.onResize = null;
+
     this._elapsed = 0;
+    this._visible = typeof document === 'undefined' || document.visibilityState !== 'hidden';
+    this._onVis = () => {
+      this._visible = document.visibilityState !== 'hidden';
+      if (this._visible && this._running) {
+        this._lastTime = performance.now() / 1000;
+        this._accumulator = 0;
+      }
+    };
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', this._onVis);
+    }
   }
 
   /**
@@ -79,6 +96,11 @@ export class PhysicsEngine {
       cancelAnimationFrame(this._frameId);
       this._frameId = null;
     }
+  }
+
+  /** Libera observers (al destruir la app). El loop se corta con stop(). */
+  dispose() {
+    this.stop();
     if (this._resizeObs) {
       try {
         this._resizeObs.disconnect();
@@ -86,6 +108,9 @@ export class PhysicsEngine {
         /* ignore */
       }
       this._resizeObs = null;
+    }
+    if (typeof document !== 'undefined' && this._onVis) {
+      document.removeEventListener('visibilitychange', this._onVis);
     }
   }
 
@@ -119,6 +144,13 @@ export class PhysicsEngine {
         if (this.ctx) {
           this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         }
+        if (typeof this.onResize === 'function') {
+          try {
+            this.onResize();
+          } catch {
+            /* ignore */
+          }
+        }
       }
     };
     apply();
@@ -139,9 +171,14 @@ export class PhysicsEngine {
   pause(pause) {
     if (pause === undefined) pause = !this._paused;
     this._paused = pause;
+    this._pauseRendered = false;
     if (this.onPauseChanged) this.onPauseChanged(this._paused);
     if (!this._paused) {
       this._lastTime = performance.now() / 1000;
+      // Reactivar bucle si quedó en idle de pausa
+      if (this._running && this._frameId === null) {
+        this._tick(this._lastTime);
+      }
     }
   }
 
@@ -175,6 +212,11 @@ export class PhysicsEngine {
     return this._paused;
   }
 
+  /** @returns {boolean} Si el bucle RAF está activo */
+  isRunning() {
+    return this._running;
+  }
+
   /** @returns {number} Tiempo simulado transcurrido en segundos */
   getElapsed() {
     return this._elapsed;
@@ -191,6 +233,7 @@ export class PhysicsEngine {
   step() {
     if (this.onUpdate) this.onUpdate(DEFAULT_DT);
     this._elapsed += DEFAULT_DT;
+    this.requestPaint();
   }
 
   /**
@@ -201,9 +244,16 @@ export class PhysicsEngine {
     if (!this._running) return;
     this._frameId = requestAnimationFrame((t) => this._tick(t / 1000));
 
+    // Pestaña oculta: no gastar CPU/GPU (solo reprograma el frame)
+    if (!this._visible) {
+      this._lastTime = now;
+      this._accumulator = 0;
+      return;
+    }
+
     // Cálculo de FPS
     this._fpsFrames++;
-    this._fpsTime += this._lastTime ? (now - this._lastTime) : 0;
+    this._fpsTime += this._lastTime ? now - this._lastTime : 0;
     if (this._fpsTime >= 1) {
       this._fps = Math.round(this._fpsFrames / this._fpsTime);
       this._fpsFrames = 0;
@@ -215,9 +265,18 @@ export class PhysicsEngine {
     this._lastTime = now;
 
     if (this._paused) {
-      if (this.onRender) this.onRender(this.ctx, 0, this._elapsed);
+      // En pausa: un paint y se detiene el RAF hasta unpause/requestPaint/step
+      if (this.onRender && !this._pauseRendered) {
+        this.onRender(this.ctx, 0, this._elapsed);
+        this._pauseRendered = true;
+      }
+      if (this._frameId !== null) {
+        cancelAnimationFrame(this._frameId);
+        this._frameId = null;
+      }
       return;
     }
+    this._pauseRendered = false;
 
     // Limitar frameTime para evitar espirales de muerte
     if (frameTime > MAX_FRAME_TIME) frameTime = MAX_FRAME_TIME;
@@ -237,5 +296,14 @@ export class PhysicsEngine {
     }
 
     if (this.onRender) this.onRender(this.ctx, this._accumulator / DEFAULT_DT, this._elapsed);
+  }
+
+  /** Fuerza un repaint en pausa (p. ej. al cambiar parámetros). */
+  requestPaint() {
+    this._pauseRendered = false;
+    if (this._running && this._paused && this._frameId === null) {
+      this._lastTime = performance.now() / 1000;
+      this._tick(this._lastTime);
+    }
   }
 }

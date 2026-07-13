@@ -193,7 +193,8 @@ export async function uploadWork(work) {
     mode: work.mode || 'practice',
     payload: work,
     integrity_hash: work.integrity || work.hash || null,
-    created_at: work.savedAt || new Date().toISOString()
+    created_at: work.savedAt || new Date().toISOString(),
+    deleted_at: null
   };
   const res = await fetch(`${cfg.url}/rest/v1/student_works`, {
     method: 'POST',
@@ -203,16 +204,97 @@ export async function uploadWork(work) {
   return { ok: res.ok, status: res.status };
 }
 
-export async function fetchSchoolWorks(schoolKey) {
+export async function softDeleteWork({ localId, examCode }) {
+  if (!configured() || !localId || !examCode) return { ok: false, skipped: true };
+  const res = await fetch(`${cfg.url}/rest/v1/rpc/soft_delete_student_work`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ p_local_id: String(localId), p_exam_code: String(examCode) })
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => '');
+    return { ok: false, error: t || `HTTP ${res.status}` };
+  }
+  return { ok: true, data: await res.json().catch(() => true) };
+}
+
+export async function fetchSchoolWorks(schoolKey, { includeDeleted = true, examCode = null, limit = 200 } = {}) {
   if (!configured()) return [];
   const sess = getCloudSession();
   if (!sess?.access_token) return [];
-  const res = await fetch(
-    `${cfg.url}/rest/v1/student_works?school_key=eq.${encodeURIComponent(schoolKey)}&order=created_at.desc&limit=100`,
-    { headers: headers({}, sess.access_token) }
+  const params = new URLSearchParams();
+  params.set('school_key', `eq.${schoolKey}`);
+  params.set('order', 'created_at.desc');
+  params.set('limit', String(limit));
+  params.set(
+    'select',
+    'id,local_id,student_name,school_name,school_key,exam_code,module_id,module_title,mode,payload,integrity_hash,created_at,deleted_at'
   );
+  if (examCode) params.set('exam_code', `eq.${examCode}`);
+  if (!includeDeleted) params.set('deleted_at', 'is.null');
+  const res = await fetch(`${cfg.url}/rest/v1/student_works?${params}`, {
+    headers: headers({}, sess.access_token)
+  });
   if (!res.ok) return [];
   return res.json();
+}
+
+export async function endExamOnCloud({ schoolKey, code = null } = {}) {
+  if (!configured()) return { ok: false, skipped: true };
+  const sess = getCloudSession();
+  if (!sess?.access_token || !schoolKey) return { ok: false, error: 'Sin sesión' };
+  let url = `${cfg.url}/rest/v1/exams?school_key=eq.${encodeURIComponent(schoolKey)}&active=eq.true`;
+  if (code) url += `&code=eq.${encodeURIComponent(code)}`;
+  const res = await fetch(url, {
+    method: 'PATCH',
+    headers: headers({ Prefer: 'return=minimal' }, sess.access_token),
+    body: JSON.stringify({ active: false, ended_at: new Date().toISOString() })
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => '');
+    return { ok: false, error: t || `HTTP ${res.status}` };
+  }
+  return { ok: true };
+}
+
+export async function upsertExamChallengePack({ examCode, schoolKey, pack }) {
+  if (!configured()) return { ok: false, skipped: true };
+  const sess = getCloudSession();
+  if (!sess?.access_token) return { ok: false, error: 'Sesión docente requerida' };
+  const res = await fetch(`${cfg.url}/rest/v1/exam_challenge_packs?on_conflict=exam_code`, {
+    method: 'POST',
+    headers: headers(
+      { Prefer: 'resolution=merge-duplicates,return=representation' },
+      sess.access_token
+    ),
+    body: JSON.stringify({
+      exam_code: String(examCode),
+      school_key: String(schoolKey),
+      pack: pack || {},
+      created_by: sess.user?.id || null,
+      updated_at: new Date().toISOString()
+    })
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => '');
+    return { ok: false, error: t || `HTTP ${res.status}` };
+  }
+  return { ok: true, data: await res.json().catch(() => null) };
+}
+
+export async function fetchExamChallengePack(examCode) {
+  if (!configured() || !examCode) return null;
+  try {
+    const res = await fetch(
+      `${cfg.url}/rest/v1/exam_challenge_packs?exam_code=eq.${encodeURIComponent(examCode)}&select=exam_code,school_key,pack,updated_at&limit=1`,
+      { headers: headers() }
+    );
+    if (!res.ok) return null;
+    const rows = await res.json();
+    return Array.isArray(rows) && rows[0] ? rows[0] : null;
+  } catch {
+    return null;
+  }
 }
 
 const IDEAS_COOLDOWN_MS = 3 * 60 * 60 * 1000;

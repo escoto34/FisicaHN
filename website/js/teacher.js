@@ -1,5 +1,5 @@
 /**
- * Panel docente: acceso con email (en línea).
+ * Panel docente: acceso con email, examen en vivo, retos y trabajos.
  */
 import {
   getTeacherRecord,
@@ -21,7 +21,9 @@ import {
   getCloudSession,
   pushExam,
   fetchSchoolWorks,
-  upsertTeacherProfile
+  upsertTeacherProfile,
+  endExamOnCloud,
+  upsertExamChallengePack
 } from './supabase-api.js';
 
 const authPanel = document.getElementById('authPanel');
@@ -29,6 +31,13 @@ const dashPanel = document.getElementById('dashPanel');
 const authMsg = document.getElementById('authMsg');
 const dashMsg = document.getElementById('dashMsg');
 const examMsg = document.getElementById('examMsg');
+const chMsg = document.getElementById('chMsg');
+
+const DRAFT_KEY = 'fisicahn_challenge_draft_v1';
+const ARCHIVE_KEY = 'fisicahn_teacher_archive_v1';
+let pollTimer = null;
+/** @type {Array} trabajos en vivo (incl. nube) */
+let liveWorks = [];
 
 function setMsg(el, text, ok) {
   if (!el) return;
@@ -44,6 +53,70 @@ function esc(s) {
     .replace(/"/g, '&quot;');
 }
 
+function getDraft() {
+  try {
+    return JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null') || {
+      schema: 1,
+      type: 'fisicahn-challenge-pack',
+      modules: {}
+    };
+  } catch {
+    return { schema: 1, type: 'fisicahn-challenge-pack', modules: {} };
+  }
+}
+
+function saveDraft(pack) {
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(pack));
+}
+
+function normalizePack(raw) {
+  if (!raw || typeof raw !== 'object') {
+    return { schema: 1, type: 'fisicahn-challenge-pack', modules: {} };
+  }
+  const modules = raw.modules || raw.challenges_by_module || {};
+  const clean = {};
+  for (const [k, list] of Object.entries(modules)) {
+    if (!Array.isArray(list)) continue;
+    clean[k] = list.filter((c) => c && c.question);
+  }
+  return { schema: 1, type: 'fisicahn-challenge-pack', modules: clean, title: raw.title || null };
+}
+
+function loadArchive() {
+  try {
+    return JSON.parse(localStorage.getItem(ARCHIVE_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function saveArchive(list) {
+  localStorage.setItem(ARCHIVE_KEY, JSON.stringify(list.slice(0, 500)));
+}
+
+function cloudRowToWork(row) {
+  const payload = row?.payload && typeof row.payload === 'object' ? row.payload : {};
+  const id = payload.id || row.local_id || row.id;
+  return {
+    id,
+    name: payload.name || row.module_title || 'Trabajo de examen',
+    moduleId: payload.moduleId || row.module_id,
+    moduleTitle: payload.moduleTitle || row.module_title || row.module_id,
+    studentName: row.student_name || payload.studentName,
+    schoolName: row.school_name || payload.schoolName,
+    schoolKey: row.school_key || payload.schoolKey,
+    mode: row.mode || payload.mode || 'exam',
+    examCode: row.exam_code || payload.examCode,
+    savedAt: payload.savedAt || row.created_at,
+    snapshot: payload.snapshot || {},
+    notes: payload.notes || '',
+    integrity: row.integrity_hash || payload.integrity,
+    _fromCloud: true,
+    deletedAt: row.deleted_at || null,
+    source: 'imported'
+  };
+}
+
 function showDash() {
   const session = getSession();
   const cloud = getCloudSession();
@@ -51,6 +124,7 @@ function showDash() {
   if (!ok) {
     authPanel.classList.remove('hidden');
     dashPanel.classList.add('hidden');
+    stopPoll();
     return;
   }
   authPanel.classList.add('hidden');
@@ -60,6 +134,8 @@ function showDash() {
   document.getElementById('dashEmail').textContent = `Email: ${cloud.email || '—'}`;
   refreshExam();
   refreshWorks();
+  renderChallengeList();
+  startPollIfExam();
 }
 
 function refreshExam() {
@@ -84,46 +160,69 @@ function formatWorkDetail(w, sealText) {
     .join('\n');
 }
 
+function stopPoll() {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
+function startPollIfExam() {
+  stopPoll();
+  const st = getExamStatus();
+  if (!st.active || !st.code) return;
+  pollTimer = setInterval(() => refreshWorks(), 8000);
+}
+
 async function refreshWorks() {
   const session = getSession();
   const cloud = getCloudSession();
   const body = document.getElementById('worksBody');
-  let works = listWorks();
   const schoolKey =
     session?.schoolKey ||
     normalizeSchool(session?.schoolName || getTeacherRecord()?.schoolName || '');
 
+  let works = listWorks().slice();
+  const archived = loadArchive();
+  // Archivo local de exámenes previos
+  for (const w of archived) {
+    if (!works.some((x) => x.id === w.id)) works.push(w);
+  }
+
   if (schoolKey) {
     const schoolWorks = worksForSchool(session?.schoolName || getTeacherRecord()?.schoolName);
-    works = works.filter(
-      (w) => w.schoolKey === schoolKey || w._importVerified !== undefined
-    );
+    works = works.filter((w) => w.schoolKey === schoolKey || w._importVerified !== undefined || w._fromCloud);
     if (!works.length) works = schoolWorks;
   }
 
   if (cloud?.access_token && schoolKey) {
     try {
-      const remote = await fetchSchoolWorks(schoolKey);
+      const remote = await fetchSchoolWorks(schoolKey, { includeDeleted: true, limit: 300 });
+      const liveMap = new Map();
+      const deleted = new Set();
       for (const row of remote) {
-        const payload = row.payload || {};
-        const id = payload.id || row.local_id || row.id;
-        if (!works.some((w) => w.id === id)) {
-          works.push({
-            id,
-            name: payload.name || 'Trabajo nube',
-            studentName: row.student_name || payload.studentName,
-            moduleTitle: row.module_title || payload.moduleTitle,
-            mode: row.mode || payload.mode,
-            examCode: row.exam_code,
-            savedAt: row.created_at,
-            integrity: row.integrity_hash,
-            schoolKey: row.school_key,
-            notes: payload.notes,
-            snapshot: payload.snapshot,
-            _fromCloud: true
-          });
+        const w = cloudRowToWork(row);
+        if (row.deleted_at) {
+          deleted.add(w.id);
+        } else {
+          liveMap.set(w.id, w);
         }
       }
+      // Quitar lives soft-deleted (no el archivo permanente)
+      works = works.filter((w) => {
+        if (w.examArchived) return true;
+        if (deleted.has(w.id) && w._fromCloud && !w.examArchived) return false;
+        return true;
+      });
+      for (const [id, w] of liveMap) {
+        const i = works.findIndex((x) => x.id === id);
+        if (i >= 0) {
+          if (!works[i].examArchived) works[i] = { ...works[i], ...w };
+        } else {
+          works.unshift(w);
+        }
+      }
+      liveWorks = works;
     } catch {
       /* ignore */
     }
@@ -140,8 +239,8 @@ async function refreshWorks() {
     let sealText = 'ok';
     let seal = '<span class="badge ok">ok</span>';
     if (w._fromCloud) {
-      sealText = 'nube';
-      seal = '<span class="badge ok">nube</span>';
+      sealText = w.examArchived ? 'archivo' : 'nube';
+      seal = `<span class="badge ok">${esc(sealText)}</span>`;
     } else {
       const check = await verifyWork(w);
       sealText = w._importReason || check.reason || 'ok';
@@ -160,7 +259,7 @@ async function refreshWorks() {
             ? `<span class="badge exam">examen ${esc(w.examCode || '')}</span>`
             : 'práctica'
         }</td>
-        <td class="mono">${esc(new Date(w.savedAt).toLocaleString())}</td>
+        <td class="mono">${esc(w.savedAt ? new Date(w.savedAt).toLocaleString() : '—')}</td>
         <td>${seal}</td>
         <td><button type="button" class="btn btn-secondary btn-sm" data-eval="${esc(w.id)}" data-seal="${esc(sealText)}">Ver</button></td>
       </tr>
@@ -169,7 +268,10 @@ async function refreshWorks() {
   body.innerHTML = rows.join('');
   body.querySelectorAll('[data-eval]').forEach((btn) => {
     btn.addEventListener('click', () => {
-      const w = works.find((x) => x.id === btn.dataset.eval) || getWork(btn.dataset.eval);
+      const w =
+        works.find((x) => x.id === btn.dataset.eval) ||
+        liveWorks.find((x) => x.id === btn.dataset.eval) ||
+        getWork(btn.dataset.eval);
       if (!w) {
         alert('Trabajo no encontrado');
         return;
@@ -178,6 +280,152 @@ async function refreshWorks() {
     });
   });
 }
+
+function renderChallengeList() {
+  const host = document.getElementById('chList');
+  if (!host) return;
+  const draft = getDraft();
+  const keys = Object.keys(draft.modules || {}).filter((k) => draft.modules[k]?.length);
+  if (!keys.length) {
+    host.innerHTML = 'Ningún reto en el formulario.';
+    return;
+  }
+  host.innerHTML = keys
+    .map((mod) => {
+      const items = draft.modules[mod]
+        .map(
+          (c, i) =>
+            `<li>${esc(String(c.question).slice(0, 90))} <button type="button" class="btn btn-secondary btn-sm" data-rm-mod="${esc(mod)}" data-rm-i="${i}">Quitar</button></li>`
+        )
+        .join('');
+      return `<div><strong>${esc(mod)}</strong> (${draft.modules[mod].length})<ul>${items}</ul></div>`;
+    })
+    .join('');
+  host.querySelectorAll('[data-rm-mod]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const d = getDraft();
+      const mod = btn.dataset.rmMod;
+      const i = parseInt(btn.dataset.rmI, 10);
+      d.modules[mod]?.splice(i, 1);
+      if (d.modules[mod] && !d.modules[mod].length) delete d.modules[mod];
+      saveDraft(d);
+      renderChallengeList();
+    });
+  });
+}
+
+document.getElementById('chType')?.addEventListener('change', () => {
+  const t = document.getElementById('chType').value;
+  const f = document.getElementById('chOptionsField');
+  if (f) f.hidden = !(t === 'multiple' || t === 'select');
+});
+
+document.getElementById('btnChAdd')?.addEventListener('click', () => {
+  const moduleId = document.getElementById('chModule').value;
+  const type = document.getElementById('chType').value;
+  const question = document.getElementById('chQuestion').value.trim();
+  const answerRaw = document.getElementById('chAnswer').value.trim();
+  const unit = document.getElementById('chUnit').value.trim();
+  const hint = document.getElementById('chHint').value.trim();
+  const points = parseInt(document.getElementById('chPoints').value || '10', 10) || 10;
+  if (question.length < 3) {
+    setMsg(chMsg, 'Escribe la pregunta.', false);
+    return;
+  }
+  const c = {
+    id: `${moduleId}-${Date.now().toString(36)}`,
+    type,
+    question,
+    points,
+    hint,
+    module: moduleId
+  };
+  if (type === 'numeric') {
+    const n = parseFloat(answerRaw);
+    if (!Number.isFinite(n)) {
+      setMsg(chMsg, 'Respuesta numérica inválida.', false);
+      return;
+    }
+    c.answer = n;
+    if (unit) c.unit = unit;
+  } else {
+    const options = document
+      .getElementById('chOptions')
+      .value.split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (options.length < 2) {
+      setMsg(chMsg, 'Añade al menos 2 opciones.', false);
+      return;
+    }
+    const idx = parseInt(answerRaw, 10);
+    if (!Number.isFinite(idx) || idx < 0 || idx >= options.length) {
+      setMsg(chMsg, `Índice de respuesta 0–${options.length - 1}.`, false);
+      return;
+    }
+    c.options = options;
+    c.answer = idx;
+  }
+  const d = getDraft();
+  if (!d.modules[moduleId]) d.modules[moduleId] = [];
+  d.modules[moduleId].push(c);
+  saveDraft(d);
+  document.getElementById('chQuestion').value = '';
+  document.getElementById('chAnswer').value = '';
+  document.getElementById('chHint').value = '';
+  document.getElementById('chOptions').value = '';
+  renderChallengeList();
+  setMsg(chMsg, 'Reto añadido al formulario.', true);
+});
+
+document.getElementById('btnChExport')?.addEventListener('click', () => {
+  const pack = normalizePack(getDraft());
+  const blob = new Blob([JSON.stringify(pack, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `fisicahn-retos-${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  setMsg(chMsg, 'JSON de retos exportado.', true);
+});
+
+document.getElementById('chImportFile')?.addEventListener('change', async (e) => {
+  const file = e.target.files?.[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    const pack = normalizePack(data);
+    saveDraft(pack);
+    renderChallengeList();
+    setMsg(chMsg, `Importado: ${Object.keys(pack.modules).length} módulo(s).`, true);
+  } catch (err) {
+    setMsg(chMsg, err.message || 'JSON inválido', false);
+  }
+});
+
+document.getElementById('btnChPublish')?.addEventListener('click', async () => {
+  setMsg(chMsg, '');
+  const st = getExamStatus();
+  const session = getSession();
+  const rec = getTeacherRecord();
+  if (!st.active || !st.code) {
+    setMsg(chMsg, 'Genera un código de examen activo primero.', false);
+    return;
+  }
+  try {
+    const r = await upsertExamChallengePack({
+      examCode: st.code,
+      schoolKey: session?.schoolKey || rec?.schoolKey,
+      pack: normalizePack(getDraft())
+    });
+    if (!r.ok) throw new Error(r.error || 'No se pudo publicar');
+    setMsg(chMsg, 'Retos publicados en el examen activo.', true);
+  } catch (err) {
+    setMsg(chMsg, err.message, false);
+  }
+});
 
 document.getElementById('authForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -271,6 +519,7 @@ document.getElementById('btnRegister')?.addEventListener('click', async () => {
 document.getElementById('btnLogout')?.addEventListener('click', () => {
   logoutSession();
   signOutCloud();
+  stopPoll();
   showDash();
 });
 
@@ -311,9 +560,19 @@ document.getElementById('btnStartExam')?.addEventListener('click', async () => {
           'No se pudo publicar el código en la nube. Revisa la conexión e inténtalo de nuevo.'
       );
     }
+    // Publicar pack si hay draft
+    const draft = normalizePack(getDraft());
+    if (Object.keys(draft.modules).length) {
+      await upsertExamChallengePack({
+        examCode: code,
+        schoolKey: rec.schoolKey,
+        pack: draft
+      });
+    }
+    startPollIfExam();
     setMsg(
       examMsg,
-      `Código ${code} activo en la nube. Escríbelo en la pizarra; los alumnos lo usan en modo Examen.`,
+      `Código ${code} activo en la nube. Los trabajos de la clase se actualizan solos; al finalizar quedan archivados aquí.`,
       true
     );
   } catch (err) {
@@ -321,15 +580,51 @@ document.getElementById('btnStartExam')?.addEventListener('click', async () => {
   }
 });
 
-document.getElementById('btnEndExam')?.addEventListener('click', () => {
+document.getElementById('btnEndExam')?.addEventListener('click', async () => {
+  const st = getExamStatus();
+  const rec = getTeacherRecord();
+  const code = st.code;
+  stopPoll();
+  // Archivar lives locales del docente
+  try {
+    await refreshWorks();
+    const toArchive = (liveWorks.length ? liveWorks : listWorks())
+      .filter((w) => w.mode === 'exam' || w._fromCloud)
+      .filter((w) => !code || w.examCode === code)
+      .map((w) => ({ ...w, examArchived: true, source: 'imported', archivedAt: new Date().toISOString() }));
+    const prev = loadArchive();
+    const ids = new Set(prev.map((w) => w.id));
+    for (const w of toArchive) {
+      if (!ids.has(w.id)) prev.unshift(w);
+    }
+    saveArchive(prev);
+  } catch {
+    /* ignore */
+  }
+  if (rec?.schoolKey) {
+    await endExamOnCloud({ schoolKey: rec.schoolKey, code });
+  }
   endExamSession();
   refreshExam();
-  setMsg(examMsg, 'Examen finalizado en este equipo.', true);
+  setMsg(
+    examMsg,
+    'Examen finalizado. Los trabajos de los alumnos quedaron archivados en este panel para evaluarlos.',
+    true
+  );
+  refreshWorks();
 });
 
 document.getElementById('btnRefresh')?.addEventListener('click', () => refreshWorks());
 document.getElementById('btnExport')?.addEventListener('click', () => {
-  exportWorksJSON(listWorks());
+  const merged = [...listWorks(), ...loadArchive()];
+  const seen = new Set();
+  const uniq = [];
+  for (const w of merged) {
+    if (seen.has(w.id)) continue;
+    seen.add(w.id);
+    uniq.push(w);
+  }
+  exportWorksJSON(uniq);
 });
 document.getElementById('importFile')?.addEventListener('change', async (e) => {
   const file = e.target.files?.[0];

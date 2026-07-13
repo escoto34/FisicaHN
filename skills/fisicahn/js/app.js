@@ -18,6 +18,8 @@ import { ensureSessionGate, renderSessionBadge, renderUserChip } from './session
 import { bindUserMenu } from './user-menu.js';
 import { initNetworkStatusUI } from './network-status.js';
 import { initPanelResize } from './panel-resize.js';
+import { ChallengeEngine, loadChallengeDataForEngine } from './challenges.js';
+import { enhanceParamsPanel, typesetMath, ensureChallengesCss, ensureKatex } from './module-ui.js';
 
 /* ============================================
    Estado
@@ -33,7 +35,7 @@ const state = {
 
 const STORAGE_KEY = 'fisicahn_progress';
 
-/** Motores de simulación existentes (carpeta modules/) */
+/** Motores de simulación (ruta por convención ./modules/<engineKey>.js) */
 const ENGINE_PATHS = {
   kinematics: './modules/kinematics.js',
   dynamics: './modules/dynamics.js',
@@ -47,24 +49,28 @@ const ENGINE_PATHS = {
   gravity: './modules/gravity.js',
   atomic: './modules/atomic.js',
   particles: './modules/particles.js',
+  rotational: './modules/rotational.js',
+  thermodynamics: './modules/thermodynamics.js',
+  'work-energy': './modules/work-energy.js',
+  'collisions-2d': './modules/collisions-2d.js',
+  lenses: './modules/lenses.js',
+  'wave-optics': './modules/wave-optics.js',
+  circuits: './modules/circuits.js',
+  'em-waves': './modules/em-waves.js',
+  photoelectric: './modules/photoelectric.js',
+  radioactivity: './modules/radioactivity.js',
+  tunneling: './modules/tunneling.js',
+  kepler: './modules/kepler.js',
   placeholder: './modules/placeholder.js'
 };
 
-const ENGINE_TITLES = {
-  kinematics: 'Cinemática',
-  dynamics: 'Dinámica',
-  electricity: 'Electricidad',
-  optics: 'Óptica',
-  whiteboard: 'Pizarra',
-  momentum: 'Momentum',
-  oscillatory: 'Oscilatorio',
-  sound: 'Sonido',
-  magnetic: 'Campos magnéticos',
-  gravity: 'Gravedad',
-  atomic: 'Física atómica',
-  particles: 'Física de partículas',
-  placeholder: 'Próximamente'
-};
+function engineTitle(engineKey, catalogEntry) {
+  if (catalogEntry?.title) return catalogEntry.title;
+  for (const m of CATALOG) {
+    if (m.engineKey === engineKey) return m.title;
+  }
+  return engineKey === 'placeholder' ? 'Próximamente' : engineKey;
+}
 
 /** Herramientas de medición globales */
 const measureState = {
@@ -97,19 +103,49 @@ const chartSvg = document.getElementById('chartSvg');
 const bottomTabs = document.querySelectorAll('.bottom-tab');
 const bottomContent = document.getElementById('bottomContent');
 const toolBtns = document.querySelectorAll('.tool-btn');
+/** @type {ChallengeEngine|null} */
+let challengeEngine = null;
 
-/** Motor / renderer se crean de forma segura (si fallan, el catálogo sigue usable) */
+/** Motor / renderer: lazy al entrar al laboratorio (el menú no crea canvas loop) */
 let engine = null;
 let renderer = null;
-try {
-  if (canvas && typeof canvas.getContext === 'function') {
-    engine = new PhysicsEngine(canvas);
-    renderer = new Renderer(canvas, { worldWidth: 20, worldHeight: 15 });
-  } else {
+let _lastFpsShown = -1;
+let _lastChartAt = 0;
+const CHART_MIN_MS = 100; // ~10 Hz de SVG (evita innerHTML a 60 fps)
+
+function bindEngineCallbacks() {
+  if (!engine) return;
+  engine.onUpdate = onEngineUpdate;
+  engine.onRender = onEngineRender;
+  engine.onPauseChanged = () => updatePlayPauseUI();
+  engine.onResize = () => renderer?.invalidateCssSize?.();
+}
+
+/**
+ * Crea motor+renderer la primera vez que se abre un módulo.
+ * @returns {boolean}
+ */
+function ensureEngine() {
+  if (engine && renderer) return true;
+  if (!canvas || typeof canvas.getContext !== 'function') {
     console.error('FísicaHN: no se encontró #simCanvas');
+    return false;
   }
-} catch (err) {
-  console.error('FísicaHN: error al crear motor/renderer', err);
+  try {
+    engine = new PhysicsEngine(canvas);
+    renderer = new Renderer(canvas, {
+      worldWidth: 20,
+      worldHeight: 15,
+      ctx: engine.ctx
+    });
+    bindEngineCallbacks();
+    return true;
+  } catch (err) {
+    console.error('FísicaHN: error al crear motor/renderer', err);
+    engine = null;
+    renderer = null;
+    return false;
+  }
 }
 
 /* ============================================
@@ -119,7 +155,17 @@ const chartPanel = document.getElementById('chartPanel');
 
 const ui = {
   setParams(html) {
-    if (paramsPanel) paramsPanel.innerHTML = html;
+    if (!paramsPanel) return;
+    paramsPanel.innerHTML = html;
+    // Slider + campo de texto en todos los parámetros; LaTeX en etiquetas
+    enhanceParamsPanel(paramsPanel);
+    typesetMath(paramsPanel);
+    // En pausa: repintar al cambiar parámetros
+    if (!paramsPanel.dataset.paintBound) {
+      paramsPanel.dataset.paintBound = '1';
+      paramsPanel.addEventListener('input', () => engine?.requestPaint?.());
+      paramsPanel.addEventListener('change', () => engine?.requestPaint?.());
+    }
   },
   /** Muestra gráfica solo si enableCharts(true) o se pasa contenido no vacío con show=true */
   setChart(svgContent, opts = {}) {
@@ -140,30 +186,95 @@ const ui = {
       } else {
         infoPanel.innerHTML = `<p class="tab-text">${msg}</p>`;
       }
+      typesetMath(infoPanel);
     }
   },
   setFormulas(html) {
     const panel = document.getElementById('tab-formulas');
-    if (panel) panel.innerHTML = html;
+    if (panel) {
+      panel.innerHTML = html;
+      typesetMath(panel);
+    }
   },
   setData(html) {
     const panel = document.getElementById('tab-data');
-    if (panel) panel.innerHTML = html;
+    if (panel) {
+      panel.innerHTML = html;
+      typesetMath(panel);
+    }
   },
-  setChallenges() {
-    /* Desafíos eliminados de la UI */
+  /**
+   * @param {null|{ engineKey: string, challenges: Array }|string} data
+   * null/'' → oculta pestaña Retos; objeto → monta motor en #tab-challenges
+   */
+  setChallenges(data) {
+    const tabBtn = document.querySelector('.bottom-tab[data-tab="challenges"]');
+    const panel = document.getElementById('tab-challenges');
+    if (!tabBtn || !panel) return;
+
+    if (!data || data === '' || (typeof data === 'object' && !data.challenges?.length)) {
+      tabBtn.hidden = true;
+      panel.hidden = true;
+      panel.innerHTML = '';
+      if (challengeEngine) {
+        challengeEngine.destroy();
+        challengeEngine = null;
+      }
+      if (tabBtn.classList.contains('active')) this.showTab('info');
+      return;
+    }
+
+    tabBtn.hidden = false;
+    panel.hidden = false;
+    ensureChallengesCss();
+    if (!challengeEngine) {
+      challengeEngine = new ChallengeEngine({ mount: panel });
+    } else {
+      challengeEngine.mount(panel);
+    }
+    const engineKey = data.engineKey || state.currentModule || '';
+    challengeEngine.loadChallenges(engineKey, data.challenges || []);
   },
   showTab(tabId) {
-    if (tabId === 'challenges') tabId = 'info';
-    bottomTabs.forEach((btn) => {
+    const tabs = document.querySelectorAll('.bottom-tab');
+    tabs.forEach((btn) => {
       btn.classList.toggle('active', btn.dataset.tab === tabId);
     });
+    if (!bottomContent) return;
     const panels = bottomContent.querySelectorAll('.tab-panel');
-    panels.forEach((p) => p.classList.remove('active'));
+    panels.forEach((p) => {
+      p.classList.remove('active');
+      // tab-challenges usa hidden para no ocupar si no hay retos
+      if (p.id === 'tab-challenges' && tabId !== 'challenges') {
+        /* keep panel.hidden as set by setChallenges */
+      }
+    });
     const target = document.getElementById(`tab-${tabId}`);
-    if (target) target.classList.add('active');
+    if (target) {
+      target.classList.add('active');
+      if (tabId === 'challenges') target.hidden = false;
+    }
   }
 };
+
+/** Tras init del módulo: rellena retos si hay JSON o pack de examen. */
+async function setupChallengesForEngine(engineKey) {
+  if (!engineKey || engineKey === 'whiteboard' || engineKey === 'placeholder') {
+    ui.setChallenges(null);
+    return;
+  }
+  try {
+    const challenges = await loadChallengeDataForEngine(engineKey);
+    if (!challenges.length) {
+      ui.setChallenges(null);
+      return;
+    }
+    ui.setChallenges({ engineKey, challenges });
+  } catch (e) {
+    console.warn('setupChallengesForEngine', e);
+    ui.setChallenges(null);
+  }
+}
 
 /* ============================================
    Catálogo UI
@@ -194,27 +305,8 @@ function renderCatalogGrids() {
     worksCount = 0;
   }
 
-  // Si ya hay tarjetas estáticas en el HTML, solo actualiza badges y enlaza clics
-  const existing = grid.querySelectorAll('.catalog-card');
-  if (existing.length > 0) {
-    existing.forEach((btn) => {
-      const id = btn.getAttribute('data-catalog-id') || btn.dataset.catalogId;
-      if (id === 'my-works' || btn.classList.contains('catalog-card-works')) {
-        const badge = btn.querySelector('.catalog-badge');
-        if (badge) {
-          badge.textContent = worksCount ? `${worksCount} en caché` : 'Importar / ver';
-          badge.className = 'catalog-badge works';
-        }
-      }
-      // normalizar atributo
-      if (id && !btn.getAttribute('data-catalog-id')) {
-        btn.setAttribute('data-catalog-id', id);
-      }
-    });
-    bindCatalogCardClicks();
-    return;
-  }
-
+  // Siempre regenerar desde catalog.js (el HTML estático es solo fallback sin JS).
+  // Si solo se “parcheaban” tarjetas existentes, los módulos nuevos no aparecían en el menú.
   grid.innerHTML = '';
   for (const mod of getUnifiedCatalog()) {
     const btn = document.createElement('button');
@@ -265,9 +357,9 @@ function showCatalog() {
   simShell.hidden = true;
   document.body.classList.add('view-catalog');
   document.body.classList.remove('view-sim');
-  // Pausar simulación en segundo plano
+  // Cortar el bucle RAF por completo (cero CPU en el menú)
   try {
-    engine?.pause?.(true);
+    engine?.stop?.();
   } catch {
     /* ignore */
   }
@@ -337,11 +429,14 @@ async function openCatalogModule(catalogId) {
   showSimShell();
   fillSidebarUnified();
 
-  if (!engine || !renderer) {
+  if (!ensureEngine()) {
     alert('No se pudo iniciar el motor de simulación. Recarga la página (Ctrl+Shift+R).');
     showCatalog();
     return;
   }
+
+  // Precarga KaTeX en paralelo con el módulo (fórmulas/params)
+  ensureKatex().catch(() => {});
 
   const engineKey = entry.engineKey || 'placeholder';
   await loadEngineModule(engineKey, entry);
@@ -377,7 +472,7 @@ async function loadEngineModule(engineKey, catalogEntry = null) {
   const resolvedKey = usePlaceholder ? 'placeholder' : engineKey;
   state.currentModule = resolvedKey;
 
-  const title = catalogEntry?.title || ENGINE_TITLES[resolvedKey] || resolvedKey;
+  const title = engineTitle(resolvedKey, catalogEntry);
   moduleTitle.textContent = title;
 
   document.querySelectorAll('.module-btn').forEach((btn) => {
@@ -405,12 +500,16 @@ async function loadEngineModule(engineKey, catalogEntry = null) {
           blurb: catalogEntry?.blurb || ''
         });
       } else {
-        mod.init(engine, renderer, ui);
+        // meta opcional: título/blurb del catálogo (tras unificar entradas)
+        mod.init(engine, renderer, ui, catalogEntry || null);
       }
     }
+    // Retos en barra inferior (solo motores con casos de uso o pack de examen)
+    await setupChallengesForEngine(resolvedKey);
     // Activar panel de gráficas solo si el módulo lo pide
     if (mod.useCharts === true) ui.showCharts(true);
-    // Pizarra se queda pausada; resto corre
+    // Arrancar loop (pizarra queda en pausa; resto corre)
+    if (engine && !engine.isRunning?.()) engine.start();
     if (resolvedKey === 'whiteboard') {
       engine?.pause?.(true);
       updatePlayPauseUI();
@@ -428,7 +527,9 @@ async function loadEngineModule(engineKey, catalogEntry = null) {
 }
 
 function ensureRunning() {
-  engine?.pause?.(false);
+  if (!engine) return;
+  if (!engine.isRunning?.()) engine.start();
+  engine.pause(false);
   updatePlayPauseUI();
 }
 
@@ -497,8 +598,12 @@ resetBtn?.addEventListener('click', () => {
 });
 
 stepBtn?.addEventListener('click', () => {
-  if (engine && !engine.isPaused()) engine.pause();
-  engine?.step?.();
+  if (!engine) return;
+  if (!engine.isPaused()) engine.pause();
+  engine.step();
+  // Un frame de render con el estado nuevo
+  if (typeof engine.requestPaint === 'function') engine.requestPaint();
+  else if (engine.onRender) engine.onRender(engine.ctx, 0, engine.getElapsed());
   updatePlayPauseUI();
 });
 
@@ -560,8 +665,8 @@ toolBtns.forEach((btn) => {
   });
 });
 
-canvas.addEventListener('pointerdown', (e) => {
-  if (state.view !== 'sim') return;
+canvas?.addEventListener('pointerdown', (e) => {
+  if (state.view !== 'sim' || !renderer) return;
   if (state.currentModule === 'whiteboard') return;
   const world = renderer.getMousePos(e);
   if (measureState.tool === 'probe') {
@@ -669,19 +774,19 @@ function onEngineUpdate(dt) {
   if (state.view !== 'sim') return;
   const inst = state.moduleInstances[state.currentModule];
   if (inst && typeof inst.update === 'function') inst.update(dt);
-  // Solo módulos que declaran useCharts = true
+  // Gráficas SVG a ~10 Hz (no a 60 fps) — reduce layout/innerHTML
   try {
     if (inst && inst.useCharts === true && typeof inst.getCharts === 'function') {
-      const charts = inst.getCharts();
-      if (charts != null) applyModuleCharts(charts);
+      const now = performance.now();
+      if (now - _lastChartAt >= CHART_MIN_MS) {
+        _lastChartAt = now;
+        const charts = inst.getCharts();
+        if (charts != null) applyModuleCharts(charts);
+      }
     }
   } catch {
     /* no bloquear el loop */
   }
-}
-
-if (engine) {
-  engine.onUpdate = onEngineUpdate;
 }
 
 /** Acepta string SVG o { series: [{label, points:[{x,y}]}] } */
@@ -750,15 +855,21 @@ function onEngineRender(ctx, alpha, elapsed) {
   }
   drawMeasureOverlays(ctx);
   renderer.drawOverlays();
-  if (fpsCounter) fpsCounter.textContent = `${engine.getFps()} FPS`;
-  if (!engine.isPaused() && simStatus) {
-    simStatus.textContent = `En ejecución · ${elapsed.toFixed(1)}s`;
+  if (fpsCounter) {
+    const fps = engine.getFps();
+    if (fps !== _lastFpsShown) {
+      _lastFpsShown = fps;
+      fpsCounter.textContent = `${fps} FPS`;
+    }
   }
-}
-
-if (engine) {
-  engine.onRender = onEngineRender;
-  engine.onPauseChanged = () => updatePlayPauseUI();
+  if (!engine.isPaused() && simStatus) {
+    // Actualizar reloj de sim a ~4 Hz vía resto entero
+    const t = Math.floor(elapsed * 4);
+    if (simStatus.dataset.t !== String(t)) {
+      simStatus.dataset.t = String(t);
+      simStatus.textContent = `En ejecución · ${elapsed.toFixed(1)}s`;
+    }
+  }
 }
 
 function drawMeasureOverlays(ctx) {

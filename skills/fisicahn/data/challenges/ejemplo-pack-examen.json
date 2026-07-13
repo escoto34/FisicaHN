@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "type": "fisicahn-challenge-pack",
+  "title": "Ejemplo de retos para importar en el examen",
+  "modules": {
+    "dynamics": [
+      {
+        "id": "ex-din-1",
+        "type": "numeric",
+        "question": "Una fuerza de 20 N actúa sobre 4 kg. ¿Cuál es la aceleración?",
+        "answer": 5,
+        "unit": "m/s²",
+        "hint": "a = F / m",
+        "points": 10
+      },
+      {
+        "id": "ex-din-2",
+        "type": "multiple",
+        "question": "La segunda ley de Newton se escribe como…",
+        "options": ["F = m / a", "F = m · a", "F = a / m", "F = m + a"],
+        "answer": 1,
+        "hint": "Fuerza neta = masa × aceleración",
+        "points": 10
+      }
+    ],
+    "kinematics": [
+      {
+        "id": "ex-cin-1",
+        "type": "numeric",
+        "question": "Un móvil va a 10 m/s durante 3 s. ¿Qué distancia recorre (MRU)?",
+        "answer": 30,
+        "unit": "m",
+        "hint": "x = v · t",
+        "points": 10
+      }
+    ],
+    "electricity": [
+      {
+        "id": "ex-ele-1",
+        "type": "numeric",
+        "question": "Con V = 12 V y R = 4 Ω, ¿cuánta corriente circula?",
+        "answer": 3,
+        "unit": "A",
+        "hint": "I = V / R",
+        "points": 10
+      }
+    ],
+    "optics": [
+      {
+        "id": "ex-opt-1",
+        "type": "select",
+        "question": "La reflexión total interna puede ocurrir cuando la luz pasa…",
+        "options": [
+          "De aire a agua",
+          "De un medio más denso a uno menos denso",
+          "Solo en el vacío",
+          "Siempre al 45°"
+        ],
+        "answer": 1,
+        "hint": "De mayor a menor índice de refracción",
+        "points": 10
+      }
+    ]
+  }
+}

@@ -19,7 +19,7 @@ let _engine = null;
 let _renderer = null;
 let _ui = null;
 
-export function init(engine, renderer, ui) {
+export function init(engine, renderer, ui, meta = null) {
   _engine = engine;
   _renderer = renderer;
   _ui = ui;
@@ -30,13 +30,16 @@ export function init(engine, renderer, ui) {
   isRunning = true;
 
   setModuleInfo(ui, {
-    title: 'Electricidad',
-    blurb: 'Interacción entre cargas: Coulomb, campo y potencial.',
-    story: 'Coulomb midió la fuerza entre cargas; Faraday y Maxwell construyeron la visión de campo que usamos hoy en circuitos y telecomunicaciones.',
+    title: meta?.title || 'Campo eléctrico y cargas',
+    blurb:
+      meta?.blurb ||
+      'Electrostática: Coulomb, campo E y potencial entre cargas puntuales.',
+    story:
+      'Coulomb midió la fuerza entre cargas; Faraday introdujo la idea de campo. Este módulo NO es un circuito (Ohm/Kirchhoff): es el campo de cargas en reposo. Los antiguos menús “Circuitos” y “Electrodinámica” apuntaban aquí por error de nombre.',
     cases: [
-      'Dos cargas del mismo signo se repelen.',
-      'Un pararrayos concentra el campo en la punta.',
-      'Medir resistencia de un bombillo con multímetro.'
+      'Dos cargas del mismo signo se repelen (Coulomb).',
+      'Líneas de campo salen de + y entran en −.',
+      'Potencial más alto cerca de una carga positiva.'
     ]
   });
   setModuleFormulas(ui, {

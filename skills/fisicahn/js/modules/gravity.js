@@ -130,11 +130,11 @@ function renderParams() {
     <div class="control-group">
       <button type="button" class="ctrl-btn unbounded-btn active" id="param_unbounded">Espacio infinito: ON</button>
     </div>
-    <div class="control-group"><label class="control-label">GM</label>
+    <div class="control-group"><label class="control-label">$GM$</label>
       <div class="slider-row"><input type="range" id="g_GM" class="custom-slider" min="10" max="80" step="1" value="${params.GM}"><span id="gd_GM">${params.GM}</span></div></div>
-    <div class="control-group"><label class="control-label">r₀</label>
+    <div class="control-group"><label class="control-label">$r_0$</label>
       <div class="slider-row"><input type="range" id="g_r" class="custom-slider" min="2" max="9" step="0.2" value="${params.r0}"><span id="gd_r">${params.r0}</span></div></div>
-    <div class="control-group"><label class="control-label">v₀ tangencial</label>
+    <div class="control-group"><label class="control-label">$v_0$ tangencial</label>
       <div class="slider-row"><input type="range" id="g_v" class="custom-slider" min="0.5" max="6" step="0.1" value="${params.v0}"><span id="gd_v">${params.v0}</span></div></div>
     <p class="placeholder-text" style="font-size:0.75rem">v_circ = √(GM/r) ≈ ${roundTo(Math.sqrt(params.GM / params.r0), 2)}</p>
   `);

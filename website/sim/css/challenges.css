@@ -2,8 +2,43 @@
    challenges.css — Panel de retos pedagógicos
    ============================================ */
 
-/* --- Panel colapsable (anclado a la derecha) --- */
-.challenge-panel {
+/* --- Embebido en pestaña inferior del módulo --- */
+.challenge-panel.challenge-embedded {
+  position: static;
+  top: auto;
+  right: auto;
+  width: 100%;
+  max-width: none;
+  max-height: none;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  z-index: auto;
+  transform: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.challenge-panel.challenge-embedded .challenge-header {
+  cursor: default;
+  background: transparent;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+  padding: 4px 0 10px;
+}
+
+.challenge-panel.challenge-embedded .challenge-body {
+  padding: 8px 0 0;
+  overflow: visible;
+}
+
+.challenge-panel.challenge-embedded .challenge-title {
+  color: var(--text-primary, #e2e8f0);
+}
+
+/* --- Panel flotante (legacy, si se usa fuera del tab) --- */
+.challenge-panel:not(.challenge-embedded) {
   position: fixed;
   top: 80px;
   right: 0;

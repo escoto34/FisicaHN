@@ -193,8 +193,9 @@ export async function uploadWorkToCloud(work) {
     module_title: work.moduleTitle || work.module_title || null,
     mode: work.mode || 'practice',
     payload: work,
-    integrity_hash: work.hash || work.integrity_hash || null,
-    created_at: work.savedAt || work.created_at || new Date().toISOString()
+    integrity_hash: work.hash || work.integrity || work.integrity_hash || null,
+    created_at: work.savedAt || work.created_at || new Date().toISOString(),
+    deleted_at: null
   };
 
   try {
@@ -211,6 +212,172 @@ export async function uploadWorkToCloud(work) {
     return { ok: true, data };
   } catch (e) {
     return { ok: false, error: e.message || String(e) };
+  }
+}
+
+/**
+ * Soft-delete en la nube cuando el alumno elimina un trabajo de examen.
+ * El docente deja de verlo en el live; no borra filas archivadas ya importadas.
+ */
+export async function softDeleteWorkOnCloud({ localId, examCode }) {
+  if (!localId || !examCode) return { ok: false, skipped: true };
+  const probe = await probeConnectivity();
+  if (!probe.cloud) return { ok: false, skipped: true, error: probe.message };
+
+  const cfg = await loadSupabaseConfig();
+  if (!isConfigured(cfg)) return { ok: false, skipped: true };
+
+  try {
+    const res = await fetch(`${cfg.url}/rest/v1/rpc/soft_delete_student_work`, {
+      method: 'POST',
+      headers: {
+        apikey: cfg.anonKey,
+        Authorization: `Bearer ${cfg.anonKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        p_local_id: String(localId),
+        p_exam_code: String(examCode)
+      })
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      return { ok: false, error: `HTTP ${res.status}: ${text.slice(0, 200)}` };
+    }
+    const data = await res.json().catch(() => true);
+    return { ok: true, data };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
+/**
+ * Lista trabajos del colegio para el docente (incluye deleted_at para sincronizar bajas).
+ * @returns {Promise<Array>}
+ */
+export async function fetchTeacherWorks({ schoolKey, examCode = null, includeDeleted = true, limit = 200 } = {}) {
+  const cfg = await loadSupabaseConfig();
+  if (!isConfigured(cfg)) return [];
+  const sess = getCloudSession();
+  if (!sess?.access_token || !schoolKey) return [];
+
+  const params = new URLSearchParams();
+  params.set('school_key', `eq.${schoolKey}`);
+  params.set('order', 'created_at.desc');
+  params.set('limit', String(limit));
+  params.set(
+    'select',
+    'id,local_id,student_name,school_name,school_key,exam_code,module_id,module_title,mode,payload,integrity_hash,created_at,deleted_at'
+  );
+  if (examCode) params.set('exam_code', `eq.${examCode}`);
+  if (!includeDeleted) params.set('deleted_at', 'is.null');
+
+  try {
+    const res = await fetch(`${cfg.url}/rest/v1/student_works?${params}`, {
+      headers: {
+        apikey: cfg.anonKey,
+        Authorization: `Bearer ${sess.access_token}`,
+        Accept: 'application/json'
+      }
+    });
+    if (!res.ok) return [];
+    const rows = await res.json();
+    return Array.isArray(rows) ? rows : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Desactiva exámenes activos del colegio en la nube. */
+export async function endExamOnCloud({ schoolKey, code = null } = {}) {
+  const cfg = await loadSupabaseConfig();
+  if (!isConfigured(cfg)) return { ok: false, skipped: true };
+  const sess = getCloudSession();
+  if (!sess?.access_token || !schoolKey) return { ok: false, error: 'Sin sesión' };
+
+  let url = `${cfg.url}/rest/v1/exams?school_key=eq.${encodeURIComponent(schoolKey)}&active=eq.true`;
+  if (code) url += `&code=eq.${encodeURIComponent(code)}`;
+
+  try {
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: {
+        ...(await authHeaders(sess.access_token)),
+        Prefer: 'return=minimal'
+      },
+      body: JSON.stringify({ active: false, ended_at: new Date().toISOString() })
+    });
+    if (!res.ok) {
+      const t = await res.text().catch(() => '');
+      return { ok: false, error: t || `HTTP ${res.status}` };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
+/**
+ * Sube/actualiza el pack de retos del examen (docente autenticado).
+ * pack = { schema, type, modules: { dynamics: [...], kinematics: [...] } }
+ */
+export async function upsertExamChallengePack({ examCode, schoolKey, pack }) {
+  const cfg = await loadSupabaseConfig();
+  if (!isConfigured(cfg)) return { ok: false, skipped: true };
+  const sess = getCloudSession();
+  if (!sess?.access_token) return { ok: false, error: 'Sesión docente requerida' };
+  if (!examCode || !schoolKey) return { ok: false, error: 'Falta código o colegio' };
+
+  const body = {
+    exam_code: String(examCode),
+    school_key: String(schoolKey),
+    pack: pack || {},
+    created_by: sess.user?.id || null,
+    updated_at: new Date().toISOString()
+  };
+
+  try {
+    const res = await fetch(
+      `${cfg.url}/rest/v1/exam_challenge_packs?on_conflict=exam_code`,
+      {
+        method: 'POST',
+        headers: {
+          ...(await authHeaders(sess.access_token)),
+          Prefer: 'resolution=merge-duplicates,return=representation'
+        },
+        body: JSON.stringify(body)
+      }
+    );
+    if (!res.ok) {
+      const t = await res.text().catch(() => '');
+      return { ok: false, error: t || `HTTP ${res.status}` };
+    }
+    return { ok: true, data: await res.json().catch(() => null) };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
+/** Alumno o docente: obtiene pack de retos de un código de examen activo. */
+export async function fetchExamChallengePack(examCode) {
+  const cfg = await loadSupabaseConfig();
+  if (!isConfigured(cfg) || !examCode) return null;
+  try {
+    const res = await fetch(
+      `${cfg.url}/rest/v1/exam_challenge_packs?exam_code=eq.${encodeURIComponent(examCode)}&select=exam_code,school_key,pack,updated_at&limit=1`,
+      {
+        headers: {
+          apikey: cfg.anonKey,
+          Authorization: `Bearer ${cfg.anonKey}`,
+          Accept: 'application/json'
+        }
+      }
+    );
+    if (!res.ok) return null;
+    const rows = await res.json();
+    return Array.isArray(rows) && rows[0] ? rows[0] : null;
+  } catch {
+    return null;
   }
 }
 

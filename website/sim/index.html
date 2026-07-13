@@ -7,9 +7,10 @@
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/main.css">
   <link rel="stylesheet" href="css/catalog.css">
+  <!-- challenges.css y KaTeX se cargan bajo demanda (más ligero en el menú) -->
 </head>
 <body class="view-catalog">
-  <!-- Catálogo visible de entrada (JS lo gestiona; no quedar en blanco si hay error) -->
+  <!-- Catálogo: tarjetas generadas por catalog.js (fallback mínimo sin JS) -->
   <div id="catalogView" class="catalog-view">
     <header class="catalog-header">
       <div class="catalog-brand">
@@ -34,207 +35,10 @@
     <div class="catalog-panels catalog-panels-unified">
       <section class="catalog-panel active" aria-label="Módulos del laboratorio">
         <div class="catalog-grid" id="catalogGrid">
-        <button type="button" class="catalog-card catalog-card-works" data-catalog-id="my-works" aria-label="Mis trabajos. Importar / ver">
-          <div class="catalog-card-top">
-            <div>
-              <div class="catalog-card-title">Mis trabajos</div>
-              <div class="catalog-card-en">My works</div>
-            </div>
-            <span class="catalog-badge works">Importar / ver</span>
-          </div>
-          <p class="catalog-card-blurb">Importar o exportar JSON, y ver trabajos guardados o importados en este navegador.</p>
-        </button>
-        <button type="button" class="catalog-card" data-catalog-id="whiteboard" aria-label="Pizarra. Disponible">
-          <div class="catalog-card-top">
-            <div>
-              <div class="catalog-card-title">Pizarra</div>
-              <div class="catalog-card-en">Whiteboard</div>
-            </div>
-            <span class="catalog-badge ready">Disponible</span>
-          </div>
-          <p class="catalog-card-blurb">Pizarra en blanco para ejemplos del profesor.</p>
-        </button>
-        <button type="button" class="catalog-card" data-catalog-id="magnetic-fields" aria-label="Campos magnéticos. Disponible">
-          <div class="catalog-card-top">
-            <div>
-              <div class="catalog-card-title">Campos magnéticos</div>
-              <div class="catalog-card-en">Magnetic Fields</div>
-            </div>
-            <span class="catalog-badge ready">Disponible</span>
-          </div>
-          <p class="catalog-card-blurb">Carga en B uniforme: órbita circular y F = qvB.</p>
-        </button>
-        <button type="button" class="catalog-card" data-catalog-id="forces-motion" aria-label="Fuerzas y movimiento. Disponible">
-          <div class="catalog-card-top">
-            <div>
-              <div class="catalog-card-title">Fuerzas y movimiento</div>
-              <div class="catalog-card-en">Forces &amp; Motion</div>
-            </div>
-            <span class="catalog-badge ready">Disponible</span>
-          </div>
-          <p class="catalog-card-blurb">Fuerza neta, masa y aceleración (F = ma). Espacio infinito disponible.</p>
-        </button>
-        <button type="button" class="catalog-card" data-catalog-id="circuits" aria-label="Circuitos. Disponible">
-          <div class="catalog-card-top">
-            <div>
-              <div class="catalog-card-title">Circuitos</div>
-              <div class="catalog-card-en">Circuits</div>
-            </div>
-            <span class="catalog-badge ready">Disponible</span>
-          </div>
-          <p class="catalog-card-blurb">Ley de Ohm, serie/paralelo y Kirchhoff.</p>
-        </button>
-        <button type="button" class="catalog-card" data-catalog-id="potential-kinetic" aria-label="Energía potencial y cinética. Disponible">
-          <div class="catalog-card-top">
-            <div>
-              <div class="catalog-card-title">Energía potencial y cinética</div>
-              <div class="catalog-card-en">Potential &amp; Kinetic Energy</div>
-            </div>
-            <span class="catalog-badge ready">Disponible</span>
-          </div>
-          <p class="catalog-card-blurb">Energía y fuerzas: exploración con dinámica.</p>
-        </button>
-        <button type="button" class="catalog-card" data-catalog-id="waves-energy-transfer" aria-label="Ondas y transferencia de energía. Disponible">
-          <div class="catalog-card-top">
-            <div>
-              <div class="catalog-card-title">Ondas y transferencia de energía</div>
-              <div class="catalog-card-en">Waves &amp; Energy Transfer</div>
-            </div>
-            <span class="catalog-badge ready">Disponible</span>
-          </div>
-          <p class="catalog-card-blurb">Frentes de onda y propagación (vista con módulo de sonido).</p>
-        </button>
-        <button type="button" class="catalog-card" data-catalog-id="conservation-energy" aria-label="Conservación de la energía. Disponible">
-          <div class="catalog-card-top">
-            <div>
-              <div class="catalog-card-title">Conservación de la energía</div>
-              <div class="catalog-card-en">Conservation of Energy</div>
-            </div>
-            <span class="catalog-badge ready">Disponible</span>
-          </div>
-          <p class="catalog-card-blurb">Em en el oscilador y sistemas dinámicos.</p>
-        </button>
-        <button type="button" class="catalog-card" data-catalog-id="light" aria-label="Luz. Disponible">
-          <div class="catalog-card-top">
-            <div>
-              <div class="catalog-card-title">Luz</div>
-              <div class="catalog-card-en">Light</div>
-            </div>
-            <span class="catalog-badge ready">Disponible</span>
-          </div>
-          <p class="catalog-card-blurb">Óptica geométrica: espejos y lentes.</p>
-        </button>
-        <button type="button" class="catalog-card" data-catalog-id="one-d-motion" aria-label="Movimiento unidimensional. Disponible">
-          <div class="catalog-card-top">
-            <div>
-              <div class="catalog-card-title">Movimiento unidimensional</div>
-              <div class="catalog-card-en">One-dimensional Motion</div>
-            </div>
-            <span class="catalog-badge ready">Disponible</span>
-          </div>
-          <p class="catalog-card-blurb">MRU/MRUV con espacio infinito y cámara.</p>
-        </button>
-        <button type="button" class="catalog-card" data-catalog-id="momentum" aria-label="Momentum. Disponible">
-          <div class="catalog-card-top">
-            <div>
-              <div class="catalog-card-title">Momentum</div>
-              <div class="catalog-card-en">Momentum</div>
-            </div>
-            <span class="catalog-badge ready">Disponible</span>
-          </div>
-          <p class="catalog-card-blurb">Colisiones 1D elásticas e inelásticas.</p>
-        </button>
-        <button type="button" class="catalog-card" data-catalog-id="sound" aria-label="Sonido. Disponible">
-          <div class="catalog-card-top">
-            <div>
-              <div class="catalog-card-title">Sonido</div>
-              <div class="catalog-card-en">Sound</div>
-            </div>
-            <span class="catalog-badge ready">Disponible</span>
-          </div>
-          <p class="catalog-card-blurb">Velocidad del sonido y efecto Doppler.</p>
-        </button>
-        <button type="button" class="catalog-card" data-catalog-id="electrodynamics" aria-label="Electrodinámica. Disponible">
-          <div class="catalog-card-top">
-            <div>
-              <div class="catalog-card-title">Electrodinámica</div>
-              <div class="catalog-card-en">Electrodynamics</div>
-            </div>
-            <span class="catalog-badge ready">Disponible</span>
-          </div>
-          <p class="catalog-card-blurb">Circuitos y cargas en movimiento (base).</p>
-        </button>
-        <button type="button" class="catalog-card" data-catalog-id="universal-gravity" aria-label="Gravedad universal. Disponible">
-          <div class="catalog-card-top">
-            <div>
-              <div class="catalog-card-title">Gravedad universal</div>
-              <div class="catalog-card-en">Universal Gravity</div>
-            </div>
-            <span class="catalog-badge ready">Disponible</span>
-          </div>
-          <p class="catalog-card-blurb">Órbitas 2D con masa central fija.</p>
-        </button>
-        <button type="button" class="catalog-card" data-catalog-id="two-d-motion" aria-label="Movimiento bidimensional. Disponible">
-          <div class="catalog-card-top">
-            <div>
-              <div class="catalog-card-title">Movimiento bidimensional</div>
-              <div class="catalog-card-en">Two-dimensional Motion</div>
-            </div>
-            <span class="catalog-badge ready">Disponible</span>
-          </div>
-          <p class="catalog-card-blurb">Movimiento en el plano con vectores (cinemática).</p>
-        </button>
-        <button type="button" class="catalog-card" data-catalog-id="oscillatory-motion" aria-label="Movimiento oscilatorio. Disponible">
-          <div class="catalog-card-top">
-            <div>
-              <div class="catalog-card-title">Movimiento oscilatorio</div>
-              <div class="catalog-card-en">Oscillatory Motion</div>
-            </div>
-            <span class="catalog-badge ready">Disponible</span>
-          </div>
-          <p class="catalog-card-blurb">MHS: resorte, periodo y energía.</p>
-        </button>
-        <button type="button" class="catalog-card" data-catalog-id="atomic-physics" aria-label="Física atómica. Disponible">
-          <div class="catalog-card-top">
-            <div>
-              <div class="catalog-card-title">Física atómica</div>
-              <div class="catalog-card-en">Atomic Physics</div>
-            </div>
-            <span class="catalog-badge ready">Disponible</span>
-          </div>
-          <p class="catalog-card-blurb">Modelo de Bohr: niveles, órbitas y fotones en saltos de energía.</p>
-        </button>
-        <button type="button" class="catalog-card" data-catalog-id="particle-physics" aria-label="Física de partículas. Disponible">
-          <div class="catalog-card-top">
-            <div>
-              <div class="catalog-card-title">Física de partículas</div>
-              <div class="catalog-card-en">Particle Physics</div>
-            </div>
-            <span class="catalog-badge ready">Disponible</span>
-          </div>
-          <p class="catalog-card-blurb">Cargas en campo B: curvatura, r = mv/|q|B y especies (e⁻, p⁺, α…).</p>
-        </button>
-        <button type="button" class="catalog-card" data-catalog-id="wave-optics" aria-label="Óptica ondulatoria. Disponible">
-          <div class="catalog-card-top">
-            <div>
-              <div class="catalog-card-title">Óptica ondulatoria</div>
-              <div class="catalog-card-en">Wave Optics</div>
-            </div>
-            <span class="catalog-badge ready">Disponible</span>
-          </div>
-          <p class="catalog-card-blurb">Base óptica; interferencia dedicada próximamente.</p>
-        </button>
-        <button type="button" class="catalog-card" data-catalog-id="rotational-motion" aria-label="Movimiento rotacional. Disponible">
-          <div class="catalog-card-top">
-            <div>
-              <div class="catalog-card-title">Movimiento rotacional</div>
-              <div class="catalog-card-en">Rotational Motion</div>
-            </div>
-            <span class="catalog-badge ready">Disponible</span>
-          </div>
-          <p class="catalog-card-blurb">Órbita y movimiento circular (usa gravedad / B).</p>
-        </button>
-      </div>
+          <noscript>
+            <p class="placeholder-text">Activa JavaScript para usar el laboratorio FísicaHN.</p>
+          </noscript>
+        </div>
       </section>
     </div>
   </div>
@@ -371,9 +175,10 @@
   <!-- Bottom Panel -->
   <footer class="bottom-panel" id="bottomPanel">
     <div class="bottom-tabs" id="bottomTabs">
-      <button class="bottom-tab active" data-tab="info">Información</button>
-      <button class="bottom-tab" data-tab="formulas">Fórmulas</button>
-      <button class="bottom-tab" data-tab="data">Datos</button>
+      <button type="button" class="bottom-tab active" data-tab="info">Información</button>
+      <button type="button" class="bottom-tab" data-tab="formulas">Fórmulas</button>
+      <button type="button" class="bottom-tab" data-tab="data">Datos</button>
+      <button type="button" class="bottom-tab" data-tab="challenges" hidden>Retos</button>
     </div>
     <div class="bottom-content" id="bottomContent">
       <div class="tab-panel active" id="tab-info">

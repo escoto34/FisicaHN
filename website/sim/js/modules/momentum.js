@@ -179,23 +179,23 @@ function renderParams() {
       </select>
     </div>
     <div class="control-group">
-      <label class="control-label">m1 (kg)</label>
+      <label class="control-label">$m_1$ (kg)</label>
       <div class="slider-row"><input type="range" id="p_m1" class="custom-slider" min="0.5" max="10" step="0.5" value="${params.m1}"><span id="d_m1">${params.m1}</span></div>
     </div>
     <div class="control-group">
-      <label class="control-label">m2 (kg)</label>
+      <label class="control-label">$m_2$ (kg)</label>
       <div class="slider-row"><input type="range" id="p_m2" class="custom-slider" min="0.5" max="10" step="0.5" value="${params.m2}"><span id="d_m2">${params.m2}</span></div>
     </div>
     <div class="control-group">
-      <label class="control-label">v1 inicial</label>
+      <label class="control-label">$v_1$ inicial</label>
       <div class="slider-row"><input type="range" id="p_v1" class="custom-slider" min="-8" max="8" step="0.5" value="${params.v1i}"><span id="d_v1">${params.v1i}</span></div>
     </div>
     <div class="control-group">
-      <label class="control-label">v2 inicial</label>
+      <label class="control-label">$v_2$ inicial</label>
       <div class="slider-row"><input type="range" id="p_v2" class="custom-slider" min="-8" max="8" step="0.5" value="${params.v2i}"><span id="d_v2">${params.v2i}</span></div>
     </div>
     <div class="control-group">
-      <label class="control-label">e (inelástico)</label>
+      <label class="control-label">$e$ (inelástico)</label>
       <div class="slider-row"><input type="range" id="p_e" class="custom-slider" min="0" max="1" step="0.05" value="${params.e}"><span id="d_e">${params.e}</span></div>
     </div>
   `);

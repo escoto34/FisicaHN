@@ -1,7 +1,8 @@
 /**
- * Catálogo de simulaciones.
- * Los campos `level` se conservan solo para datos internos / progreso;
- * la UI muestra un único listado unificado (sin etiquetas de grado).
+ * Catálogo de simulaciones (listado unificado, sin duplicados).
+ *
+ * Cada entrada = un motor real distinto o un enfoque claramente diferente.
+ * IDs antiguos se redirigen en getById() para trabajos guardados previos.
  */
 
 export const LEVELS = [
@@ -12,7 +13,6 @@ export const LEVELS = [
 
 /**
  * Módulo especial del menú: importar / exportar / ver trabajos en caché.
- * No abre un motor de simulación.
  */
 export const WORKS_MODULE = {
   id: 'my-works',
@@ -27,150 +27,245 @@ export const WORKS_MODULE = {
   hub: true
 };
 
+/**
+ * Alias de IDs antiguos → id canónico (trabajos / enlaces viejos).
+ * Varios nombres del menú apuntaban al mismo motor; se unificaron.
+ */
+export const CATALOG_ALIASES = {
+  // Cinemática unificada (antes 1D y 2D por separado, mismo motor)
+  'one-d-motion': 'kinematics',
+  'two-d-motion': 'kinematics',
+  // Trabajos viejos “circuitos/electrodinámica” = Coulomb; el motor Ohm/RLC es circuits-dc-ac
+  circuits: 'electric-field',
+  electrodynamics: 'electric-field',
+  electricity: 'electric-field',
+  // Sonido = ondas acústicas
+  'waves-energy-transfer': 'sound-waves',
+  sound: 'sound-waves',
+  // Oscilador (Ec/Ep); trabajo general con fricción es work-energy
+  'conservation-energy': 'oscillatory-energy',
+  'oscillatory-motion': 'oscillatory-energy',
+  'potential-kinetic': 'oscillatory-energy',
+  // Óptica: “wave-optics” antiguo era Snell; la ondulatoria real es interference-diffraction
+  light: 'geometric-optics',
+  'wave-optics': 'geometric-optics',
+  optics: 'geometric-optics',
+  // Rotación: ahora motor propio (antes se redirigía por error a magnetic-fields)
+  'rotational-motion': 'rotational',
+  // Fuerzas
+  'forces-motion': 'forces-motion',
+  dynamics: 'forces-motion'
+};
+
 /** @type {Array<Record<string, unknown>>} */
 export const CATALOG = [
-  // Docente (una sola entrada de pizarra en el menú unificado)
   {
     id: 'whiteboard',
     title: 'Pizarra',
     titleEn: 'Whiteboard',
     level: 'middle',
-    blurb: 'Pizarra en blanco para ejemplos del profesor.',
+    blurb: 'Pizarra en blanco para ejemplos del profesor (sin simulación física).',
     engineKey: 'whiteboard',
     status: 'ready',
-    teacher: true
+    teacher: true,
+    topic:
+      'Herramienta docente: dibujo libre. No es un módulo de física con leyes propias.'
   },
-
-  // —— Middle School ——
   {
-    id: 'magnetic-fields',
-    title: 'Campos magnéticos',
-    titleEn: 'Magnetic Fields',
-    level: 'middle',
-    blurb: 'Carga en B uniforme: órbita circular y F = qvB.',
-    engineKey: 'magnetic',
-    status: 'ready'
+    id: 'kinematics',
+    title: 'Cinemática',
+    titleEn: 'Kinematics',
+    level: 'high',
+    blurb:
+      'MRU y MRUV en 1D o en el plano: posición, velocidad y aceleración (sin fuerzas).',
+    engineKey: 'kinematics',
+    status: 'ready',
+    topic:
+      'Describe cómo se mueve un objeto (x, v, a, t) sin preguntar por qué. Unifica el antiguo “movimiento 1D” y “2D”: el motor ya usa componentes vx, vy, ax, ay.'
   },
   {
     id: 'forces-motion',
     title: 'Fuerzas y movimiento',
     titleEn: 'Forces & Motion',
     level: 'middle',
-    blurb: 'Fuerza neta, masa y aceleración (F = ma). Espacio infinito disponible.',
+    blurb: 'Segunda ley de Newton: F = m·a. Fuerza neta, masa y aceleración.',
     engineKey: 'dynamics',
-    status: 'ready'
-  },
-  {
-    id: 'circuits',
-    title: 'Circuitos',
-    titleEn: 'Circuits',
-    level: 'middle',
-    blurb: 'Ley de Ohm, serie/paralelo y Kirchhoff.',
-    engineKey: 'electricity',
-    status: 'ready'
-  },
-  {
-    id: 'potential-kinetic',
-    title: 'Energía potencial y cinética',
-    titleEn: 'Potential & Kinetic Energy',
-    level: 'middle',
-    blurb: 'Energía y fuerzas: exploración con dinámica.',
-    engineKey: 'dynamics',
-    status: 'ready'
-  },
-  {
-    id: 'waves-energy-transfer',
-    title: 'Ondas y transferencia de energía',
-    titleEn: 'Waves & Energy Transfer',
-    level: 'middle',
-    blurb: 'Frentes de onda y propagación (vista con módulo de sonido).',
-    engineKey: 'sound',
-    status: 'ready'
-  },
-  {
-    id: 'conservation-energy',
-    title: 'Conservación de la energía',
-    titleEn: 'Conservation of Energy',
-    level: 'middle',
-    blurb: 'Em en el oscilador y sistemas dinámicos.',
-    engineKey: 'oscillatory',
-    status: 'ready'
-  },
-
-  // —— High School (level solo metadato; menú unificado) ——
-  {
-    id: 'light',
-    title: 'Luz',
-    titleEn: 'Light',
-    level: 'high',
-    blurb: 'Óptica geométrica: espejos y lentes.',
-    engineKey: 'optics',
-    status: 'ready'
-  },
-  {
-    id: 'one-d-motion',
-    title: 'Movimiento unidimensional',
-    titleEn: 'One-dimensional Motion',
-    level: 'high',
-    blurb: 'MRU/MRUV con espacio infinito y cámara.',
-    engineKey: 'kinematics',
-    status: 'ready'
+    status: 'ready',
+    topic:
+      'Dinámica: la fuerza neta explica la aceleración. Distinto de cinemática (allí no hay F).'
   },
   {
     id: 'momentum',
-    title: 'Momentum',
+    title: 'Cantidad de movimiento',
     titleEn: 'Momentum',
     level: 'high',
-    blurb: 'Colisiones 1D elásticas e inelásticas.',
+    blurb: 'Colisiones 1D elásticas e inelásticas; p = m·v y conservación.',
     engineKey: 'momentum',
-    status: 'ready'
+    status: 'ready',
+    topic: 'Choques 1D entre dos cuerpos. Para N cuerpos en el plano ver “Colisiones multi-cuerpo”.'
   },
   {
-    id: 'sound',
-    title: 'Sonido',
-    titleEn: 'Sound',
+    id: 'collisions-2d',
+    title: 'Colisiones multi-cuerpo (2D)',
+    titleEn: 'Multi-body collisions (2D)',
     level: 'high',
-    blurb: 'Velocidad del sonido y efecto Doppler.',
+    blurb: 'Varios discos en el plano: choques con e, conservación de p⃗ y Ec.',
+    engineKey: 'collisions-2d',
+    status: 'ready',
+    topic: 'Complementa el módulo 1D: N cuerpos, paredes y coeficiente de restitución.'
+  },
+  {
+    id: 'work-energy',
+    title: 'Trabajo, energía y potencia',
+    titleEn: 'Work, Energy & Power',
+    level: 'high',
+    blurb: 'Bloque con F y rozamiento: W = F d cosθ, ΔEc y P = F·v.',
+    engineKey: 'work-energy',
+    status: 'ready',
+    topic:
+      'Energía mecánica general con fricción. Distinto del resorte MHS (solo Ec↔Ep sin trabajo de rozamiento).'
+  },
+  {
+    id: 'rotational',
+    title: 'Circular y rotacional',
+    titleEn: 'Circular & Rotational',
+    level: 'high',
+    blurb: 'MCU, τ = Iα, momento de inercia y precesión simple de peonza.',
+    engineKey: 'rotational',
+    status: 'ready',
+    topic:
+      'Cuerpo rígido / cinemática angular. No confundir con órbita de carga en B (Lorentz).'
+  },
+  {
+    id: 'oscillatory-energy',
+    title: 'Oscilaciones y energía',
+    titleEn: 'Oscillations & Energy',
+    level: 'advanced',
+    blurb:
+      'MHS en un resorte: x = A cos(ωt+φ), periodo, y Ec ↔ Ep (Em constante).',
+    engineKey: 'oscillatory',
+    status: 'ready',
+    topic:
+      'Resorte armónico: Ec, Ep y Em. Para trabajo/potencia con rozamiento usa “Trabajo, energía y potencia”.'
+  },
+  {
+    id: 'thermodynamics',
+    title: 'Termodinámica',
+    titleEn: 'Thermodynamics',
+    level: 'advanced',
+    blurb: 'Gas ideal (P–V), ciclo de Carnot y conducción/difusión de calor.',
+    engineKey: 'thermodynamics',
+    status: 'ready',
+    topic: 'Leyes térmicas, motores (η de Carnot) y transferencia de calor 1D.'
+  },
+  {
+    id: 'sound-waves',
+    title: 'Sonido y ondas',
+    titleEn: 'Sound & Waves',
+    level: 'high',
+    blurb:
+      'Ondas sonoras: frentes, v = f·λ, temperatura y efecto Doppler (fuente móvil).',
     engineKey: 'sound',
-    status: 'ready'
+    status: 'ready',
+    topic:
+      'Ondas mecánicas/acústicas. Ondas EM y óptica ondulatoria son módulos aparte.'
   },
   {
-    id: 'electrodynamics',
-    title: 'Electrodinámica',
-    titleEn: 'Electrodynamics',
-    level: 'high',
-    blurb: 'Circuitos y cargas en movimiento (base).',
+    id: 'electric-field',
+    title: 'Campo eléctrico y cargas',
+    titleEn: 'Electric Field & Charges',
+    level: 'middle',
+    blurb:
+      'Ley de Coulomb, campo E y potencial entre cargas puntuales (electrostática).',
     engineKey: 'electricity',
-    status: 'ready'
+    status: 'ready',
+    topic:
+      'Electrostática de cargas. Circuitos Ohm/RLC están en “Circuitos DC/AC”.'
+  },
+  {
+    id: 'circuits-dc-ac',
+    title: 'Circuitos DC / AC',
+    titleEn: 'DC / AC Circuits',
+    level: 'high',
+    blurb: 'Serie/paralelo (Ohm) e impedancia RLC con resonancia e i(t).',
+    engineKey: 'circuits',
+    status: 'ready',
+    topic: 'Mallas resistivas y RLC forzado. No es el mapa de Coulomb.'
+  },
+  {
+    id: 'magnetic-fields',
+    title: 'Campos magnéticos',
+    titleEn: 'Magnetic Fields',
+    level: 'middle',
+    blurb:
+      'Carga en B uniforme: fuerza de Lorentz F = qvB y órbita circular r = mv/|q|B.',
+    engineKey: 'magnetic',
+    status: 'ready',
+    topic:
+      'Partícula en B. Rotación de cuerpo rígido (τ, I) está en “Circular y rotacional”.'
+  },
+  {
+    id: 'em-waves',
+    title: 'Ondas electromagnéticas',
+    titleEn: 'Electromagnetic Waves',
+    level: 'advanced',
+    blurb: 'Onda plana: E ⊥ B ⊥ propagación; c = f·λ.',
+    engineKey: 'em-waves',
+    status: 'ready',
+    topic: 'Luz como onda EM (Maxwell). Distinto de sonido y de franjas de Young.'
   },
   {
     id: 'universal-gravity',
     title: 'Gravedad universal',
     titleEn: 'Universal Gravity',
     level: 'high',
-    blurb: 'Órbitas 2D con masa central fija.',
+    blurb: 'Órbitas 2D alrededor de una masa central (Newton).',
     engineKey: 'gravity',
-    status: 'ready'
-  },
-
-  // —— Advanced (level solo metadato; menú unificado) ——
-  {
-    id: 'two-d-motion',
-    title: 'Movimiento bidimensional',
-    titleEn: 'Two-dimensional Motion',
-    level: 'advanced',
-    blurb: 'Movimiento en el plano con vectores (cinemática).',
-    engineKey: 'kinematics',
-    status: 'ready'
+    status: 'ready',
+    topic:
+      'Gravitación con GM libre. Leyes de Kepler explícitas y flyby: módulo Kepler.'
   },
   {
-    id: 'oscillatory-motion',
-    title: 'Movimiento oscilatorio',
-    titleEn: 'Oscillatory Motion',
+    id: 'kepler-orbits',
+    title: 'Kepler y asistencia gravitacional',
+    titleEn: 'Kepler & Gravity Assist',
     level: 'advanced',
-    blurb: 'MHS: resorte, periodo y energía.',
-    engineKey: 'oscillatory',
-    status: 'ready'
+    blurb: 'Elipses T²∝a³, periodo medido y sobrevuelo (slingshot).',
+    engineKey: 'kepler',
+    status: 'ready',
+    topic: '3 leyes de Kepler + asistencia gravitacional para sondas.'
+  },
+  {
+    id: 'geometric-optics',
+    title: 'Luz y óptica geométrica',
+    titleEn: 'Light & Geometric Optics',
+    level: 'high',
+    blurb:
+      'Rayos: reflexión (θi = θr), refracción (Snell) y ángulo crítico / RTI.',
+    engineKey: 'optics',
+    status: 'ready',
+    topic:
+      'Interfaz plana (Snell). Lentes delgadas e interferencia son módulos aparte.'
+  },
+  {
+    id: 'thin-lenses',
+    title: 'Lentes delgadas',
+    titleEn: 'Thin Lenses',
+    level: 'high',
+    blurb: '1/f = 1/d₀ + 1/dᵢ, aumento M y diagrama de rayos principales.',
+    engineKey: 'lenses',
+    status: 'ready',
+    topic: 'Formación de imagen con lente convergente/divergente.'
+  },
+  {
+    id: 'interference-diffraction',
+    title: 'Interferencia y difracción',
+    titleEn: 'Interference & Diffraction',
+    level: 'advanced',
+    blurb: 'Doble rendija (Young) e intensidad de difracción de una rendija.',
+    engineKey: 'wave-optics',
+    status: 'ready',
+    topic: 'Óptica ondulatoria real (franjas). No es Snell de interfaz plana.'
   },
   {
     id: 'atomic-physics',
@@ -179,36 +274,64 @@ export const CATALOG = [
     level: 'advanced',
     blurb: 'Modelo de Bohr: niveles, órbitas y fotones en saltos de energía.',
     engineKey: 'atomic',
-    status: 'ready'
+    status: 'ready',
+    topic: 'Estructura atómica cuantizada (Bohr). Fotoeléctrico y túnel son otros módulos.'
+  },
+  {
+    id: 'photoelectric',
+    title: 'Efecto fotoeléctrico',
+    titleEn: 'Photoelectric Effect',
+    level: 'advanced',
+    blurb: 'hf y trabajo de extracción φ: K_max = hf − φ y frecuencia umbral.',
+    engineKey: 'photoelectric',
+    status: 'ready',
+    topic: 'Cuantos de luz e electrones emitidos; intensidad vs K_max.'
+  },
+  {
+    id: 'radioactivity',
+    title: 'Decaimiento radiactivo',
+    titleEn: 'Radioactive Decay',
+    level: 'advanced',
+    blurb: 'N(t) = N₀ e^(−λt), vida media y actividad A = λN.',
+    engineKey: 'radioactivity',
+    status: 'ready',
+    topic: 'Proceso estocástico de desintegración nuclear.'
+  },
+  {
+    id: 'quantum-tunneling',
+    title: 'Túnel cuántico',
+    titleEn: 'Quantum Tunneling',
+    level: 'advanced',
+    blurb: 'Barrera de potencial: T ≈ e^(−2κL) aunque E < V₀.',
+    engineKey: 'tunneling',
+    status: 'ready',
+    topic: 'Penetración de barrera; base del STM y fusión estelar.'
   },
   {
     id: 'particle-physics',
-    title: 'Física de partículas',
-    titleEn: 'Particle Physics',
+    title: 'Cargas en campo B (partículas)',
+    titleEn: 'Charges in B (particles)',
     level: 'advanced',
-    blurb: 'Cargas en campo B: curvatura, r = mv/|q|B y especies (e⁻, p⁺, α…).',
+    blurb:
+      'Varias especies (e⁻, p⁺, α…) en B: curvatura y r = mv/|q|B (estilo espectrómetro).',
     engineKey: 'particles',
-    status: 'ready'
-  },
-  {
-    id: 'wave-optics',
-    title: 'Óptica ondulatoria',
-    titleEn: 'Wave Optics',
-    level: 'advanced',
-    blurb: 'Base óptica; interferencia dedicada próximamente.',
-    engineKey: 'optics',
-    status: 'ready'
-  },
-  {
-    id: 'rotational-motion',
-    title: 'Movimiento rotacional',
-    titleEn: 'Rotational Motion',
-    level: 'advanced',
-    blurb: 'Órbita y movimiento circular (usa gravedad / B).',
-    engineKey: 'magnetic',
-    status: 'ready'
+    status: 'ready',
+    topic:
+      'Espectrómetro multi-especie. Intro de una carga: “Campos magnéticos”.'
   }
 ];
+
+function resolveId(id) {
+  if (!id) return id;
+  if (id === WORKS_MODULE.id) return id;
+  let cur = id;
+  const seen = new Set();
+  while (CATALOG_ALIASES[cur] && CATALOG_ALIASES[cur] !== cur && !seen.has(cur)) {
+    seen.add(cur);
+    cur = CATALOG_ALIASES[cur];
+  }
+  return cur;
+}
 
 export function getByLevel(levelId) {
   return CATALOG.filter((m) => m.level === levelId);
@@ -216,26 +339,19 @@ export function getByLevel(levelId) {
 
 export function getById(id) {
   if (id === WORKS_MODULE.id) return { ...WORKS_MODULE };
-  return CATALOG.find((m) => m.id === id) || null;
+  const resolved = resolveId(id);
+  const found = CATALOG.find((m) => m.id === resolved);
+  if (!found) return null;
+  // Si venía de un alias, devolver la entrada canónica (id nuevo)
+  return { ...found };
 }
 
 /**
- * Listado único para el menú principal y la barra lateral:
- * sin pestañas por grado y sin pizarras duplicadas.
+ * Listado único para el menú principal y la barra lateral.
  * “Mis trabajos” va primero.
  */
 export function getUnifiedCatalog() {
-  const list = [{ ...WORKS_MODULE }];
-  const seenEngineTeacher = new Set();
-
-  for (const m of CATALOG) {
-    if (m.teacher && m.engineKey === 'whiteboard') {
-      if (seenEngineTeacher.has('whiteboard')) continue;
-      seenEngineTeacher.add('whiteboard');
-    }
-    list.push(m);
-  }
-  return list;
+  return [{ ...WORKS_MODULE }, ...CATALOG.map((m) => ({ ...m }))];
 }
 
 /** Módulos de simulación (sin el hub de trabajos). */

@@ -25,22 +25,30 @@ const params = {
   v0: 3
 };
 
-export function init(engine, renderer, ui) {
+export function init(engine, renderer, ui, meta = null) {
   _engine = engine;
   _renderer = renderer;
   _ui = ui;
   resetState();
   renderer.resetCamera();
   setModuleInfo(ui, {
-    title: 'Campos magnéticos',
-    blurb: 'Carga en un campo B uniforme: fuerza de Lorentz y órbita circular.',
-    story: 'La fuerza de Lorentz describe cómo un campo magnético desvía cargas en movimiento. Es la base de motores y espectrómetros.',
-    cases: ['Haz de electrones en un tubo.', 'Partícula en un ciclotrón.', 'Iones en un espectrómetro de masa.']
+    title: meta?.title || 'Campos magnéticos',
+    blurb:
+      meta?.blurb ||
+      'Carga en B uniforme: fuerza de Lorentz F = qvB y órbita circular.',
+    story:
+      'La fuerza de Lorentz desvía cargas en movimiento y produce trayectorias circulares (o helices en 3D). Esto NO es “movimiento rotacional” de un cuerpo rígido (momento de inercia, torque): es una partícula puntual en un campo B. El menú que antes decía “movimiento rotacional” reutilizaba este motor por error.',
+    cases: [
+      'Haz de electrones curvado en un tubo de TV antiguo.',
+      'Partícula en un ciclotrón (órbitas en B).',
+      'Radio r = mv/|q|B: más masa o velocidad → órbita más grande.'
+    ]
   });
 
   setModuleFormulas(ui, { items: [
-    { name: 'Fuerza (B ⊥ v)', formula: 'F = q · v · B' },
-    { name: 'Radio de órbita', formula: 'r = m·v / (q·B)', note: 'Mayor B → menor radio.' }
+    { name: 'Fuerza (B ⊥ v)', formula: 'F = |q| · v · B', note: 'Dirección: regla de la mano derecha (v × B).' },
+    { name: 'Radio de órbita', formula: 'r = m·v / (|q|·B)', note: 'Mayor B → menor radio.' },
+    { name: 'Periodo ciclotrón', formula: 'T = 2π m / (|q| B)', note: 'Independiente de v en B uniforme.' }
   ]});
 
   clearChallenges(ui);
@@ -151,11 +159,11 @@ function renderParams() {
     <div class="control-group">
       <button type="button" class="ctrl-btn unbounded-btn active" id="param_unbounded">Espacio infinito: ON</button>
     </div>
-    <div class="control-group"><label class="control-label">q (signo/magnitud)</label>
+    <div class="control-group"><label class="control-label">$q$ (signo/magnitud)</label>
       <div class="slider-row"><input type="range" id="m_q" class="custom-slider" min="-3" max="3" step="0.5" value="${params.q}"><span id="md_q">${params.q}</span></div></div>
-    <div class="control-group"><label class="control-label">B (T)</label>
+    <div class="control-group"><label class="control-label">$B$ (T)</label>
       <div class="slider-row"><input type="range" id="m_B" class="custom-slider" min="0.2" max="3" step="0.1" value="${params.B}"><span id="md_B">${params.B}</span></div></div>
-    <div class="control-group"><label class="control-label">v₀ (m/s)</label>
+    <div class="control-group"><label class="control-label">$v_0$ (m/s)</label>
       <div class="slider-row"><input type="range" id="m_v" class="custom-slider" min="0.5" max="6" step="0.1" value="${params.v0}"><span id="md_v">${params.v0}</span></div></div>
   `);
   setTimeout(() => {

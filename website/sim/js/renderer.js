@@ -20,7 +20,11 @@ export class Renderer {
    */
   constructor(canvas, opts = {}) {
     this.canvas = canvas;
-    this.ctx = canvas.getContext('2d');
+    // Reutilizar el mismo contexto del motor si existe (evita 2 getContext)
+    this.ctx =
+      opts.ctx ||
+      canvas.getContext('2d', { alpha: false, desynchronized: true }) ||
+      canvas.getContext('2d');
 
     this.worldWidth = opts.worldWidth || 20;
     this.worldHeight = opts.worldHeight || 15;
@@ -30,18 +34,33 @@ export class Renderer {
 
     /** @type {Array<function(CanvasRenderingContext2D, Renderer): void>} */
     this._overlays = [];
+
+    /** Caché de tamaño CSS (se invalida 1× por frame en clear/invalidate) */
+    this._cssW = 800;
+    this._cssH = 600;
+    this._cssDirty = true;
+    this._gridFont = null;
+  }
+
+  /** Marca tamaño CSS como sucio (resize). */
+  invalidateCssSize() {
+    this._cssDirty = true;
   }
 
   /** Tamaño lógico CSS (tras HiDPI el buffer puede ser mayor). */
   cssSize() {
-    const c = this.canvas;
-    return {
-      w: c.clientWidth || c.width || 800,
-      h: c.clientHeight || c.height || 600
-    };
+    if (this._cssDirty) {
+      const c = this.canvas;
+      this._cssW = c.clientWidth || c.width || 800;
+      this._cssH = c.clientHeight || c.height || 600;
+      this._cssDirty = false;
+    }
+    return { w: this._cssW, h: this._cssH };
   }
 
   clear() {
+    // Una lectura de tamaño por frame; worldToCanvas reutiliza la caché
+    this._cssDirty = true;
     const { w, h } = this.cssSize();
     // Con setTransform(dpr) clear en px CSS; sin él, buffer completo
     this.ctx.save();
@@ -121,7 +140,14 @@ export class Renderer {
     ctx.save();
     ctx.strokeStyle = color;
     ctx.lineWidth = 1;
-    ctx.font = '10px ' + (getComputedStyle(this.canvas).fontFamily || 'monospace');
+    if (!this._gridFont) {
+      try {
+        this._gridFont = '10px ' + (getComputedStyle(this.canvas).fontFamily || 'monospace');
+      } catch {
+        this._gridFont = '10px monospace';
+      }
+    }
+    ctx.font = this._gridFont;
     ctx.fillStyle = labelColor;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';

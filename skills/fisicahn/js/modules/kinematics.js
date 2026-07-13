@@ -28,7 +28,7 @@ let tSamples = [];
 
 const params = { vx: 2, vy: 0, ax: 0, ay: 0 };
 
-export function init(engine, renderer, ui) {
+export function init(engine, renderer, ui, meta = null) {
   _engine = engine;
   _renderer = renderer;
   _ui = ui;
@@ -44,14 +44,16 @@ export function init(engine, renderer, ui) {
   ui.showCharts?.(true);
 
   setModuleInfo(ui, {
-    title: 'Cinemática',
-    blurb: 'Movimiento rectilíneo uniforme (MRU) y uniformemente variado (MRUV) en el plano.',
+    title: meta?.title || 'Cinemática',
+    blurb:
+      meta?.blurb ||
+      'MRU y MRUV en 1D o en el plano: posición, velocidad y aceleración (sin fuerzas).',
     story:
-      'Galileo estudió la caída de cuerpos y el movimiento en planos inclinados; Newton unificó estas ideas en leyes del movimiento. Hoy la cinemática describe trayectorias en vehículos, satélites y animaciones.',
+      'Galileo estudió la caída de cuerpos y el movimiento en planos inclinados; Newton unificó estas ideas en leyes del movimiento. Hoy la cinemática describe trayectorias en vehículos, satélites y animaciones. Aquí unificamos el movimiento unidimensional y bidimensional: usa vx, vy, ax, ay (pon vy=ay=0 para 1D).',
     cases: [
-      'Un auto en carretera a velocidad casi constante (MRU).',
-      'Un avión acelerando en la pista de despegue (MRUV).',
-      'Un cohete que sube y luego cae (a y v en direcciones distintas).'
+      '1D: auto en carretera a velocidad casi constante (MRU, solo vx).',
+      '1D: avión acelerando en la pista (MRUV, ax ≠ 0).',
+      '2D: proyectil o cohete con vx y vy (trayectoria en el plano).'
     ]
   });
 
@@ -253,10 +255,10 @@ function renderParams() {
         Espacio infinito: OFF
       </button>
     </div>
-    ${paramControl({ id: 'vx', label: 'Velocidad X', min: -5, max: 5, step: 0.1, value: params.vx, unit: 'm/s' })}
-    ${paramControl({ id: 'vy', label: 'Velocidad Y', min: -5, max: 5, step: 0.1, value: params.vy, unit: 'm/s' })}
-    ${paramControl({ id: 'ax', label: 'Aceleración X', min: -2, max: 2, step: 0.1, value: params.ax, unit: 'm/s²' })}
-    ${paramControl({ id: 'ay', label: 'Aceleración Y', min: -2, max: 2, step: 0.1, value: params.ay, unit: 'm/s²' })}
+    ${paramControl({ id: 'vx', labelTex: 'v_x', labelRest: 'velocidad', min: -5, max: 5, step: 0.1, value: params.vx, unit: 'm/s' })}
+    ${paramControl({ id: 'vy', labelTex: 'v_y', labelRest: 'velocidad', min: -5, max: 5, step: 0.1, value: params.vy, unit: 'm/s' })}
+    ${paramControl({ id: 'ax', labelTex: 'a_x', labelRest: 'aceleración', min: -2, max: 2, step: 0.1, value: params.ax, unit: 'm/s²' })}
+    ${paramControl({ id: 'ay', labelTex: 'a_y', labelRest: 'aceleración', min: -2, max: 2, step: 0.1, value: params.ay, unit: 'm/s²' })}
   `);
   setTimeout(() => {
     document.getElementById('param_unbounded')?.addEventListener('click', () => setUnbounded(!unbounded));

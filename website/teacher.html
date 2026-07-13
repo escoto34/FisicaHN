@@ -66,7 +66,8 @@
           <h3>Código de examen (en línea)</h3>
           <p class="muted" style="font-size:0.88rem;line-height:1.55;margin-bottom:0.75rem">
             Genera un código en la nube. Los alumnos, con internet, eligen modo Examen y escriben el mismo código
-            para vincular sus trabajos a tu colegio.
+            para vincular sus trabajos a tu colegio. Si un alumno borra un trabajo en su PC, deja de verse aquí
+            hasta que finalices el examen (entonces se archivan los JSON para evaluarlos).
           </p>
           <div class="exam-code" id="examCodeDisplay">———</div>
           <div class="row-actions">
@@ -74,6 +75,73 @@
             <button type="button" class="btn btn-secondary" id="btnEndExam">Finalizar examen</button>
           </div>
           <p class="form-msg" id="examMsg" role="status"></p>
+        </div>
+
+        <div class="teacher-block">
+          <h3>Retos del examen</h3>
+          <p class="muted" style="font-size:0.88rem;line-height:1.55;margin-bottom:0.75rem">
+            Añade retos por módulo con el formulario, o importa un JSON. También puedes exportar el formulario
+            para reutilizarlo en otra clase.
+          </p>
+          <div class="field">
+            <label for="chModule">Módulo</label>
+            <select id="chModule">
+              <option value="dynamics">Fuerzas y movimiento</option>
+              <option value="kinematics">Cinemática</option>
+              <option value="electricity">Campo eléctrico y cargas</option>
+              <option value="optics">Luz y óptica geométrica</option>
+              <option value="momentum">Cantidad de movimiento</option>
+              <option value="sound">Sonido y ondas</option>
+              <option value="magnetic">Campos magnéticos</option>
+              <option value="gravity">Gravedad universal</option>
+              <option value="atomic">Física atómica</option>
+              <option value="particles">Cargas en campo B (partículas)</option>
+              <option value="oscillatory">Oscilaciones y energía</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="chType">Tipo</label>
+            <select id="chType">
+              <option value="numeric">Numérico</option>
+              <option value="multiple">Opción múltiple</option>
+              <option value="select">Lista desplegable</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="chQuestion">Pregunta</label>
+            <textarea id="chQuestion" rows="2" placeholder="Enunciado del reto"></textarea>
+          </div>
+          <div class="field">
+            <label for="chAnswer">Respuesta (número o índice 0-based de la opción correcta)</label>
+            <input id="chAnswer" type="text" placeholder="ej. 5 o 1">
+          </div>
+          <div class="field" id="chOptionsField" hidden>
+            <label for="chOptions">Opciones (una por línea)</label>
+            <textarea id="chOptions" rows="3" placeholder="Opción A&#10;Opción B"></textarea>
+          </div>
+          <div class="field">
+            <label for="chUnit">Unidad (numérico)</label>
+            <input id="chUnit" type="text" placeholder="m/s²">
+          </div>
+          <div class="field">
+            <label for="chHint">Pista</label>
+            <input id="chHint" type="text">
+          </div>
+          <div class="field">
+            <label for="chPoints">Puntos</label>
+            <input id="chPoints" type="number" value="10" min="1" max="100">
+          </div>
+          <div class="row-actions">
+            <button type="button" class="btn btn-primary" id="btnChAdd">Añadir al formulario</button>
+            <button type="button" class="btn btn-secondary" id="btnChExport">Exportar JSON</button>
+            <label class="btn btn-secondary" style="cursor:pointer">
+              Importar JSON
+              <input type="file" id="chImportFile" accept="application/json,.json" hidden>
+            </label>
+            <button type="button" class="btn btn-secondary" id="btnChPublish">Publicar en examen activo</button>
+          </div>
+          <p class="form-msg" id="chMsg" role="status"></p>
+          <div id="chList" class="muted" style="font-size:0.88rem;margin-top:0.75rem"></div>
         </div>
 
         <div class="teacher-block">

@@ -242,8 +242,8 @@ function updateData() {
 
 function renderParams() {
   _ui.setParams(`
-    ${paramControl({ id: 'n', label: 'Nivel n', min: 1, max: 6, step: 1, value: params.n, unit: '' })}
-    ${paramControl({ id: 'Z', label: 'Z (carga nuclear)', min: 1, max: 3, step: 1, value: params.Z, unit: '' })}
+    ${paramControl({ id: 'n', labelTex: 'n', labelRest: 'nivel', min: 1, max: 6, step: 1, value: params.n, unit: '' })}
+    ${paramControl({ id: 'Z', labelTex: 'Z', labelRest: 'carga nuclear', min: 1, max: 3, step: 1, value: params.Z, unit: '' })}
     <div class="control-group">
       <label class="gate-check">
         <input type="checkbox" id="param_showPhoton" ${params.showPhoton ? 'checked' : ''}>

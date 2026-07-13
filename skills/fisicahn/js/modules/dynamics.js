@@ -31,7 +31,7 @@ const params = {
   fy: 0
 };
 
-export function init(engine, renderer, ui) {
+export function init(engine, renderer, ui, meta = null) {
   _engine = engine;
   _renderer = renderer;
   _ui = ui;
@@ -45,9 +45,12 @@ export function init(engine, renderer, ui) {
   applyForce();
 
   setModuleInfo(ui, {
-    title: 'Dinámica',
-    blurb: 'Segunda ley de Newton: la fuerza neta determina la aceleración (F = m·a).',
-    story: 'Newton relacionó fuerza, masa y aceleración en el siglo XVII. Es la base del diseño de vehículos, elevadores y estructuras.',
+    title: meta?.title || 'Fuerzas y movimiento',
+    blurb:
+      meta?.blurb ||
+      'Segunda ley de Newton: la fuerza neta determina la aceleración (F = m·a).',
+    story:
+      'Newton relacionó fuerza, masa y aceleración. Distinto de cinemática: aquí la causa del movimiento es F. Distinto de energía en el resorte: aquí se aplica una fuerza constante y se ve a = F/m.',
     cases: [
       'Empujar un carrito de supermercado (más masa → menos aceleración).',
       'Frenar un camión vs una bicicleta con la misma fuerza de freno.',
@@ -253,9 +256,9 @@ function renderParams() {
         Espacio infinito: OFF
       </button>
     </div>
-    ${paramControl({ id: 'mass', label: 'Masa', min: 0.5, max: 10, step: 0.5, value: params.mass, unit: 'kg' })}
-    ${paramControl({ id: 'fx', label: 'Fuerza X', min: -20, max: 20, step: 0.5, value: params.fx, unit: 'N' })}
-    ${paramControl({ id: 'fy', label: 'Fuerza Y', min: -20, max: 20, step: 0.5, value: params.fy, unit: 'N' })}
+    ${paramControl({ id: 'mass', labelTex: 'm', labelRest: 'masa', min: 0.5, max: 10, step: 0.5, value: params.mass, unit: 'kg' })}
+    ${paramControl({ id: 'fx', labelTex: 'F_x', labelRest: 'fuerza', min: -20, max: 20, step: 0.5, value: params.fx, unit: 'N' })}
+    ${paramControl({ id: 'fy', labelTex: 'F_y', labelRest: 'fuerza', min: -20, max: 20, step: 0.5, value: params.fy, unit: 'N' })}
   `);
 
   setTimeout(() => {

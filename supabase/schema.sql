@@ -1,6 +1,22 @@
 -- FísicaHN — esquema Supabase (SQL Editor → Run)
--- Seguro de re-ejecutar. Políticas RLS endurecidas para producción
--- (corrige avisos del Security Advisor: rls_policy_always_true, etc.).
+-- Seguro de re-ejecutar (DROP POLICY IF EXISTS + CREATE).
+-- Políticas RLS endurecidas (sin WITH CHECK true en inserts públicos).
+--
+-- ═══════════════════════════════════════════════════════════════════════════
+-- CHECKLIST SEGURIDAD (Dashboard — no se puede fijar solo con SQL)
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 1) Auth → Providers → Email → Password:
+--    • Activar "Leaked password protection" (HaveIBeenPwned).
+--      Docs: https://supabase.com/docs/guides/auth/password-security
+--    • Mínimo 8+ caracteres (recomendado 10+).
+--    Nota: en plan Free a veces el toggle no está disponible; el WARN del
+--    Security Advisor se quita al activarlo (Pro) o se puede ignorar si solo
+--    usas OAuth sin contraseñas.
+-- 2) Project Settings → API: NUNCA expongas service_role en el cliente;
+--    solo anon key en la app Electron/ZIP.
+-- 3) Auth → URL Configuration: Site URL y Redirect URLs solo a tus dominios.
+-- 4) Tras correr este script: Database → Advisors → Security (revisar avisos).
+-- ═══════════════════════════════════════════════════════════════════════════
 
 create extension if not exists "pgcrypto";
 
@@ -79,9 +95,17 @@ alter table public.student_works add column if not exists mode text default 'pra
 alter table public.student_works add column if not exists payload jsonb default '{}'::jsonb;
 alter table public.student_works add column if not exists integrity_hash text;
 alter table public.student_works add column if not exists created_at timestamptz default now();
+-- Soft-delete (debe existir ANTES de las políticas RLS que lo referencian)
+alter table public.student_works add column if not exists deleted_at timestamptz;
 
 create index if not exists student_works_school_key_idx on public.student_works (school_key);
 create index if not exists student_works_exam_code_idx on public.student_works (exam_code);
+create index if not exists student_works_exam_live_idx
+  on public.student_works (exam_code, school_key)
+  where deleted_at is null;
+create index if not exists student_works_local_id_idx
+  on public.student_works (local_id)
+  where local_id is not null;
 
 create table if not exists public.audit_log (
   id bigserial primary key,
@@ -206,7 +230,9 @@ create policy "exams_update_teacher" on public.exams
   );
 
 -- Works: insert con validación mínima (no WITH CHECK true)
+-- Nombres legacy y actual: hay que dropear TODOS antes de CREATE (re-run).
 drop policy if exists "works_insert_anon" on public.student_works;
+drop policy if exists "works_insert_validated" on public.student_works;
 create policy "works_insert_validated" on public.student_works
   for insert to anon, authenticated
   with check (
@@ -215,25 +241,31 @@ create policy "works_insert_validated" on public.student_works
     and (school_key is null or char_length(school_key) <= 160)
     and (exam_code is null or exam_code ~ '^[0-9]{4,8}$')
     and (module_id is null or char_length(module_id) <= 80)
+    and (mode is null or (char_length(mode) between 1 and 32 and mode ~ '^[a-z_]+$'))
     and (payload is null or octet_length(payload::text) < 200000)
+    and deleted_at is null
   );
 
--- Lectura de trabajos: solo docentes del mismo school_key
+-- Lectura de trabajos: solo docentes del mismo school_key; ocultar soft-deleted
 drop policy if exists "works_select_authenticated" on public.student_works;
+drop policy if exists "works_select_teacher_school" on public.student_works;
 create policy "works_select_teacher_school" on public.student_works
   for select to authenticated
   using (
     school_key is not null
     and school_key = public.current_teacher_school_key()
+    and deleted_at is null
   );
 
 -- Audit: solo docentes autenticados (no spam anónimo)
 drop policy if exists "audit_insert_anon" on public.audit_log;
+drop policy if exists "audit_insert_auth" on public.audit_log;
 create policy "audit_insert_auth" on public.audit_log
   for insert to authenticated
   with check (
     char_length(event) between 1 and 80
     and (school_key is null or char_length(school_key) <= 160)
+    and (detail is null or octet_length(detail::text) < 20000)
   );
 
 -- Ideas
@@ -289,3 +321,133 @@ comment on table public.improvement_ideas is 'Ideas de mejora de docentes verifi
 comment on column public.schools.owner_id is 'Docente auth.users que registró el colegio.';
 comment on policy "exams_insert_teacher" on public.exams is 'Solo docentes autenticados pueden crear códigos.';
 comment on policy "works_insert_validated" on public.student_works is 'Insert anónimo con validación de campos (no WITH CHECK true).';
+
+-- ---------------------------------------------------------------------------
+-- Examen en vivo: soft-delete RPC + packs de retos del docente
+-- (columna deleted_at e índices: ya creados con student_works arriba)
+-- ---------------------------------------------------------------------------
+
+-- Soft-delete por el alumno (anon) vía RPC (no UPDATE libre sobre la tabla).
+-- SECURITY DEFINER: solo actualiza deleted_at con local_id + exam_code exactos.
+-- search_path fijo; sin grant a public; no devuelve filas sensibles.
+create or replace function public.soft_delete_student_work(
+  p_local_id text,
+  p_exam_code text
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  n int;
+  lid text;
+begin
+  lid := trim(coalesce(p_local_id, ''));
+  -- local_id del cliente suele ser UUID / id largo; evitar borrados por fuerza bruta
+  if char_length(lid) < 8 or char_length(lid) > 80 then
+    return false;
+  end if;
+  if p_exam_code is null or p_exam_code !~ '^[0-9]{4,8}$' then
+    return false;
+  end if;
+
+  update public.student_works
+  set deleted_at = now()
+  where local_id = lid
+    and exam_code = p_exam_code
+    and deleted_at is null;
+
+  get diagnostics n = row_count;
+  return n > 0;
+end;
+$$;
+
+revoke all on function public.soft_delete_student_work(text, text) from public;
+revoke all on function public.soft_delete_student_work(text, text) from anon, authenticated;
+grant execute on function public.soft_delete_student_work(text, text) to anon, authenticated;
+
+-- Docente puede actualizar (p. ej. soft-delete manual) filas de su colegio
+drop policy if exists "works_update_teacher_school" on public.student_works;
+create policy "works_update_teacher_school" on public.student_works
+  for update to authenticated
+  using (
+    school_key is not null
+    and school_key = public.current_teacher_school_key()
+  )
+  with check (
+    school_key is not null
+    and school_key = public.current_teacher_school_key()
+  );
+
+grant update on table public.student_works to authenticated;
+
+-- Pack de retos por código de examen (formulario docente o JSON importado)
+create table if not exists public.exam_challenge_packs (
+  id uuid primary key default gen_random_uuid(),
+  exam_code text not null,
+  school_key text not null,
+  pack jsonb not null default '{}'::jsonb,
+  created_by uuid references auth.users (id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.exam_challenge_packs add column if not exists exam_code text;
+alter table public.exam_challenge_packs add column if not exists school_key text;
+alter table public.exam_challenge_packs add column if not exists pack jsonb default '{}'::jsonb;
+alter table public.exam_challenge_packs add column if not exists created_by uuid;
+alter table public.exam_challenge_packs add column if not exists created_at timestamptz default now();
+alter table public.exam_challenge_packs add column if not exists updated_at timestamptz default now();
+
+create unique index if not exists exam_challenge_packs_code_uidx
+  on public.exam_challenge_packs (exam_code);
+
+alter table public.exam_challenge_packs enable row level security;
+
+-- Lectura: pack de examen activo (anon) o del colegio del docente
+drop policy if exists "challenge_packs_select_active" on public.exam_challenge_packs;
+drop policy if exists "challenge_packs_select_teacher" on public.exam_challenge_packs;
+create policy "challenge_packs_select_active" on public.exam_challenge_packs
+  for select to anon, authenticated
+  using (
+    exists (
+      select 1 from public.exams e
+      where e.code = exam_challenge_packs.exam_code
+        and e.active = true
+    )
+  );
+create policy "challenge_packs_select_teacher" on public.exam_challenge_packs
+  for select to authenticated
+  using (school_key = public.current_teacher_school_key());
+
+drop policy if exists "challenge_packs_write_teacher" on public.exam_challenge_packs;
+drop policy if exists "challenge_packs_insert_teacher" on public.exam_challenge_packs;
+drop policy if exists "challenge_packs_update_teacher" on public.exam_challenge_packs;
+create policy "challenge_packs_insert_teacher" on public.exam_challenge_packs
+  for insert to authenticated
+  with check (
+    created_by = auth.uid()
+    and school_key = public.current_teacher_school_key()
+    and exam_code ~ '^[0-9]{4,8}$'
+    and octet_length(pack::text) < 500000
+  );
+
+create policy "challenge_packs_update_teacher" on public.exam_challenge_packs
+  for update to authenticated
+  using (
+    school_key = public.current_teacher_school_key()
+  )
+  with check (
+    school_key = public.current_teacher_school_key()
+    and octet_length(pack::text) < 500000
+  );
+
+revoke all on table public.exam_challenge_packs from public;
+grant select on table public.exam_challenge_packs to anon, authenticated;
+grant insert, update on table public.exam_challenge_packs to authenticated;
+
+comment on column public.student_works.deleted_at is
+  'Soft-delete en vivo: si el alumno borra el trabajo, el docente deja de verlo; al terminar el examen se archivan los no borrados.';
+comment on table public.exam_challenge_packs is
+  'Retos del examen (JSON por módulo). El docente los carga por formulario o import JSON.';

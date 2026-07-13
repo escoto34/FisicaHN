@@ -20,17 +20,30 @@ const params = {
   m: 1
 };
 
-export function init(engine, renderer, ui) {
+export function init(engine, renderer, ui, meta = null) {
   _engine = engine;
   _renderer = renderer;
   _ui = ui;
   t = 0;
   renderer.resetCamera();
-  ui.setInfo('<strong>Movimiento oscilatorio</strong> — MHS en un resorte: x = A cos(ωt + φ).');
+  setModuleInfo(ui, {
+    title: meta?.title || 'Oscilaciones y energía',
+    blurb:
+      meta?.blurb ||
+      'MHS en un resorte: posición, periodo y conservación Ec + Ep = Em.',
+    story:
+      'En un resorte ideal sin fricción, la energía mecánica se intercambia entre cinética y potencial elástica pero Em se conserva. Unifica “movimiento oscilatorio” y “conservación de la energía” en un solo laboratorio.',
+    cases: [
+      'En los extremos: v = 0, Ep máxima, Ec = 0.',
+      'En el equilibrio: |v| máxima, Ep = 0, Ec máxima.',
+      'Em = ½ k A² constante si no hay disipación.'
+    ]
+  });
   setModuleFormulas(ui, { items: [
     { name: 'Ley de Hooke', formula: 'F = −k · x' },
     { name: 'Pulsación angular', formula: 'ω = √(k/m)', note: 'T = 2π/ω' },
-    { name: 'Posición', formula: 'x = A · cos(ωt + φ)' }
+    { name: 'Posición', formula: 'x = A · cos(ωt + φ)' },
+    { name: 'Energía', formula: 'E<sub>m</sub> = E<sub>c</sub> + E<sub>p</sub> = ½ k A²', note: 'Se conserva en el MHS ideal.' }
   ]});
 
   clearChallenges(ui);
@@ -104,11 +117,11 @@ export function render(ctx) {
 
 function renderParams() {
   _ui.setParams(`
-    <div class="control-group"><label class="control-label">Amplitud A (m)</label>
+    <div class="control-group"><label class="control-label">Amplitud $A$ (m)</label>
       <div class="slider-row"><input type="range" id="o_A" class="custom-slider" min="0.5" max="7" step="0.1" value="${params.A}"><span id="od_A">${params.A}</span></div></div>
-    <div class="control-group"><label class="control-label">ω (rad/s)</label>
+    <div class="control-group"><label class="control-label">$\omega$ (rad/s)</label>
       <div class="slider-row"><input type="range" id="o_w" class="custom-slider" min="0.3" max="4" step="0.1" value="${params.omega}"><span id="od_w">${params.omega}</span></div></div>
-    <div class="control-group"><label class="control-label">φ (rad)</label>
+    <div class="control-group"><label class="control-label">$\varphi$ (rad)</label>
       <div class="slider-row"><input type="range" id="o_p" class="custom-slider" min="0" max="6.28" step="0.1" value="${params.phi}"><span id="od_p">${params.phi}</span></div></div>
   `);
   setTimeout(() => {

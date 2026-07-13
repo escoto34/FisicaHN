@@ -649,15 +649,48 @@ button.sidebar-brand-btn:hover .sidebar-title {
 }
 .formula-expr {
   font-size: 1.05rem;
-  font-family: var(--font-mono);
   color: var(--accent);
   line-height: 1.5;
+  overflow-x: auto;
+}
+.formula-expr .katex {
+  color: var(--accent);
+  font-size: 1.15em;
 }
 .formula-note {
   font-size: 0.75rem;
   color: var(--text-secondary);
   margin-top: 4px;
   line-height: 1.4;
+}
+.formula-note .katex {
+  font-size: 1em;
+  color: var(--text-secondary);
+}
+.control-label .katex {
+  font-size: 1.05em;
+  color: var(--text-primary);
+}
+.param-unit .katex {
+  font-size: 0.95em;
+}
+.tex-fallback {
+  font-family: var(--font-mono);
+  color: var(--accent);
+}
+/* KaTeX en tema oscuro */
+.katex {
+  color: inherit;
+}
+.slider-row.param-row,
+.param-row.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.slider-row .param-number {
+  width: 72px;
+  flex-shrink: 0;
 }
 .data-grid {
   font-family: var(--font-mono);
@@ -1346,6 +1379,162 @@ body.works-modal-open { overflow: hidden; }
 }
 .works-exam-msg.ok { color: #81c784; }
 .works-exam-msg.err { color: #ef9a9a; }
+
+.works-challenge-editor {
+  flex: 1 1 100%;
+  width: 100%;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(129, 199, 132, 0.25);
+}
+.works-challenge-title {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.works-challenge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin-bottom: 8px;
+}
+.works-challenge-row label,
+.works-challenge-full {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  flex: 1 1 140px;
+}
+.works-challenge-full {
+  flex: 1 1 100%;
+  margin-bottom: 8px;
+}
+.works-challenge-editor input,
+.works-challenge-editor select,
+.works-challenge-editor textarea {
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border, rgba(255,255,255,0.12));
+  background: var(--bg-elevated, rgba(0,0,0,0.25));
+  color: var(--text-primary, #e2e8f0);
+}
+.works-challenge-list {
+  margin-top: 10px;
+  max-height: 160px;
+  overflow: auto;
+  font-size: 0.8rem;
+}
+.works-challenge-mod {
+  margin-bottom: 8px;
+}
+.works-challenge-mod ul {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+}
+.works-challenge-mod li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+/* —— Óptica geométrica: panel lateral legible —— */
+.optics-params {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.optics-guide {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(79, 195, 247, 0.1);
+  border: 1px solid rgba(79, 195, 247, 0.25);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+.optics-guide strong {
+  color: var(--text-primary);
+  display: block;
+  margin-bottom: 4px;
+}
+.optics-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.optics-preset-btn {
+  font: inherit;
+  font-size: 0.78rem;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.optics-preset-btn:hover {
+  background: rgba(79, 195, 247, 0.18);
+  border-color: rgba(79, 195, 247, 0.4);
+}
+.optics-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+.optics-status {
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-align: center;
+}
+.optics-status.is-ok {
+  background: rgba(102, 187, 106, 0.18);
+  border: 1px solid rgba(102, 187, 106, 0.4);
+  color: #a5d6a7;
+}
+.optics-status.is-tir {
+  background: rgba(239, 83, 80, 0.18);
+  border: 1px solid rgba(239, 83, 80, 0.45);
+  color: #ef9a9a;
+}
+.optics-data-lead {
+  margin: 0 0 10px;
+  line-height: 1.5;
+}
+.optics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+.optics-table th,
+.optics-table td {
+  padding: 7px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: left;
+  vertical-align: top;
+}
+.optics-table th {
+  width: 48%;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.optics-table td {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  color: var(--text-primary);
+}
 
 /* Session gate modal */
 .session-gate {

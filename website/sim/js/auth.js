@@ -366,6 +366,19 @@ export async function joinExamCode(examCodeInput) {
     examCode,
     name: next.studentName || next.email
   });
+
+  // Cargar pack de retos del docente (si hay nube)
+  try {
+    const { fetchExamChallengePack } = await import('./supabase-client.js');
+    const { setCachedExamChallengePack, normalizeChallengePack } = await import('./challenges.js');
+    const row = await fetchExamChallengePack(examCode);
+    if (row?.pack) {
+      setCachedExamChallengePack(normalizeChallengePack(row.pack), examCode);
+    }
+  } catch {
+    /* sin pack */
+  }
+
   return next;
 }
 
@@ -444,13 +457,54 @@ export async function createExamCodeOnline() {
   return code;
 }
 
-export function endExamSession() {
+/**
+ * Finaliza el examen en este equipo.
+ * Opcionalmente desactiva el código en la nube y archiva trabajos del docente.
+ * @param {{ archiveWorks?: boolean, endCloud?: boolean }} opts
+ */
+export function endExamSession(opts = {}) {
   const rec = getTeacherRecord();
-  if (!rec) return;
-  rec.examActive = false;
-  rec.examCode = null;
-  localStorage.setItem(TEACHER_KEY, JSON.stringify(rec));
-  logAudit('exam_end', {});
+  const code = rec?.examCode || getSession()?.examCode || null;
+  const schoolKey = rec?.schoolKey || getSession()?.schoolKey || null;
+  if (rec) {
+    rec.examActive = false;
+    rec.examCode = null;
+    localStorage.setItem(TEACHER_KEY, JSON.stringify(rec));
+  }
+  logAudit('exam_end', { code });
+
+  const archiveWorks = opts.archiveWorks !== false;
+  const endCloud = opts.endCloud !== false;
+
+  // Fire-and-forget: nube + archivo local para evaluación posterior
+  (async () => {
+    try {
+      if (endCloud && schoolKey) {
+        const { endExamOnCloud } = await import('./supabase-client.js');
+        await endExamOnCloud({ schoolKey, code });
+      }
+    } catch {
+      /* ignore */
+    }
+    try {
+      if (archiveWorks) {
+        const { archiveExamWorksForTeacher, syncTeacherExamWorks } = await import('./works.js');
+        if (schoolKey) {
+          await syncTeacherExamWorks({ schoolKey, examCode: code });
+        }
+        await archiveExamWorksForTeacher({ examCode: code });
+      }
+    } catch {
+      /* ignore */
+    }
+    try {
+      window.dispatchEvent(new CustomEvent('fisicahn:exam-ended', { detail: { code } }));
+    } catch {
+      /* ignore */
+    }
+  })();
+
+  return { code, schoolKey };
 }
 
 export function getExamStatus() {

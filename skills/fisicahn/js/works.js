@@ -278,12 +278,169 @@ export async function saveWork(data) {
 }
 
 export function deleteWork(id) {
+  const prev = listWorks().find((w) => w.id === id) || null;
   const list = listWorks().filter((w) => w.id !== id);
   saveAll(list);
   if (isDesktopFile()) {
     window.FisicaHNDesktop.saveWorks(list).catch(() => {});
   }
   logAudit('work_delete', { id });
+
+  // En examen: avisar a la nube para que el docente deje de verlo
+  if (prev && (prev.mode === 'exam' || prev.examCode) && prev.examCode && prev.source !== 'exam-archive') {
+    const examCode = prev.examCode;
+    const localId = prev.cloudLocalId || prev.id;
+    import('./supabase-client.js')
+      .then(({ softDeleteWorkOnCloud }) =>
+        softDeleteWorkOnCloud({ localId, examCode })
+      )
+      .then((r) => {
+        if (r?.ok) logAudit('work_cloud_delete', { id: localId, examCode });
+        else if (r && !r.skipped) logAudit('work_cloud_delete_fail', { id: localId, error: r.error });
+      })
+      .catch(() => {});
+  }
+}
+
+/**
+ * Convierte filas de student_works (Supabase) a trabajos locales del docente.
+ */
+export function cloudRowToWork(row) {
+  const payload = row?.payload && typeof row.payload === 'object' ? row.payload : {};
+  const id = payload.id || row.local_id || row.id;
+  return {
+    id,
+    name: payload.name || row.module_title || 'Trabajo de examen',
+    moduleId: payload.moduleId || row.module_id || null,
+    moduleTitle: payload.moduleTitle || row.module_title || row.module_id || 'Módulo',
+    studentName: row.student_name || payload.studentName || 'Alumno',
+    schoolName: row.school_name || payload.schoolName || null,
+    schoolKey: row.school_key || payload.schoolKey || null,
+    mode: row.mode || payload.mode || 'exam',
+    examCode: row.exam_code || payload.examCode || null,
+    savedAt: payload.savedAt || row.created_at || new Date().toISOString(),
+    snapshot: payload.snapshot || {},
+    notes: payload.notes || (row.exam_code ? `Examen código ${row.exam_code}` : ''),
+    integrity: row.integrity_hash || payload.integrity || null,
+    source: 'imported',
+    examLive: !row.deleted_at,
+    examArchived: false,
+    cloudSynced: true,
+    cloudRowId: row.id,
+    cloudLocalId: row.local_id || payload.id || id,
+    _fromCloud: true,
+    deletedAt: row.deleted_at || null,
+    importedAt: new Date().toISOString()
+  };
+}
+
+/**
+ * Sincroniza trabajos de examen del colegio en la PC del docente.
+ * - Añade / actualiza filas vivas → Mis trabajos (importados)
+ * - Si el alumno borró en su PC (deleted_at), quita la copia live del docente
+ * - No toca trabajos ya archivados al cerrar el examen (examArchived)
+ * @returns {Promise<{ added: number, removed: number, updated: number, total: number }>}
+ */
+export async function syncTeacherExamWorks({ schoolKey, examCode = null } = {}) {
+  await initWorksStorage();
+  if (!schoolKey) return { added: 0, removed: 0, updated: 0, total: listWorks().length };
+
+  let rows = [];
+  try {
+    const { fetchTeacherWorks } = await import('./supabase-client.js');
+    rows = await fetchTeacherWorks({ schoolKey, examCode, includeDeleted: true, limit: 300 });
+  } catch {
+    return { added: 0, removed: 0, updated: 0, total: listWorks().length, error: 'fetch' };
+  }
+
+  let list = listWorks();
+  let added = 0;
+  let removed = 0;
+  let updated = 0;
+
+  const liveById = new Map();
+  const deletedIds = new Set();
+
+  for (const row of rows) {
+    const work = cloudRowToWork(row);
+    if (row.deleted_at) {
+      deletedIds.add(work.id);
+      if (work.cloudLocalId) deletedIds.add(work.cloudLocalId);
+    } else {
+      liveById.set(work.id, work);
+    }
+  }
+
+  // Quitar lives borrados por el alumno (no archivar)
+  const before = list.length;
+  list = list.filter((w) => {
+    if (w.examArchived) return true;
+    if (w.source === 'exam-archive') return true;
+    const isLiveImport =
+      w._fromCloud || w.examLive || (w.source === 'imported' && w.mode === 'exam' && w.cloudSynced);
+    if (!isLiveImport) return true;
+    if (deletedIds.has(w.id) || (w.cloudLocalId && deletedIds.has(w.cloudLocalId))) {
+      return false;
+    }
+    return true;
+  });
+  removed = before - list.length;
+
+  // Upsert lives
+  const byId = new Map(list.map((w) => [w.id, w]));
+  for (const [id, cloudWork] of liveById) {
+    const existing = byId.get(id);
+    if (existing?.examArchived || existing?.source === 'exam-archive') {
+      continue;
+    }
+    if (!existing) {
+      list.unshift(cloudWork);
+      byId.set(id, cloudWork);
+      added++;
+    } else {
+      const merged = {
+        ...existing,
+        ...cloudWork,
+        source: existing.source === 'local' ? existing.source : 'imported',
+        examLive: true,
+        examArchived: false
+      };
+      const idx = list.findIndex((w) => w.id === id);
+      if (idx >= 0) list[idx] = merged;
+      updated++;
+    }
+  }
+
+  while (list.length > 400) list.pop();
+  await persistAll(list);
+  logAudit('exam_works_sync', { added, removed, updated, schoolKey, examCode });
+  return { added, removed, updated, total: list.length };
+}
+
+/**
+ * Al finalizar el examen: congela los trabajos vivos en la PC del docente
+ * para evaluación (ya no se borran si el alumno limpia su caché después).
+ */
+export async function archiveExamWorksForTeacher({ examCode = null } = {}) {
+  await initWorksStorage();
+  const list = listWorks().map((w) => {
+    const matchExam = !examCode || w.examCode === examCode;
+    const isLive =
+      matchExam &&
+      (w.examLive || w._fromCloud || (w.mode === 'exam' && w.source === 'imported' && !w.examArchived));
+    if (!isLive) return w;
+    return {
+      ...w,
+      examLive: false,
+      examArchived: true,
+      source: 'imported',
+      notes: w.notes || (examCode ? `Archivado examen ${examCode}` : 'Archivado de examen'),
+      archivedAt: new Date().toISOString()
+    };
+  });
+  await persistAll(list);
+  logAudit('exam_works_archive', { examCode, count: list.filter((w) => w.examArchived).length });
+  return list.length;
 }
 
 export function getWork(id) {

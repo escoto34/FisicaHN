@@ -35,7 +35,7 @@ function observedF() {
   return params.f * v / den;
 }
 
-export function init(engine, renderer, ui) {
+export function init(engine, renderer, ui, meta = null) {
   _engine = engine;
   _renderer = renderer;
   _ui = ui;
@@ -43,10 +43,23 @@ export function init(engine, renderer, ui) {
   sourceX = -8;
   waves.length = 0;
   renderer.resetCamera();
-  ui.setInfo('<strong>Sonido / Doppler</strong> — Frentes de onda y frecuencia percibida con fuente en movimiento.');
+  setModuleInfo(ui, {
+    title: meta?.title || 'Sonido y ondas',
+    blurb:
+      meta?.blurb ||
+      'Ondas sonoras: frentes, v = f·λ y efecto Doppler (la onda transporta energía).',
+    story:
+      'El sonido es una onda mecánica longitudinal. Al moverse la fuente, los frentes se comprimen o estiran (Doppler). Es el mismo fenómeno de “ondas y transferencia de energía” a escala audible.',
+    cases: [
+      'Sirena de ambulancia que cambia de tono al pasar.',
+      'Frentes de onda densos delante de una fuente que se acerca.',
+      'v del sonido crece con la temperatura del aire.'
+    ]
+  });
   setModuleFormulas(ui, { items: [
-    { name: 'Velocidad de onda', formula: 'v = f · λ' },
-    { name: 'Doppler (fuente móvil)', formula: "f′ = f · v / (v ± v<sub>s</sub>)", note: 'El signo depende de si se acerca o se aleja.' }
+    { name: 'Velocidad de onda', formula: 'v = f · λ', note: 'La energía se propaga con la onda a velocidad v.' },
+    { name: 'Doppler (fuente móvil)', formula: "f′ = f · v / (v ± v<sub>s</sub>)", note: 'El signo depende de si se acerca o se aleja.' },
+    { name: 'v en aire (aprox.)', formula: 'v ≈ 331 + 0,6·T(°C)', note: 'm/s' }
   ]});
 
   clearChallenges(ui);
@@ -115,11 +128,11 @@ export function render(ctx) {
 
 function renderParams() {
   _ui.setParams(`
-    <div class="control-group"><label class="control-label">Temperatura (°C)</label>
+    <div class="control-group"><label class="control-label">Temperatura $T$ (°C)</label>
       <div class="slider-row"><input type="range" id="s_T" class="custom-slider" min="-10" max="40" step="1" value="${params.tempC}"><span id="sd_T">${params.tempC}</span></div></div>
-    <div class="control-group"><label class="control-label">f fuente (Hz demo)</label>
+    <div class="control-group"><label class="control-label">$f$ fuente (Hz demo)</label>
       <div class="slider-row"><input type="range" id="s_f" class="custom-slider" min="0.5" max="5" step="0.1" value="${params.f}"><span id="sd_f">${params.f}</span></div></div>
-    <div class="control-group"><label class="control-label">v fuente (m/s)</label>
+    <div class="control-group"><label class="control-label">$v_s$ fuente (m/s)</label>
       <div class="slider-row"><input type="range" id="s_vs" class="custom-slider" min="-6" max="6" step="0.2" value="${params.vSource}"><span id="sd_vs">${params.vSource}</span></div></div>
   `);
   setTimeout(() => {
