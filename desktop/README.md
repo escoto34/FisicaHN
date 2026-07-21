@@ -40,7 +40,7 @@ npm start
 
 `npm start` sincroniza `skills/fisicahn` → `desktop/app` y abre la ventana.
 
-## Generar instaladores (versión en `package.json`, p. ej. **1.2.0**)
+## Generar instaladores (versión en `package.json`, p. ej. **1.3.0**)
 
 ```bash
 cd desktop
@@ -58,14 +58,14 @@ npm run dist:mac
 
 Flujo completo (desktop + APK) en el README principal del repo.
 
-Salida en `desktop/release/` (ejemplo **1.2.0**):
+Salida en `desktop/release/` (ejemplo **1.3.0**):
 
 | Archivo | Uso en GitHub Releases |
 |---------|------------------------|
-| `FisicaHN-1.2.0.AppImage` | **Sí** — Linux sin instalar |
-| `fisicahn-desktop_1.2.0_amd64.deb` | **Sí** — Debian/Ubuntu |
-| `FisicaHN-Portable-1.2.0.exe` | **Sí** — Windows USB / NetSupport |
-| `FisicaHN Setup 1.2.0.exe` | **Sí** — instalador Windows |
+| `FisicaHN-1.3.0.AppImage` | **Sí** — Linux sin instalar |
+| `fisicahn-desktop_1.3.0_amd64.deb` | **Sí** — Debian/Ubuntu |
+| `FisicaHN-Portable-1.3.0.exe` | **Sí** — Windows USB / NetSupport |
+| `FisicaHN Setup 1.3.0.exe` | **Sí** — instalador Windows |
 | `linux-unpacked/`, `win-unpacked/`, `*.yml`, `*.blockmap` | **No** |
 
 `desktop/release/` está en `.gitignore` (no se versiona el binario; se publica en Releases).

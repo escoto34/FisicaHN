@@ -111,12 +111,24 @@ function rlcZ() {
   return { w, XL, XC, Z, I0, phi, f0 };
 }
 
+/** Formato de corriente legible (mA si es pequeña). */
+function fmtI(amps) {
+  const a = Number(amps) || 0;
+  if (Math.abs(a) < 0.001) return `${roundTo(a * 1e6, 1)} µA`;
+  if (Math.abs(a) < 1) return `${roundTo(a * 1000, 2)} mA`;
+  return `${roundTo(a, 4)} A`;
+}
+
 export function update(dt) {
   t += dt;
   if (params.mode === 'rlc') {
     const { w, I0, phi } = rlcZ();
     i = I0 * Math.sin(w * t - phi);
     q += i * dt;
+  } else {
+    // DC: corriente continua (misma en serie; total en paralelo)
+    const res = dcResults();
+    i = res.I;
   }
   updateData();
 }
@@ -128,22 +140,86 @@ function updateData() {
       <div style="font-family:var(--font-mono);font-size:0.82rem;line-height:1.7">
         <div>RLC serie · f = ${params.f} Hz · f₀ ≈ ${roundTo(z.f0, 2)} Hz</div>
         <div>X<sub>L</sub> = ${roundTo(z.XL, 2)} Ω · X<sub>C</sub> = ${roundTo(z.XC, 2)} Ω</div>
-        <div>Z = ${roundTo(z.Z, 2)} Ω · I₀ = ${roundTo(z.I0, 4)} A</div>
-        <div>φ = ${roundTo((z.phi * 180) / Math.PI, 1)}° · i(t) = ${roundTo(i, 4)} A</div>
+        <div>Z = ${roundTo(z.Z, 2)} Ω · I₀ = ${fmtI(z.I0)}</div>
+        <div>φ = ${roundTo((z.phi * 180) / Math.PI, 1)}° · i(t) = ${fmtI(i)}</div>
       </div>
     `);
   } else {
     const r = dcResults();
+    const modeLabel = params.mode === 'series' ? 'DC serie' : 'DC paralelo';
     _ui?.setData(`
       <div style="font-family:var(--font-mono);font-size:0.82rem;line-height:1.7">
-        <div>modo = ${params.mode}</div>
-        <div>R<sub>eq</sub> = ${roundTo(r.Req, 2)} Ω · I = ${roundTo(r.I, 4)} A</div>
+        <div><strong>${modeLabel}</strong> · V = ${params.V} V</div>
+        <div>R<sub>eq</sub> = ${roundTo(r.Req, 2)} Ω · <strong>I = ${fmtI(r.I)}</strong></div>
         <div>V₁ = ${roundTo(r.V1, 3)} V · V₂ = ${roundTo(r.V2, 3)} V</div>
-        ${params.mode === 'parallel' ? `<div>I₁ = ${roundTo(r.I1, 4)} A · I₂ = ${roundTo(r.I2, 4)} A</div>` : ''}
+        ${
+          params.mode === 'parallel'
+            ? `<div>I₁ = ${fmtI(r.I1)} · I₂ = ${fmtI(r.I2)}</div>`
+            : `<div>Misma corriente en R₁ y R₂ (serie)</div>`
+        }
         <div>P = ${roundTo(r.P, 3)} W</div>
       </div>
     `);
   }
+}
+
+/**
+ * Dibuja partículas de corriente a lo largo de un segmento mundo.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {import('../renderer.js').Renderer} r
+ * @param {number} x0
+ * @param {number} y0
+ * @param {number} x1
+ * @param {number} y1
+ * @param {number} amps  magnitud (velocidad ~ |I|)
+ * @param {string} [color]
+ */
+function drawCurrentFlow(ctx, r, x0, y0, x1, y1, amps, color = '#ffee58') {
+  const mag = Math.abs(amps);
+  if (mag < 1e-9) return;
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const len = Math.hypot(dx, dy) || 1;
+  // Velocidad visual proporcional a |I| (escala pedagógica, no real)
+  const speed = 0.15 + Math.min(2.5, mag * 25);
+  const n = Math.max(3, Math.min(14, Math.round(3 + mag * 40)));
+  const phase = (t * speed) % 1;
+  ctx.save();
+  for (let k = 0; k < n; k++) {
+    let u = (k / n + phase) % 1;
+    // Sentido: amps>0 va de (x0,y0)→(x1,y1)
+    if (amps < 0) u = 1 - u;
+    const wx = x0 + dx * u;
+    const wy = y0 + dy * u;
+    const p = r.worldToCanvas(wx, wy);
+    const rad = 3.5 + Math.min(5, mag * 18);
+    ctx.beginPath();
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.35 + 0.55 * (0.5 + 0.5 * Math.sin(u * Math.PI * 2));
+    ctx.arc(p.x, p.y, rad, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // Flecha en el centro del tramo
+  const mx = x0 + dx * 0.5;
+  const my = y0 + dy * 0.5;
+  const pm = r.worldToCanvas(mx, my);
+  const ang = Math.atan2(
+    r.worldToCanvas(x1, y1).y - r.worldToCanvas(x0, y0).y,
+    r.worldToCanvas(x1, y1).x - r.worldToCanvas(x0, y0).x
+  );
+  const dir = amps >= 0 ? ang : ang + Math.PI;
+  ctx.globalAlpha = 0.95;
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = 2;
+  const ah = 8;
+  ctx.beginPath();
+  ctx.moveTo(pm.x + Math.cos(dir) * ah, pm.y + Math.sin(dir) * ah);
+  ctx.lineTo(pm.x + Math.cos(dir + 2.5) * ah * 0.7, pm.y + Math.sin(dir + 2.5) * ah * 0.7);
+  ctx.lineTo(pm.x + Math.cos(dir - 2.5) * ah * 0.7, pm.y + Math.sin(dir - 2.5) * ah * 0.7);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
 }
 
 export function render(ctx) {
@@ -151,12 +227,12 @@ export function render(ctx) {
   const r = _renderer;
 
   // simple schematic
-  const drawWire = (x0, y0, x1, y1) => {
+  const drawWire = (x0, y0, x1, y1, style) => {
     const p0 = r.worldToCanvas(x0, y0);
     const p1 = r.worldToCanvas(x1, y1);
     ctx.save();
-    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = style?.color || 'rgba(255,255,255,0.55)';
+    ctx.lineWidth = style?.width || 2;
     ctx.beginPath();
     ctx.moveTo(p0.x, p0.y);
     ctx.lineTo(p1.x, p1.y);
@@ -183,37 +259,90 @@ export function render(ctx) {
       const u = k / 80;
       const tt = t - 0.4 + u * 0.8;
       const ii = z.I0 * Math.sin(z.w * tt - z.phi);
-      const p = r.worldToCanvas(-3 + u * 6, -3.5 + ii * 2.5);
+      const scale = z.I0 > 1e-9 ? 2.2 / z.I0 : 2.2;
+      const p = r.worldToCanvas(-3 + u * 6, -3.5 + ii * scale);
       if (k === 0) ctx.moveTo(p.x, p.y);
       else ctx.lineTo(p.x, p.y);
     }
     ctx.stroke();
     ctx.restore();
+    r.drawLabel(0, -4.6, `i(t) = ${fmtI(i)}  ·  I₀ = ${fmtI(z.I0)}`, {
+      color: '#ce93d8',
+      fontSize: 13
+    });
+    // Flujo en el lazo proporcional a |i|
+    drawCurrentFlow(ctx, r, -3.5, 2, 3.5, 2, i, '#ce93d8');
+    drawCurrentFlow(ctx, r, 4, 1.5, 4, -1.5, i, '#ce93d8');
+    drawCurrentFlow(ctx, r, 3.5, -2, -3.5, -2, i, '#ce93d8');
+    drawCurrentFlow(ctx, r, -4, -1.5, -4, 1.5, i, '#ce93d8');
   } else {
+    const res = dcResults();
+    const I = res.I;
+
+    // Esquema base
     drawWire(-3, 2, 3, 2);
     drawWire(3, 2, 3, -2);
     drawWire(3, -2, -3, -2);
     drawWire(-3, -2, -3, 2);
-    r.drawObject(-3, 0, { shape: 'rect', size: 0.55, color: '#66bb6a', label: `${params.V}V` });
+    r.drawObject(-3, 0, {
+      shape: 'rect',
+      size: 0.55,
+      color: '#66bb6a',
+      label: `${params.V}V`
+    });
+
     if (params.mode === 'series') {
-      r.drawObject(0, 2, { shape: 'rect', size: 0.5, color: '#ef5350', label: `R1` });
-      r.drawObject(0, -2, { shape: 'rect', size: 0.5, color: '#ffb74d', label: `R2` });
+      r.drawObject(0, 2, { shape: 'rect', size: 0.5, color: '#ef5350', label: 'R1' });
+      r.drawObject(0, -2, { shape: 'rect', size: 0.5, color: '#ffb74d', label: 'R2' });
+
+      // Misma I en todo el lazo (sentido horario desde el + de la fuente)
+      drawCurrentFlow(ctx, r, -2.4, 2, 2.4, 2, I, '#ffee58');
+      drawCurrentFlow(ctx, r, 3, 1.5, 3, -1.5, I, '#ffee58');
+      drawCurrentFlow(ctx, r, 2.4, -2, -2.4, -2, I, '#ffee58');
+      drawCurrentFlow(ctx, r, -3, -1.5, -3, 1.5, I, '#ffee58');
+
+      r.drawLabel(0, 2.85, `R₁ · V₁=${roundTo(res.V1, 2)} V`, { color: '#ef5350', fontSize: 12 });
+      r.drawLabel(0, -2.85, `R₂ · V₂=${roundTo(res.V2, 2)} V`, { color: '#ffb74d', fontSize: 12 });
+      r.drawLabel(0, 0.15, `I = ${fmtI(I)}`, { color: '#ffee58', fontSize: 15 });
+      r.drawLabel(0, -0.55, `(misma en serie)`, { color: 'rgba(255,238,88,0.75)', fontSize: 11 });
     } else {
-      r.drawObject(-0.8, 0.5, { shape: 'rect', size: 0.45, color: '#ef5350', label: 'R1' });
-      r.drawObject(0.8, 0.5, { shape: 'rect', size: 0.45, color: '#ffb74d', label: 'R2' });
+      // Paralelo: ramas R1 (izq) y R2 (der)
       drawWire(-0.8, 2, -0.8, -2);
       drawWire(0.8, 2, 0.8, -2);
+      r.drawObject(-0.8, 0, { shape: 'rect', size: 0.45, color: '#ef5350', label: 'R1' });
+      r.drawObject(0.8, 0, { shape: 'rect', size: 0.45, color: '#ffb74d', label: 'R2' });
+
+      const I1 = res.I1;
+      const I2 = res.I2;
+      // Rama fuente / retorno: corriente total
+      drawCurrentFlow(ctx, r, -3, 1.4, -3, -1.4, I, '#ffee58');
+      drawCurrentFlow(ctx, r, -2.6, 2, -1.1, 2, I, '#ffee58');
+      drawCurrentFlow(ctx, r, 1.1, 2, 2.6, 2, I, '#ffee58');
+      drawCurrentFlow(ctx, r, 3, 1.4, 3, -1.4, I, '#ffee58');
+      drawCurrentFlow(ctx, r, 2.6, -2, 1.1, -2, I, '#ffee58');
+      drawCurrentFlow(ctx, r, -1.1, -2, -2.6, -2, I, '#ffee58');
+      // Ramas (corriente hacia abajo por cada resistencia)
+      drawCurrentFlow(ctx, r, -0.8, 1.6, -0.8, -1.6, I1, '#ef5350');
+      drawCurrentFlow(ctx, r, 0.8, 1.6, 0.8, -1.6, I2, '#ffb74d');
+
+      r.drawLabel(-0.8, 2.7, `I₁ = ${fmtI(I1)}`, { color: '#ef5350', fontSize: 12 });
+      r.drawLabel(0.8, 2.7, `I₂ = ${fmtI(I2)}`, { color: '#ffb74d', fontSize: 12 });
+      r.drawLabel(0, -3.3, `I_total = I₁+I₂ = ${fmtI(I)}`, { color: '#ffee58', fontSize: 14 });
+      r.drawLabel(0, 3.4, `V₁ = V₂ = ${params.V} V (paralelo)`, {
+        color: 'rgba(255,255,255,0.75)',
+        fontSize: 11
+      });
     }
-    const res = dcResults();
-    // current glow
-    const glow = Math.min(1, res.I * 20);
-    ctx.save();
-    ctx.fillStyle = `rgba(255,235,59,${0.15 + 0.35 * glow})`;
-    const p = r.worldToCanvas(0, 0);
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 40 + glow * 30, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+
+    // Resumen fijo en mundo (visible sin depender del panel Datos)
+    r.drawLabel(
+      0,
+      params.mode === 'parallel' ? -4.2 : -3.8,
+      params.mode === 'series'
+        ? `I = ${fmtI(I)}  ·  Req = ${roundTo(res.Req, 2)} Ω  ·  P = ${roundTo(res.P, 3)} W`
+        : `I = ${fmtI(I)}  ·  I₁ = ${fmtI(res.I1)}  ·  I₂ = ${fmtI(res.I2)}  ·  Req = ${roundTo(res.Req, 2)} Ω`,
+      { color: '#ffee58', fontSize: 13 }
+    );
   }
 }
 

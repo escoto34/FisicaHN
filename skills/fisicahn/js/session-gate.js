@@ -299,7 +299,7 @@ export function renderSessionBadge(container) {
 }
 
 /**
- * Chip de usuario en el catálogo + botón Cuenta.
+ * Chip de usuario en el catálogo (abre cuenta / examen; sustituye al botón “Cuenta”).
  */
 export function renderUserChip(container) {
   if (!container) return;
@@ -321,7 +321,7 @@ export function renderUserChip(container) {
       ? `Examen ${s.examCode || ''}`.trim()
       : 'Práctica';
   container.innerHTML = `
-    <button type="button" class="user-chip" id="userChipBtn" aria-label="Abrir cuenta de usuario" title="Cuenta y examen">
+    <button type="button" class="user-chip" id="userChipBtn" aria-label="Abrir cuenta de usuario" title="Cuenta, examen y cerrar sesión">
       <span class="user-chip-role">${escapeHtml(roleLabel)}</span>
       <span class="user-chip-name">${escapeHtml(getDisplayName(s))}</span>
       <span class="user-chip-mode ${s.mode === 'exam' ? 'exam' : ''}">${escapeHtml(mode)}</span>

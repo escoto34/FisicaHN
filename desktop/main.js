@@ -90,6 +90,8 @@ function createWindow() {
     title: 'FísicaHN',
     backgroundColor: '#0c0f14',
     show: false,
+    // Sin barra Archivo / Ver / Ayuda (Windows y Linux)
+    autoHideMenuBar: true,
     ...(icon ? { icon } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -133,57 +135,28 @@ function createWindow() {
   });
 }
 
+/**
+ * Oculta Archivo / Ver / Ayuda en Windows y Linux.
+ * En macOS se deja un menú mínimo del sistema (About / Quit).
+ */
 function buildMenu() {
-  const isMac = process.platform === 'darwin';
-  const template = [
-    ...(isMac
-      ? [
-          {
-            label: app.name,
-            submenu: [
-              { role: 'about' },
-              { type: 'separator' },
-              { role: 'quit' }
-            ]
-          }
-        ]
-      : []),
-    {
-      label: 'Archivo',
-      submenu: [isMac ? { role: 'close' } : { role: 'quit', label: 'Salir' }]
-    },
-    {
-      label: 'Ver',
-      submenu: [
-        { role: 'reload', label: 'Recargar' },
-        { role: 'togglefullscreen', label: 'Pantalla completa' },
-        { type: 'separator' },
-        { role: 'resetzoom', label: 'Zoom normal' },
-        { role: 'zoomin', label: 'Acercar' },
-        { role: 'zoomout', label: 'Alejar' }
-      ]
-    },
-    {
-      label: 'Ayuda',
-      submenu: [
+  if (process.platform === 'darwin') {
+    Menu.setApplicationMenu(
+      Menu.buildFromTemplate([
         {
-          label: 'Acerca de FísicaHN',
-          click: () => {
-            dialog.showMessageBox({
-              type: 'info',
-              title: 'FísicaHN',
-              message: 'FísicaHN Desktop',
-              detail:
-                'Simulador de física offline para colegios.\n' +
-                'No depende del navegador del sistema (útil con NetSupport).\n' +
-                'Los trabajos se guardan en el almacenamiento local de la app.'
-            });
-          }
+          label: app.name,
+          submenu: [
+            { role: 'about' },
+            { type: 'separator' },
+            { role: 'quit' }
+          ]
         }
-      ]
-    }
-  ];
-  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+      ])
+    );
+    return;
+  }
+  // Windows / Linux: sin barra de menú de la ventana
+  Menu.setApplicationMenu(null);
 }
 
 const gotLock = app.requestSingleInstanceLock();

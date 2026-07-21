@@ -669,7 +669,7 @@ export function clearChallenges(ui) {
 }
 
 /**
- * Carga retos en la pestaña inferior si el motor tiene casos de uso o pack de examen.
+ * Carga retos en la pestaña inferior solo si hay pack de examen activo.
  * @param {object} ui
  * @param {string} engineKey
  */
@@ -680,12 +680,9 @@ export async function loadModuleChallenges(ui, engineKey) {
     return;
   }
   try {
-    const { loadChallengeDataForEngine, engineHasBuiltInChallenges, getCachedExamChallengePack } =
-      await import('./challenges.js');
+    const { loadChallengeDataForEngine } = await import('./challenges.js');
     const data = await loadChallengeDataForEngine(engineKey);
-    const examPack = getCachedExamChallengePack();
-    const hasExam = Boolean(examPack?.modules?.[engineKey]?.length);
-    if (!data.length && !engineHasBuiltInChallenges(engineKey) && !hasExam) {
+    if (!data.length) {
       ui.setChallenges(null);
       return;
     }

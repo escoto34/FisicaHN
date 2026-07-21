@@ -95,6 +95,42 @@ export const CATALOG = [
       'Dinámica: la fuerza neta explica la aceleración. Distinto de cinemática (allí no hay F).'
   },
   {
+    id: 'kinetic-force',
+    title: 'Fuerza cinética',
+    titleEn: 'Kinetic force & energy',
+    level: 'middle',
+    blurb:
+      'Fuerza neta → aceleración y energía cinética: a = F/m, Ec = ½mv², W = ΔEc.',
+    engineKey: 'force-kinetic',
+    status: 'ready',
+    topic:
+      'Cómo una F neta cambia la velocidad y la Ec. Sin fricción. Complementa “Fuerzas y movimiento” (vectores F) y “Trabajo, energía” (con rozamiento).'
+  },
+  {
+    id: 'friction',
+    title: 'Fricción',
+    titleEn: 'Friction',
+    level: 'middle',
+    blurb:
+      'Muñeco empuja una caja: fricción estática (no arranca) y cinética (desliza). μ_s, μ_k.',
+    engineKey: 'friction',
+    status: 'ready',
+    topic:
+      'f_s ≤ μ_s N en reposo; f_k = μ_k N al deslizar. Visual con personaje y caja. Distinto de trabajo-energía (allí se integra W de fricción).'
+  },
+  {
+    id: 'statics',
+    title: 'Estática',
+    titleEn: 'Statics',
+    level: 'high',
+    blurb:
+      'Equilibrio de fuerzas: masa colgada de dos cuerdas. ΣFₓ = 0, ΣFᵧ = 0 y tensiones.',
+    engineKey: 'statics',
+    status: 'ready',
+    topic:
+      'Cuerpos en reposo bajo fuerzas equilibradas. Partícula con dos tensiones y peso. No es dinámica con aceleración.'
+  },
+  {
     id: 'momentum',
     title: 'Cantidad de movimiento',
     titleEn: 'Momentum',
@@ -195,14 +231,14 @@ export const CATALOG = [
   {
     id: 'magnetic-fields',
     title: 'Campos magnéticos',
-    titleEn: 'Magnetic Fields',
+    titleEn: 'Magnetic Fields · Lorentz',
     level: 'middle',
     blurb:
-      'Carga en B uniforme: fuerza de Lorentz F = qvB y órbita circular r = mv/|q|B.',
+      'Carga en B uniforme: F = q(v×B). Círculo sin masa en el centro (≠ gravedad).',
     engineKey: 'magnetic',
     status: 'ready',
     topic:
-      'Partícula en B. Rotación de cuerpo rígido (τ, I) está en “Circular y rotacional”.'
+      'Fuerza de Lorentz / ciclotrón. No es órbita gravitatoria (eso es Gravedad o Kepler).'
   },
   {
     id: 'em-waves',
@@ -219,7 +255,7 @@ export const CATALOG = [
     title: 'Gravedad universal',
     titleEn: 'Universal Gravity',
     level: 'high',
-    blurb: 'Órbitas 2D alrededor de una masa central (Newton).',
+    blurb: 'Satélite alrededor de una masa central (F ∝ 1/r²). Hay cuerpo en el centro.',
     engineKey: 'gravity',
     status: 'ready',
     topic:
@@ -230,7 +266,7 @@ export const CATALOG = [
     title: 'Kepler y asistencia gravitacional',
     titleEn: 'Kepler & Gravity Assist',
     level: 'advanced',
-    blurb: 'Elipses T²∝a³, periodo medido y sobrevuelo (slingshot).',
+    blurb: 'Elipses T²∝a³, periodo medido y sobrevuelo (slingshot) — gravedad, no B.',
     engineKey: 'kepler',
     status: 'ready',
     topic: '3 leyes de Kepler + asistencia gravitacional para sondas.'
@@ -241,7 +277,7 @@ export const CATALOG = [
     titleEn: 'Light & Geometric Optics',
     level: 'high',
     blurb:
-      'Rayos: reflexión (θi = θr), refracción (Snell) y ángulo crítico / RTI.',
+      'Interfaz plana: reflexión, refracción (Snell) y RTI. No forma imagen con lente.',
     engineKey: 'optics',
     status: 'ready',
     topic:
@@ -250,12 +286,13 @@ export const CATALOG = [
   {
     id: 'thin-lenses',
     title: 'Lentes delgadas',
-    titleEn: 'Thin Lenses',
+    titleEn: 'Thin Lenses · imagen',
     level: 'high',
-    blurb: '1/f = 1/d₀ + 1/dᵢ, aumento M y diagrama de rayos principales.',
+    blurb:
+      'Lente convergente/divergente: focos F, objeto → imagen y 1/f = 1/d₀ + 1/dᵢ.',
     engineKey: 'lenses',
     status: 'ready',
-    topic: 'Formación de imagen con lente convergente/divergente.'
+    topic: 'Formación de imagen con lente convergente/divergente (diagrama de rayos).'
   },
   {
     id: 'interference-diffraction',

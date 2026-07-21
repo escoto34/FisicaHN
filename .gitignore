@@ -1,36 +1,37 @@
-# --- Python / tooling local ---
+# --- Python / entorno local ---
 .venv/
 venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
 
-# --- graphify / análisis local ---
+# --- Análisis local ---
 graphify-out/
 
-# --- Entorno y secretos ---
+# --- Secretos y entorno ---
 .env
 .env.*
 !.env.example
 *.local.js
 
-# Config en línea con keys reales (usa supabase-config.example.js en el repo)
+# Config en línea con claves reales (usar el archivo .example del repo)
 website/js/supabase-config.js
-# Copias generadas por build / sync (ZIP, lab servido, desktop, mobile)
 website/sim/js/supabase-config.js
 skills/fisicahn/js/supabase-config.js
 desktop/app/js/supabase-config.js
 mobile/www/js/supabase-config.js
 
-# --- Desktop (Electron) ---
+# --- Escritorio ---
+# app/ se genera al sincronizar el simulador (no editar a mano)
 desktop/node_modules/
 desktop/app/
 desktop/release/
 desktop/dist/
-desktop/*.log
 desktop/out/
+desktop/*.log
 
-# --- Android (Capacitor) ---
+# --- Android ---
+# www/ se genera al sincronizar el simulador (no editar a mano)
 mobile/node_modules/
 mobile/www/
 mobile/release/
@@ -47,19 +48,26 @@ mobile/android/app/*.iml
 mobile/android/.cxx/
 mobile/*.log
 
-# Keystores / firmas (NUNCA subir — backup local obligatorio)
+# Firmas (nunca subir; guarda copia de seguridad en otro sitio)
 mobile/keystore/
 mobile/android/key.properties
 *.jks
 *.keystore
 *.p12
 
-# --- Tooling local (JDK portable, etc.) ---
+# --- Descargas del sitio ---
+# El ZIP offline sí puede versionarse (fisicahn.zip).
+# APKs con número de versión: van a Releases o se copian a FisicaHN-android.apk
+website/downloads/FisicaHN-*-release.apk
+website/downloads/FisicaHN-*-debug.apk
+website/downloads/*.blockmap
+
+# --- Herramientas locales (JDK portable, etc.) ---
 tools/jdk-*/
 tools/*.tar.gz
 tools/*.zip
 
-# --- OS / editor ---
+# --- Sistema y editores ---
 .DS_Store
 Thumbs.db
 Desktop.ini
@@ -70,21 +78,21 @@ Desktop.ini
 .vscode/
 *.code-workspace
 
-# --- Temporales / basura de edición ---
+# --- Temporales ---
 *.tmp
 *.temp
 *.bak
 *.orig
 website/js/*.tmp
 
-# --- Logs y cobertura ---
+# --- Logs ---
 *.log
 npm-debug.log*
 yarn-error.log*
 coverage/
 
-# --- Skills / packs ajenos al producto (no se despliegan) ---
-# skills/fisicahn/ SÍ se versiona (fuente del simulador).
+# --- Material de diseño / planes que no son el producto ---
+# skills/fisicahn/ SÍ se versiona (es el laboratorio).
 skills/layers-skills/
 skills/taste-skill/
 skills/ui-ux-pro-max-skill/

@@ -147,15 +147,29 @@ body.view-catalog {
   display: flex;
   flex-direction: column;
   padding: 16px 12px;
-  overflow-y: auto;
+  /* En PC: no scroll de toda la columna; solo .sidebar-nav */
+  overflow: hidden;
+  min-height: 0;
   z-index: 10;
+}
+
+/* Cabecera fija: logo, Todos los módulos, Mis trabajos */
+.sidebar-top {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.sidebar-works-host {
+  margin-bottom: 10px;
 }
 
 .sidebar-header {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 28px;
+  margin-bottom: 14px;
   padding: 0 8px;
 }
 
@@ -194,7 +208,25 @@ button.sidebar-brand-btn:hover .sidebar-title {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 2px;
+  /* Scrollbar discreto en PC */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
 }
 
 .module-btn {
@@ -227,7 +259,7 @@ button.sidebar-brand-btn:hover .sidebar-title {
 }
 
 .module-btn-works {
-  margin-bottom: 8px;
+  margin-bottom: 0;
   border: 1px solid rgba(129, 199, 132, 0.35);
   background: rgba(129, 199, 132, 0.08);
   color: #81c784;
@@ -253,6 +285,7 @@ button.sidebar-brand-btn:hover .sidebar-title {
   padding: 12px 8px 0;
   border-top: 1px solid var(--border-color);
   margin-top: 12px;
+  flex-shrink: 0;
 }
 
 .settings-btn {
@@ -439,16 +472,29 @@ button.sidebar-brand-btn:hover .sidebar-title {
 }
 
 /* --- Custom Range Slider --- */
+/* En WebKit/Android el track y el thumb van en pseudo-elementos;
+   el input debe ser transparente o se ve “rectángulo + pelota”. */
 .custom-slider {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  outline: none;
+  cursor: pointer;
+  color: transparent;
+}
+
+.custom-slider::-webkit-slider-runnable-track {
+  width: 100%;
   height: 4px;
   border-radius: 2px;
   background: var(--bg-tertiary);
-  outline: none;
-  cursor: pointer;
-  transition: background 0.2s;
+  border: none;
 }
 
 .custom-slider::-webkit-slider-track {
@@ -456,13 +502,15 @@ button.sidebar-brand-btn:hover .sidebar-title {
   height: 4px;
   border-radius: 2px;
   background: var(--bg-tertiary);
+  border: none;
 }
 
 .custom-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
+  margin-top: -8px; /* centra el thumb en el track de 4px */
   border-radius: 50%;
   background: var(--accent);
   cursor: pointer;
@@ -472,7 +520,7 @@ button.sidebar-brand-btn:hover .sidebar-title {
 }
 
 .custom-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.15);
+  transform: scale(1.12);
   box-shadow: 0 0 0 3px rgba(79, 195, 247, 0.3);
 }
 
@@ -485,13 +533,17 @@ button.sidebar-brand-btn:hover .sidebar-title {
 }
 
 .custom-slider::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: var(--accent);
   cursor: pointer;
   border: 2px solid var(--bg-primary);
   box-shadow: 0 0 0 1px var(--accent);
+}
+
+.custom-slider::-moz-focus-outer {
+  border: 0;
 }
 
 /* --- Buttons --- */
@@ -873,6 +925,7 @@ button.sidebar-brand-btn:hover .sidebar-title {
     max-height: 100dvh;
   }
 
+  /* Barra superior fija: logo + título + volver (sin scroll horizontal) */
   body.view-sim .sidebar {
     grid-area: sidebar;
     flex-direction: row;
@@ -884,54 +937,55 @@ button.sidebar-brand-btn:hover .sidebar-title {
     padding-right: max(10px, env(safe-area-inset-right));
     border-right: none;
     border-bottom: 1px solid var(--border-color);
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
+    overflow: hidden;
     max-height: none;
     z-index: 20;
   }
 
-  body.view-sim .sidebar-header {
+  body.view-sim .sidebar-top {
+    flex: 1 1 auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  /* En tablet/móvil Mis trabajos va por el catálogo; no en la barra superior */
+  body.view-sim .sidebar-works-host {
+    display: none;
+  }
+
+  body.view-sim .sidebar-header,
+  body.view-sim button.sidebar-brand-btn {
     margin-bottom: 0;
-    margin-right: 4px;
-    flex-shrink: 0;
-    gap: 6px;
+    margin-right: 0;
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
+    gap: 8px;
+    padding: 4px 6px;
   }
 
   body.view-sim .sidebar-title {
     font-size: 0.95rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   body.view-sim .catalog-back-btn {
     flex-shrink: 0;
+    width: auto;
+    margin-left: auto;
+    margin-bottom: 0;
     min-height: 40px;
-    padding: 8px 10px;
+    padding: 8px 12px;
     font-size: 0.8rem;
   }
 
+  /* Lista horizontal de módulos: oculta en tablet/móvil (volver al catálogo) */
   body.view-sim .sidebar-nav {
-    display: flex;
-    flex-direction: row;
-    flex: 1 1 auto;
-    gap: 6px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 2px;
-    scrollbar-width: thin;
-  }
-
-  body.view-sim .module-btn {
-    width: auto;
-    flex: 0 0 auto;
-    padding: 10px 14px;
-    min-height: 40px;
-    white-space: nowrap;
-    font-size: 0.82rem;
-  }
-
-  body.view-sim .module-btn.active {
-    box-shadow: inset 0 -3px 0 var(--accent);
+    display: none;
   }
 
   body.view-sim .sidebar-footer {
@@ -1016,8 +1070,10 @@ button.sidebar-brand-btn:hover .sidebar-title {
   }
 
   body.view-sim .custom-slider,
-  body.view-sim input[type='range'] {
+  body.view-sim input[type='range'].custom-slider {
     min-height: 28px;
+    height: 28px;
+    background: transparent;
   }
 
   body.view-sim .param-number,
@@ -1036,6 +1092,7 @@ button.sidebar-brand-btn:hover .sidebar-title {
   body.view-sim .sidebar {
     padding: 6px 8px;
     gap: 6px;
+    overflow: hidden;
   }
 
   body.view-sim .sidebar-brand-btn .logo-icon {
@@ -1043,22 +1100,20 @@ button.sidebar-brand-btn:hover .sidebar-title {
     height: 28px;
   }
 
+  /* En teléfono: logo + texto “FísicaHN” compacto + volver */
   body.view-sim .sidebar-title {
-    display: none;
+    display: block;
+    font-size: 0.9rem;
   }
 
   body.view-sim .catalog-back-btn span {
-    display: none;
+    display: inline;
   }
 
   body.view-sim .catalog-back-btn {
-    padding: 8px;
+    padding: 8px 10px;
     min-width: 40px;
-  }
-
-  body.view-sim .module-btn {
-    padding: 10px 12px;
-    font-size: 0.78rem;
+    gap: 4px;
   }
 
   body.view-sim .main-area {
@@ -1107,6 +1162,42 @@ button.sidebar-brand-btn:hover .sidebar-title {
   /* Barra móvil de acciones del canvas */
   body.view-sim .mobile-sim-bar {
     display: flex;
+  }
+
+  /* Modal Mis trabajos: altura y scroll fiables en Android */
+  .works-modal {
+    padding: 0;
+    align-items: stretch;
+  }
+  .works-modal-card {
+    width: 100%;
+    max-height: 100dvh;
+    height: 100dvh;
+    border-radius: 0;
+  }
+  .works-modal-header {
+    padding: 14px 14px 8px;
+    flex-shrink: 0;
+  }
+  .works-modal-filters-wrap {
+    padding: 0 12px 8px;
+    flex-shrink: 0;
+  }
+  .works-exam-bar {
+    margin: 0 12px 8px;
+    padding: 10px 12px;
+    max-height: min(28vh, 220px);
+  }
+  .works-ch-toggle {
+    margin: 0 12px 8px;
+  }
+  .works-modal-footer {
+    flex-shrink: 0;
+    padding: 10px 14px max(12px, env(safe-area-inset-bottom));
+  }
+  .works-modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
   }
 }
 
@@ -1168,25 +1259,22 @@ body.view-sim.mobile-params-expanded .right-panel {
 
   body.view-sim .sidebar {
     flex-direction: column;
-    max-width: 120px;
+    max-width: 100px;
     max-height: 100%;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden;
     border-bottom: none;
     border-right: 1px solid var(--border-color);
+    align-items: stretch;
   }
 
   body.view-sim .sidebar-nav {
-    flex-direction: column;
-    overflow-x: hidden;
-    overflow-y: auto;
+    display: none;
   }
 
-  body.view-sim .module-btn {
-    white-space: normal;
+  body.view-sim .catalog-back-btn {
+    margin-left: 0;
     width: 100%;
-    font-size: 0.7rem;
-    padding: 8px;
+    justify-content: center;
   }
 
   body.view-sim .right-panel {
@@ -1297,6 +1385,59 @@ body.exam-mode .catalog-title::after {
 
 .net-reconnect-btn[hidden] {
   display: none !important;
+}
+
+/* Aviso: examen finalizado (local o remoto) */
+.exam-ended-banner {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10050;
+  max-width: min(520px, calc(100vw - 24px));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 12px 40px 12px 16px;
+  border-radius: 12px;
+  background: rgba(123, 31, 162, 0.95);
+  color: #f3e5f5;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.exam-ended-banner[hidden] {
+  display: none !important;
+}
+
+.exam-ended-banner strong {
+  font-weight: 700;
+  width: 100%;
+}
+
+.exam-ended-banner span {
+  opacity: 0.95;
+  font-size: 0.84rem;
+}
+
+.exam-ended-banner-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.85;
+  padding: 4px 8px;
+}
+
+.exam-ended-banner-close:hover {
+  opacity: 1;
 }
 
 .net-indicator {
@@ -1462,17 +1603,22 @@ body.works-modal-open { overflow: hidden; }
   inset: 0;
   z-index: 220;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
-  padding: 20px;
+  padding: 12px;
+  padding-top: max(12px, env(safe-area-inset-top));
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
   background: rgba(5, 8, 14, 0.9);
+  overscroll-behavior: contain;
 }
 .works-modal[hidden] { display: none !important; }
 .works-modal-card {
   width: min(920px, 100%);
-  max-height: min(88vh, 900px);
+  max-height: min(92dvh, 900px);
+  height: min(92dvh, 900px);
   display: flex;
   flex-direction: column;
+  min-height: 0;
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 14px;
@@ -1522,11 +1668,30 @@ body.works-modal-open { overflow: hidden; }
   color: var(--text-primary);
   border-color: rgba(255,255,255,0.2);
 }
+.works-modal-filters-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 24px 12px;
+}
 .works-modal-filters {
   display: flex;
   gap: 8px;
-  padding: 0 24px 12px;
   flex-wrap: wrap;
+  align-items: center;
+}
+.works-modal-filters-exam[hidden] {
+  display: none !important;
+}
+.works-filter-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  opacity: 0.75;
+  margin-right: 2px;
+  font-family: var(--font-mono);
 }
 .works-filter {
   appearance: none;
@@ -1546,11 +1711,20 @@ body.works-modal-open { overflow: hidden; }
   border-color: rgba(79, 195, 247, 0.45);
   background: rgba(79, 195, 247, 0.12);
 }
+.works-modal-filters-exam .works-filter.active {
+  color: #ce93d8;
+  border-color: rgba(206, 147, 216, 0.5);
+  background: rgba(206, 147, 216, 0.14);
+}
 .works-modal-body {
-  flex: 1;
-  overflow: auto;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding: 0 8px 8px;
-  min-height: 160px;
+  min-height: 0;
+  touch-action: pan-y;
 }
 .works-modal-footer {
   display: flex;
@@ -1667,11 +1841,23 @@ body.works-modal-open { overflow: hidden; }
   gap: 16px;
   justify-content: space-between;
   align-items: flex-end;
+  flex-shrink: 0;
+  max-height: min(42vh, 360px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   margin: 0 24px 12px;
   padding: 14px 16px;
   border: 1px solid rgba(129, 199, 132, 0.35);
   border-radius: 12px;
   background: rgba(129, 199, 132, 0.08);
+}
+.works-ch-toggle {
+  width: 100%;
+  margin: 0 24px 8px;
+  flex-shrink: 0;
+}
+.works-challenge-editor.is-collapsed {
+  display: none !important;
 }
 .works-exam-hint {
   font-size: 0.78rem;
@@ -2216,10 +2402,12 @@ body.works-modal-open { overflow: hidden; }
     font-size: 0.72rem;
   }
 
-  /* En pantallas muy estrechas mostrar nombre corto de módulo */
-  body.view-sim .module-btn {
-    max-width: 140px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  body.view-sim .sidebar-title {
+    font-size: 0.85rem;
+  }
+
+  body.view-sim .catalog-back-btn span {
+    /* En pantallas muy estrechas solo icono de volver */
+    display: none;
   }
 }

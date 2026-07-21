@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="FísicaHN: laboratorio virtual de física para el aula. Simulaciones, pizarra, evaluación y descarga offline.">
+  <meta name="description" content="FísicaHN: laboratorio virtual de física para el aula. Simulaciones, pizarra, exámenes y descarga para USB o tablet.">
   <title>FísicaHN — Laboratorio virtual de física</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/site.css">
@@ -32,16 +32,18 @@
           <p class="eyebrow">Laboratorio virtual de física</p>
           <h1>Simulaciones claras para aprender midiendo</h1>
           <p class="hero-lead">
-            Movimiento, fuerzas, circuitos, ondas, física atómica y de partículas — en el navegador, ZIP o app de escritorio.
-            Los alumnos guardan trabajos y pueden reabrirlos en el módulo; los docentes generan códigos de examen.
+            Movimiento, fuerzas, fricción, estática, circuitos, ondas y más —
+            en el navegador, en un USB o en la app de escritorio y tablet.
+            Los alumnos guardan trabajos; los docentes crean códigos de examen para la clase.
           </p>
           <div class="hero-cta">
-            <a class="btn btn-primary" href="downloads/fisicahn.zip" download id="btnDownload">Descargar ZIP (navegador)</a>
+            <a class="btn btn-primary" href="downloads/fisicahn.zip" download id="btnDownload">Descargar ZIP</a>
             <a class="btn btn-secondary" href="sim/">Usar ahora</a>
             <a class="btn btn-secondary" href="teacher.html">Acceso docente</a>
           </div>
           <p class="hero-note">
-            ¿El lab bloquea el navegador? Usa la <a href="#descarga">app de escritorio</a> (Windows / Linux).
+            ¿En el lab no dejan abrir el navegador? Usa la
+            <a href="#descarga">app de escritorio</a> para Windows o Linux.
           </p>
         </div>
 
@@ -77,23 +79,37 @@
     <section id="modulos">
       <div class="wrap">
         <h2>Qué puedes hacer</h2>
-        <p class="section-lead">Un catálogo unificado de módulos (sin etiquetas de grado), pizarra y herramientas de medición.</p>
+        <p class="section-lead">
+          Un catálogo de temas para secundaria y bachillerato, con pizarra y herramientas para medir.
+        </p>
         <div class="cards">
           <article class="card">
             <h3>Movimiento y fuerzas</h3>
-            <p>MRU, fuerzas, energía, colisiones y espacio infinito con vectores en vivo.</p>
+            <p>
+              Cómo se mueve un objeto, empujones, energía de movimiento,
+              un muñeco que empuja una caja (fricción) y pesos en equilibrio (estática).
+            </p>
           </article>
           <article class="card">
-            <h3>Circuitos y campos</h3>
-            <p>Ohm, Kirchhoff, constructor de circuitos y carga en campo magnético.</p>
+            <h3>Circuitos, luz y campos</h3>
+            <p>
+              Circuitos, imanes, lentes, ondas de luz y sonido.
+              Cambia valores y mira qué pasa en el momento.
+            </p>
           </article>
           <article class="card">
-            <h3>Ondas, gravedad y micro</h3>
-            <p>Sonido, MHS, órbitas, modelo de Bohr y cargas en campo B; regla, sonda y cronómetro.</p>
+            <h3>Gravedad y micro</h3>
+            <p>
+              Órbitas, átomos, efecto fotoeléctrico y más temas avanzados,
+              con regla, sonda y cronómetro cuando hace falta.
+            </p>
           </article>
           <article class="card">
             <h3>Trabajos y pizarra</h3>
-            <p>Guardar, importar JSON, abrir un trabajo en su módulo con los parámetros, pizarra y códigos de examen.</p>
+            <p>
+              Guarda lo que hiciste, vuelve a abrirlo después y usa la pizarra
+              para explicar en clase. Los docentes pueden dar un código de examen.
+            </p>
           </article>
         </div>
       </div>
@@ -103,13 +119,14 @@
       <div class="wrap">
         <h2>Descarga</h2>
         <p class="section-lead">
-          ZIP liviano (~160 KB) para USB o la app de escritorio si el lab bloquea Chrome/Edge
-          (en uso suele ocupar del orden de 90–100 MB de RAM).
+          Elige lo que te convenga: carpeta en USB, programa en la computadora o app en la tablet.
         </p>
         <div class="download-strip">
           <div>
-            <strong>fisicahn.zip (navegador)</strong>
-            <p class="muted" style="margin-top:0.25rem">USB o PCs sin instalación — descomprime y sirve la carpeta sim/ o ábrela según tu flujo</p>
+            <strong>ZIP para navegador</strong>
+            <p class="muted" style="margin-top:0.25rem">
+              Ideal para USB o PCs compartidos. Descomprime y abre el laboratorio.
+            </p>
           </div>
           <div class="hero-cta" style="margin:0">
             <a class="btn btn-primary" href="downloads/fisicahn.zip" download>Descargar ZIP</a>
@@ -118,9 +135,10 @@
         </div>
         <div class="download-strip" style="margin-top:1rem">
           <div style="width:100%">
-            <strong>FísicaHN Desktop</strong>
+            <strong>App de escritorio</strong>
             <p class="muted" style="margin-top:0.25rem">
-              App con navegador propio. Elige tu sistema (últimas versiones publicadas en GitHub Releases):
+              Para Windows y Linux. No depende del navegador del laboratorio.
+              Descarga la versión de tu sistema:
             </p>
             <div class="download-os-grid">
               <a class="btn btn-primary" href="https://github.com/escoto34/FisicaHN/releases/latest" target="_blank" rel="noopener">
@@ -134,9 +152,9 @@
         </div>
         <div class="download-strip" style="margin-top:1rem">
           <div>
-            <strong>FísicaHN Android</strong>
+            <strong>App Android</strong>
             <p class="muted" style="margin-top:0.25rem">
-              APK firmado para tablets y celulares (~3.5&nbsp;MB). Instálalo permitiendo “orígenes desconocidos” si el sistema lo pide.
+              Para tablets y celulares. Si el teléfono lo pide, permite instalar apps de fuera de la tienda.
             </p>
           </div>
           <div class="hero-cta" style="margin:0">
@@ -150,8 +168,8 @@
       <div class="wrap">
         <h2>Para docentes</h2>
         <p class="section-lead">
-          Entra con email y colegio, genera un código de examen y compártelo con la clase.
-          Los alumnos lo escriben al entrar al laboratorio.
+          Entra con tu email y colegio, genera un código de examen y compártelo con la clase.
+          Cuando terminen, finaliza el examen: el código deja de servir en todos los equipos.
         </p>
         <div class="steps">
           <div class="step">
@@ -164,7 +182,7 @@
           </div>
           <div class="step">
             <h3>3. Evaluar</h3>
-            <p class="muted">Revisa trabajos: «Abrir en módulo» restaura parámetros; «Detalles» muestra el resumen.</p>
+            <p class="muted">Revisa los trabajos de la clase y ábrelos otra vez en el mismo módulo.</p>
           </div>
         </div>
         <p style="margin-top:1.5rem">
@@ -174,8 +192,7 @@
         <div class="panel" style="margin-top:2rem;padding:1.25rem;border:1px solid var(--border);border-radius:12px;max-width:640px">
           <h3 style="font-size:1.05rem;margin:0 0 0.5rem">Ideas para mejorar FísicaHN</h3>
           <p class="muted" style="font-size:0.88rem;margin-bottom:1rem">
-            Solo docentes con sesión de <strong>email</strong>.
-            Máximo una idea cada <strong>3 horas</strong> por usuario.
+            Solo docentes con sesión. Máximo una idea cada <strong>3 horas</strong> por persona.
           </p>
           <form id="ideaForm">
             <div class="field">

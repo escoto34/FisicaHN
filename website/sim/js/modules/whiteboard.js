@@ -468,7 +468,8 @@ export function init(engine, renderer, ui) {
   );
 
   renderParams();
-  engine.pause(true);
+  // La pizarra no se pausa: en pausa el RAF se detiene y el dibujo no se ve.
+  engine.pause?.(false);
 }
 
 export function destroy() {

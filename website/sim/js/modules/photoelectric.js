@@ -1,5 +1,7 @@
 /**
  * Efecto fotoeléctrico: umbral de frecuencia, Kmax = hf − φ.
+ * Visual: fotones chocan con la superficie del metal; gráfica K_max vs f
+ * con caja acotada (marcador naranja y recta no salen del área).
  */
 
 import { roundTo } from '../utils/math-helpers.js';
@@ -12,6 +14,8 @@ import {
 let _engine, _renderer, _ui;
 let t = 0;
 let electrons = [];
+/** Fotones animados que viajan hasta la superficie del metal. */
+let photons = [];
 
 // h in eV·s style using f in 10^14 Hz scale for teaching
 const params = {
@@ -31,6 +35,27 @@ const METALS = {
 // h_eff so that E(eV) = h_eff * f with f in 10^14 Hz → roughly E = 0.414 * f
 const H_EFF = 0.414;
 
+/** Superficie del metal (cara derecha de la placa) en coords mundo. */
+const METAL = {
+  left: -3.4,
+  right: -1.7, // superficie iluminada
+  top: 2.2,
+  bottom: -2.2
+};
+
+/** Dominio de la gráfica embebida (coincide con sliders). */
+const GRAPH = {
+  // mundo: esquina inferior-izquierda y tamaño del área de dibujo
+  x0: 1.0,
+  y0: -3.35,
+  w: 5.4,
+  h: 3.1,
+  fMin: 0,
+  fMax: 15, // igual que el slider de f
+  kMin: 0,
+  kMax: 6.5 // cubre hf_max − φ_min ≈ 0.414*15 − 1
+};
+
 export function init(engine, renderer, ui, meta = null) {
   _engine = engine;
   _renderer = renderer;
@@ -43,7 +68,7 @@ export function init(engine, renderer, ui, meta = null) {
       meta?.blurb ||
       'Fotones sobre un metal: emisión solo si hf > φ; K_max = hf − φ.',
     story:
-      'Einstein explicó el efecto fotoeléctrico con cuantos de luz. La intensidad cambia el número de electrones, no K_max.',
+      'Einstein explicó el efecto fotoeléctrico con cuantos de luz. La intensidad cambia el número de electrones, no K_max. Los fotones se absorben en la superficie del metal (no la atraviesan).',
     cases: [
       'Células fotoeléctricas y sensores de luz.',
       'Por qué la luz roja no arranca electrones en ciertos metales y la violeta sí.',
@@ -59,11 +84,13 @@ export function init(engine, renderer, ui, meta = null) {
   });
   clearChallenges(ui);
   renderParams();
+  updateData();
 }
 
 function resetState() {
   t = 0;
   electrons = [];
+  photons = [];
 }
 
 export function destroy() {
@@ -72,6 +99,7 @@ export function destroy() {
 export function reset(engine) {
   resetState();
   engine?.reset?.();
+  updateData();
 }
 export function setTool() {}
 
@@ -79,97 +107,348 @@ function photonE() {
   return H_EFF * params.f;
 }
 
+function kMax() {
+  return photonE() - params.phi;
+}
+
+function f0() {
+  return params.phi / H_EFF;
+}
+
+/** Mapea (f, K) del dominio de la gráfica → coords mundo (acotado al rectángulo). */
+function graphToWorld(f, k) {
+  const g = GRAPH;
+  const fu = Math.max(g.fMin, Math.min(g.fMax, f));
+  const ku = Math.max(g.kMin, Math.min(g.kMax, k));
+  const nx = (fu - g.fMin) / (g.fMax - g.fMin);
+  const ny = (ku - g.kMin) / (g.kMax - g.kMin);
+  return {
+    x: g.x0 + nx * g.w,
+    y: g.y0 + ny * g.h,
+    clamped: fu !== f || ku !== k
+  };
+}
+
 export function update(dt) {
   t += dt;
   const E = photonE();
   const K = E - params.phi;
-  // emission rate ~ intensity if above threshold
-  if (K > 0) {
-    const rate = params.intensity * 12 * dt;
-    if (Math.random() < rate) {
-      const speed = Math.sqrt(2 * Math.max(K, 0)) * 0.9;
-      electrons.push({
-        x: -1.5,
-        y: (Math.random() - 0.5) * 2,
-        vx: 1.5 + speed,
-        vy: (Math.random() - 0.5) * 0.8,
-        life: 2.5
-      });
+  const above = K > 0;
+
+  // Spawn fotones (viajan hacia la superficie del metal)
+  const photonRate = params.intensity * 10 * dt;
+  if (Math.random() < photonRate) {
+    photons.push({
+      x: -7.2,
+      y: (Math.random() - 0.5) * (METAL.top - METAL.bottom) * 0.85,
+      vx: 4.2 + params.intensity * 1.5,
+      life: 4,
+      absorbed: false
+    });
+  }
+
+  // Mover fotones; al tocar la superficie se absorben (no atraviesan la placa)
+  for (const p of photons) {
+    if (p.absorbed) {
+      p.life -= dt * 3;
+      continue;
+    }
+    p.x += p.vx * dt;
+    if (p.x >= METAL.right - 0.05) {
+      p.x = METAL.right - 0.05;
+      p.absorbed = true;
+      p.life = 0.25;
+      // Emisión de e⁻ solo si hf > φ, desde la superficie
+      if (above) {
+        const speed = Math.sqrt(2 * Math.max(K, 0)) * 0.9;
+        electrons.push({
+          x: METAL.right + 0.08,
+          y: p.y + (Math.random() - 0.5) * 0.15,
+          vx: 1.2 + speed,
+          vy: (Math.random() - 0.5) * 0.9,
+          life: 2.5
+        });
+      }
     }
   }
+  photons = photons.filter((p) => p.life > 0 && p.x < 8);
+
   for (const e of electrons) {
     e.x += e.vx * dt;
     e.y += e.vy * dt;
     e.life -= dt;
+    // No reentrar en el metal
+    if (e.x < METAL.right) {
+      e.x = METAL.right;
+      e.vx = Math.abs(e.vx);
+    }
   }
-  electrons = electrons.filter((e) => e.life > 0 && e.x < 8);
+  electrons = electrons.filter(
+    (e) => e.life > 0 && e.x < 8 && e.y < 5 && e.y > -5
+  );
   updateData();
 }
 
 function updateData() {
   const E = photonE();
   const K = E - params.phi;
-  const f0 = params.phi / H_EFF;
+  const thr = f0();
   _ui?.setData(`
     <div style="font-family:var(--font-mono);font-size:0.82rem;line-height:1.7">
-      <div>metal ≈ φ = ${params.phi} eV</div>
+      <div>metal ${params.metal} · φ = ${params.phi} eV</div>
       <div>f = ${params.f}×10¹⁴ Hz · hf ≈ ${roundTo(E, 2)} eV</div>
-      <div>f₀ ≈ ${roundTo(f0, 2)}×10¹⁴ Hz</div>
+      <div>f₀ ≈ ${roundTo(thr, 2)}×10¹⁴ Hz</div>
       <div>K<sub>max</sub> = ${K > 0 ? roundTo(K, 2) + ' eV' : '0 (bajo umbral)'}</div>
-      <div>electrones activos: ${electrons.length}</div>
+      <div>${K > 0 ? 'Emisión activa (fotones se absorben en la superficie)' : 'Sin emisión: hf ≤ φ'}</div>
     </div>
   `);
+}
+
+function drawMetalPlate(ctx, r) {
+  const tl = r.worldToCanvas(METAL.left, METAL.top);
+  const br = r.worldToCanvas(METAL.right, METAL.bottom);
+  const x = Math.min(tl.x, br.x);
+  const y = Math.min(tl.y, br.y);
+  const w = Math.abs(br.x - tl.x);
+  const h = Math.abs(br.y - tl.y);
+
+  ctx.save();
+  // cuerpo del metal
+  const g = ctx.createLinearGradient(x, y, x + w, y);
+  g.addColorStop(0, '#546e7a');
+  g.addColorStop(0.7, '#78909c');
+  g.addColorStop(1, '#90a4ae');
+  ctx.fillStyle = g;
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(x, y, w, h);
+
+  // superficie iluminada (cara derecha)
+  ctx.strokeStyle = 'rgba(255, 236, 179, 0.85)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(x + w, y);
+  ctx.lineTo(x + w, y + h);
+  ctx.stroke();
+
+  ctx.font = '600 13px system-ui, sans-serif';
+  ctx.fillStyle = '#eceff1';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(params.metal, x + w / 2, y + h / 2 - 8);
+  ctx.font = '11px system-ui, sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.fillText(`φ = ${params.phi} eV`, x + w / 2, y + h / 2 + 10);
+
+  // etiqueta superficie
+  ctx.save();
+  ctx.translate(x + w + 8, y + 14);
+  ctx.fillStyle = 'rgba(255, 236, 179, 0.9)';
+  ctx.textAlign = 'left';
+  ctx.font = '10px system-ui, sans-serif';
+  ctx.fillText('superficie', 0, 0);
+  ctx.restore();
+  ctx.restore();
+}
+
+function drawGraph(ctx, r) {
+  const g = GRAPH;
+  const bl = r.worldToCanvas(g.x0, g.y0);
+  const tr = r.worldToCanvas(g.x0 + g.w, g.y0 + g.h);
+  const left = Math.min(bl.x, tr.x);
+  const right = Math.max(bl.x, tr.x);
+  const top = Math.min(bl.y, tr.y);
+  const bottom = Math.max(bl.y, tr.y);
+  const boxW = right - left;
+  const boxH = bottom - top;
+
+  ctx.save();
+
+  // Fondo / caja de la gráfica
+  ctx.fillStyle = 'rgba(12, 15, 20, 0.55)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+  ctx.lineWidth = 1.5;
+  if (ctx.roundRect) {
+    ctx.beginPath();
+    ctx.roundRect(left - 6, top - 6, boxW + 12, boxH + 22, 8);
+    ctx.fill();
+    ctx.stroke();
+  } else {
+    ctx.fillRect(left - 6, top - 6, boxW + 12, boxH + 22);
+    ctx.strokeRect(left - 6, top - 6, boxW + 12, boxH + 22);
+  }
+
+  // Clip estricto al interior de la gráfica (nada atraviesa el borde)
+  ctx.beginPath();
+  ctx.rect(left, top, boxW, boxH);
+  ctx.clip();
+
+  // Cuadrícula suave
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1;
+  for (let i = 1; i < 4; i++) {
+    const yy = top + (boxH * i) / 4;
+    const xx = left + (boxW * i) / 4;
+    ctx.beginPath();
+    ctx.moveTo(left, yy);
+    ctx.lineTo(right, yy);
+    ctx.moveTo(xx, top);
+    ctx.lineTo(xx, bottom);
+    ctx.stroke();
+  }
+
+  // Ejes (borde inferior e izquierdo del área)
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(left, bottom);
+  ctx.lineTo(right, bottom);
+  ctx.moveTo(left, bottom);
+  ctx.lineTo(left, top);
+  ctx.stroke();
+
+  // Recta K = h f − φ, dibujada solo dentro del dominio y recortada por clip
+  const thr = f0();
+  const fStart = Math.max(g.fMin, thr);
+  const fEnd = g.fMax;
+  if (fStart < fEnd) {
+    const pA = graphToWorld(fStart, Math.max(0, H_EFF * fStart - params.phi));
+    const pB = graphToWorld(fEnd, Math.max(0, H_EFF * fEnd - params.phi));
+    const cA = r.worldToCanvas(pA.x, pA.y);
+    const cB = r.worldToCanvas(pB.x, pB.y);
+    ctx.strokeStyle = '#66bb6a';
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(cA.x, cA.y);
+    ctx.lineTo(cB.x, cB.y);
+    ctx.stroke();
+  }
+
+  // Segmento bajo umbral (K=0) en el eje f
+  if (thr > g.fMin) {
+    const z0 = graphToWorld(g.fMin, 0);
+    const z1 = graphToWorld(Math.min(thr, g.fMax), 0);
+    const c0 = r.worldToCanvas(z0.x, z0.y);
+    const c1 = r.worldToCanvas(z1.x, z1.y);
+    ctx.strokeStyle = 'rgba(239, 154, 154, 0.75)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(c0.x, c0.y);
+    ctx.lineTo(c1.x, c1.y);
+    ctx.stroke();
+  }
+
+  // Marca vertical f₀ (si cae dentro del eje)
+  if (thr >= g.fMin && thr <= g.fMax) {
+    const t0 = graphToWorld(thr, 0);
+    const t1 = graphToWorld(thr, g.kMax * 0.12);
+    const ct0 = r.worldToCanvas(t0.x, t0.y);
+    const ct1 = r.worldToCanvas(t1.x, t1.y);
+    ctx.strokeStyle = 'rgba(255,183,77,0.7)';
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(ct0.x, ct0.y);
+    ctx.lineTo(ct1.x, ct1.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Marcador naranja (f, K_max) — SIEMPRE dentro de la caja
+  const K = kMax();
+  const km = Math.max(0, K);
+  const pm = graphToWorld(params.f, km);
+  const cMark = r.worldToCanvas(pm.x, pm.y);
+  ctx.fillStyle = '#ffb74d';
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(cMark.x, cMark.y, 6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Punto guía en el eje f (proyección) para leer f actual
+  const pBase = graphToWorld(params.f, 0);
+  const cBase = r.worldToCanvas(pBase.x, pBase.y);
+  ctx.strokeStyle = 'rgba(255,183,77,0.45)';
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath();
+  ctx.moveTo(cMark.x, cMark.y);
+  ctx.lineTo(cBase.x, cBase.y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.restore(); // sale del clip
+
+  // Etiquetas fuera del clip (no se cortan)
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  ctx.font = '600 11px system-ui, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillText('K_max vs f', left, bottom + 4);
+  ctx.font = '10px system-ui, sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.textAlign = 'right';
+  ctx.fillText('f →', right, bottom + 4);
+  ctx.textAlign = 'left';
+  ctx.save();
+  ctx.translate(left - 4, top + 4);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('K →', 0, 0);
+  ctx.restore();
+
+  // Leyenda del punto
+  ctx.font = '10px system-ui, sans-serif';
+  ctx.fillStyle = '#ffb74d';
+  ctx.textAlign = 'left';
+  const legend =
+    km > 0
+      ? `● f=${params.f} · K=${roundTo(km, 2)} eV`
+      : `● f=${params.f} · bajo umbral (K=0)`;
+  ctx.fillText(legend, left, top - 18);
+  ctx.restore();
 }
 
 export function render(ctx) {
   if (!_renderer) return;
   const r = _renderer;
-  // metal plate
-  r.drawObject(-2.5, 0, { shape: 'rect', size: 1.8, color: '#78909c', label: params.metal });
-  // incoming photons
   const E = photonE();
   const K = E - params.phi;
-  const col = K > 0 ? '#fff59d' : '#ef9a9a';
-  for (let i = 0; i < 5; i++) {
-    const x = -7 + ((t * 3 + i * 1.2) % 5);
-    r.drawObject(x, 1.2 - i * 0.15, { shape: 'circle', size: 0.12, color: col, label: '' });
+  const above = K > 0;
+  const photonColor = above ? '#fff59d' : '#ef9a9a';
+
+  // Metal (placa sólida — los fotones no la cruzan)
+  drawMetalPlate(ctx, r);
+
+  // Fotones
+  for (const p of photons) {
+    const alpha = p.absorbed ? Math.max(0, p.life / 0.25) : 1;
+    const size = p.absorbed ? 0.08 + (1 - alpha) * 0.1 : 0.14;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    r.drawObject(p.x, p.y, {
+      shape: 'circle',
+      size,
+      color: photonColor,
+      label: '',
+      glow: !p.absorbed
+    });
+    ctx.restore();
   }
-  // electrons
+
+  // Electrones emitidos (solo a la derecha de la superficie)
   for (const e of electrons) {
-    r.drawObject(e.x, e.y, { shape: 'circle', size: 0.15, color: '#4fc3f7', label: 'e⁻' });
+    r.drawObject(e.x, e.y, {
+      shape: 'circle',
+      size: 0.16,
+      color: '#4fc3f7',
+      label: 'e⁻'
+    });
   }
-  // graph K vs f sketch
-  ctx.save();
-  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-  const o = r.worldToCanvas(1, -3);
-  const fx = r.worldToCanvas(6, -3);
-  const fy = r.worldToCanvas(1, 0);
-  ctx.beginPath();
-  ctx.moveTo(o.x, o.y);
-  ctx.lineTo(fx.x, fx.y);
-  ctx.moveTo(o.x, o.y);
-  ctx.lineTo(fy.x, fy.y);
-  ctx.stroke();
-  ctx.strokeStyle = '#66bb6a';
-  ctx.lineWidth = 2;
-  const f0 = params.phi / H_EFF;
-  const p0 = r.worldToCanvas(1 + (f0 / 12) * 5, -3);
-  const p1 = r.worldToCanvas(6, -3 + ((H_EFF * 12 - params.phi) / 6) * 3);
-  ctx.beginPath();
-  ctx.moveTo(p0.x, p0.y);
-  ctx.lineTo(p1.x, p1.y);
-  ctx.stroke();
-  // current f marker
-  const km = Math.max(0, K);
-  const pm = r.worldToCanvas(1 + (params.f / 12) * 5, -3 + (km / 6) * 3);
-  ctx.fillStyle = '#ffb74d';
-  ctx.beginPath();
-  ctx.arc(pm.x, pm.y, 5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,0.6)';
-  ctx.font = '11px sans-serif';
-  ctx.fillText('K_max vs f', o.x, o.y + 16);
-  ctx.restore();
+
+  // Gráfica acotada (caja + clip: el punto naranja y la recta no salen)
+  drawGraph(ctx, r);
 }
 
 function renderParams() {
@@ -197,6 +476,7 @@ function renderParams() {
       params.metal = e.target.value;
       params.phi = METALS[params.metal];
       renderParams();
+      updateData();
     });
     const bind = (id, key, d) => {
       const el = document.getElementById(id);
@@ -204,6 +484,7 @@ function renderParams() {
         params[key] = parseFloat(el.value);
         const disp = document.getElementById(d);
         if (disp) disp.textContent = String(params[key]);
+        updateData();
       });
     };
     bind('ph_f', 'f', 'ph_fd');
@@ -213,12 +494,20 @@ function renderParams() {
 }
 
 export function getState() {
-  return { t, params: { ...params }, electrons: electrons.map((e) => ({ ...e })) };
+  return {
+    t,
+    params: { ...params },
+    electrons: electrons.map((e) => ({ ...e })),
+    photons: photons.map((p) => ({ ...p }))
+  };
 }
 export function setState(s) {
   if (!s || typeof s !== 'object') return;
   if (s.params) Object.assign(params, s.params);
   if (s.t != null) t = s.t;
   if (Array.isArray(s.electrons)) electrons = s.electrons;
+  if (Array.isArray(s.photons)) photons = s.photons;
+  else photons = [];
   renderParams();
+  updateData();
 }

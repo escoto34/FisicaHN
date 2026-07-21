@@ -604,11 +604,11 @@ document.getElementById('btnEndExam')?.addEventListener('click', async () => {
   if (rec?.schoolKey) {
     await endExamOnCloud({ schoolKey: rec.schoolKey, code });
   }
-  endExamSession();
+  endExamSession({ archiveWorks: true, endCloud: false }); // nube ya cerrada arriba
   refreshExam();
   setMsg(
     examMsg,
-    'Examen finalizado. Los trabajos de los alumnos quedaron archivados en este panel para evaluarlos.',
+    'Examen finalizado en la nube: los alumnos conectados salen del examen automáticamente. Trabajos archivados en este panel.',
     true
   );
   refreshWorks();

@@ -374,39 +374,6 @@ export function render(ctx) {
     );
   }
 
-  // —— Banner de estado ——
-  const banner = o.isTIR
-    ? {
-        text: 'Reflexión total interna — el rayo no entra al medio 2',
-        bg: 'rgba(239, 83, 80, 0.92)',
-        fg: '#fff'
-      }
-    : {
-        text: 'Refracción activa — el rayo se desvía al cambiar de medio',
-        bg: 'rgba(46, 125, 50, 0.88)',
-        fg: '#e8f5e9'
-      };
-  if (o.isTIR && o.criticalDeg != null) {
-    banner.text += `  ·  θc ≈ ${roundTo(o.criticalDeg, 1)}°`;
-  }
-
-  ctx.font = '600 13px system-ui, sans-serif';
-  const bw = Math.min(w - 24, ctx.measureText(banner.text).width + 28);
-  const bx = (w - bw) / 2;
-  const by = h - 42;
-  ctx.fillStyle = banner.bg;
-  ctx.beginPath();
-  if (ctx.roundRect) {
-    ctx.roundRect(bx, by, bw, 30, 10);
-    ctx.fill();
-  } else {
-    ctx.fillRect(bx, by, bw, 30);
-  }
-  ctx.fillStyle = banner.fg;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(banner.text, w / 2, by + 15);
-
   // —— Leyenda ——
   const legend = [
     { c: '#4fc3f7', t: 'Incidente' },

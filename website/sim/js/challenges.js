@@ -4,17 +4,18 @@
 
 const STORAGE_KEY = 'fisicahn_challenges';
 
-/** Motores con JSON de retos por defecto (casos de uso). Pizarra y placeholders no. */
-export const CHALLENGE_ENGINES = {
-  kinematics: 'data/challenges/cinematica-retos.json',
-  dynamics: 'data/challenges/dinamica-retos.json',
-  electricity: 'data/challenges/electricidad-retos.json',
-  optics: 'data/challenges/optica-retos.json'
-};
+/**
+ * Rutas legacy de retos de ejemplo (ya no se cargan en la app).
+ * Solo se muestran retos del pack de examen activo.
+ */
+export const CHALLENGE_ENGINES = {};
 
 export const CHALLENGE_MODULE_LABELS = {
   kinematics: 'Cinemática',
   dynamics: 'Fuerzas y movimiento',
+  'force-kinetic': 'Fuerza cinética',
+  friction: 'Fricción',
+  statics: 'Estática',
   electricity: 'Campo eléctrico y cargas',
   optics: 'Luz y óptica geométrica',
   momentum: 'Cantidad de movimiento',
@@ -129,40 +130,57 @@ export function exportChallengePackJSON(pack, filename) {
   return { filename: name, modules: Object.keys(normalized.modules).length };
 }
 
-export function engineHasBuiltInChallenges(engineKey) {
-  return Boolean(CHALLENGE_ENGINES[engineKey]);
+export function engineHasBuiltInChallenges(_engineKey) {
+  // Los retos de ejemplo del repo están desactivados.
+  return false;
 }
 
 /**
- * Carga retos del módulo: pack de examen (prioridad) + JSON del repo.
+ * Carga retos del módulo solo en modo examen y solo del pack del docente.
+ * Sin examen → lista vacía (la pestaña Retos se oculta).
+ * Reintenta bajar el pack de la nube si la caché local está vacía.
  */
 export async function loadChallengeDataForEngine(engineKey) {
-  const list = [];
-  const examPack = getCachedExamChallengePack();
-  if (examPack?.modules) {
-    const fromExam =
-      examPack.modules[engineKey] ||
-      examPack.modules[engineKey?.replace(/-/g, '_')] ||
-      [];
-    if (Array.isArray(fromExam)) list.push(...fromExam);
+  if (!engineKey) return [];
+
+  let examCode = null;
+  try {
+    const { getSession } = await import('./auth.js');
+    const session = getSession();
+    if (!session || session.mode !== 'exam' || !session.examCode) {
+      return [];
+    }
+    examCode = session.examCode;
+  } catch {
+    return [];
   }
 
-  const path = CHALLENGE_ENGINES[engineKey];
-  if (path) {
+  let examPack = getCachedExamChallengePack();
+  const hasAny =
+    examPack?.modules &&
+    Object.values(examPack.modules).some((arr) => Array.isArray(arr) && arr.length);
+
+  // Si no hay pack local, intentar nube (PC del docente lo publicó después de unirse)
+  if (!hasAny && examCode) {
     try {
-      const base = new URL('.', import.meta.url);
-      // challenges.js is in js/ → data is ../data
-      const url = new URL(`../${path}`, base);
-      const res = await fetch(url.href, { cache: 'no-store' });
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) list.push(...data);
+      const { fetchExamChallengePack } = await import('./supabase-client.js');
+      const row = await fetchExamChallengePack(examCode);
+      if (row?.pack) {
+        setCachedExamChallengePack(normalizeChallengePack(row.pack), examCode);
+        examPack = getCachedExamChallengePack();
       }
     } catch {
-      /* offline / missing */
+      /* sin red */
     }
   }
-  return list;
+
+  if (!examPack?.modules) return [];
+
+  const fromExam =
+    examPack.modules[engineKey] ||
+    examPack.modules[engineKey?.replace(/-/g, '_')] ||
+    [];
+  return Array.isArray(fromExam) ? fromExam.slice() : [];
 }
 
 export class ChallengeEngine {

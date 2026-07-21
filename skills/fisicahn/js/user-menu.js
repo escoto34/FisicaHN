@@ -218,19 +218,35 @@ export async function openUserMenu() {
       const disp = overlay.querySelector('#userExamCodeDisplay');
       if (disp) disp.textContent = code;
       setOk(`Código ${code} activo en la nube. Escríbelo en la pizarra.`);
+      try {
+        const { ensureTeacherExamSync } = await import('./works-panel.js');
+        await ensureTeacherExamSync();
+      } catch {
+        /* poll opcional */
+      }
       refreshAllUi();
     } catch (e) {
       setErr(e.message || 'No se pudo crear el código.');
     }
   });
 
-  overlay.querySelector('#userEndExamBtn')?.addEventListener('click', () => {
-    endExamSession({ archiveWorks: true, endCloud: true });
-    leaveExamMode();
+  overlay.querySelector('#userEndExamBtn')?.addEventListener('click', async () => {
+    import('./works-panel.js')
+      .then((m) => m.stopExamWorksPolling?.())
+      .catch(() => {});
+    const result = endExamSession({ archiveWorks: true, endCloud: true });
+    // endExamSession ya saca de modo examen y desactiva el código en la nube
+    if (result?.done) {
+      try {
+        await result.done;
+      } catch {
+        /* ignore */
+      }
+    }
     const disp = overlay.querySelector('#userExamCodeDisplay');
     if (disp) disp.textContent = '———';
     setOk(
-      'Examen finalizado. Los trabajos de los alumnos quedan en Mis trabajos (importados) para evaluarlos.'
+      'Examen finalizado en todos los dispositivos conectados. Los trabajos quedan en Mis trabajos para evaluarlos.'
     );
     refreshAllUi();
   });
@@ -264,9 +280,5 @@ export function bindUserMenu() {
   window.addEventListener('fisicahn:session', () => {
     renderUserChip(document.getElementById('userChipHost'));
     renderSessionBadge(document.getElementById('sessionBadgeHost'));
-  });
-
-  document.getElementById('openAccountBtn')?.addEventListener('click', () => {
-    openUserMenu().catch(() => {});
   });
 }

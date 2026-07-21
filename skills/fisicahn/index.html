@@ -26,9 +26,6 @@
       <div class="catalog-header-actions">
         <div id="networkStatusCatalog" class="network-status-host" aria-label="Estado de red"></div>
         <div id="userChipHost" class="user-chip-host" aria-label="Usuario"></div>
-        <button type="button" class="catalog-pizarra-btn" id="openAccountBtn" aria-label="Cuenta y examen">
-          Cuenta
-        </button>
         <button type="button" class="catalog-pizarra-btn" id="openWhiteboardBtn" aria-label="Abrir pizarra docente">
           Pizarra docente
         </button>
@@ -48,18 +45,21 @@
 
   <!-- Shell del simulador (oculto hasta elegir módulo) -->
   <div id="simShell" class="sim-shell" hidden>
-  <!-- Sidebar -->
+  <!-- Sidebar: en PC la cabecera (logo / todos / trabajos) queda fija; solo la lista de módulos hace scroll -->
   <aside class="sidebar" id="sidebar">
-    <button type="button" class="sidebar-header sidebar-brand-btn" id="sidebarBrandBtn" title="Volver a todos los módulos" aria-label="Volver a todos los módulos">
-      <img class="logo-icon" src="assets/logo.svg" width="32" height="32" alt="">
-      <h1 class="sidebar-title">FísicaHN</h1>
-    </button>
-    <button type="button" class="catalog-back-btn" id="catalogBackBtn" aria-label="Volver al catálogo de módulos">
-      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-        <path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      <span>Todos los módulos</span>
-    </button>
+    <div class="sidebar-top" id="sidebarTop">
+      <button type="button" class="sidebar-header sidebar-brand-btn" id="sidebarBrandBtn" title="Volver a todos los módulos" aria-label="Volver a todos los módulos">
+        <img class="logo-icon" src="assets/logo.svg" width="32" height="32" alt="">
+        <h1 class="sidebar-title">FísicaHN</h1>
+      </button>
+      <button type="button" class="catalog-back-btn" id="catalogBackBtn" aria-label="Volver al catálogo de módulos">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Todos los módulos</span>
+      </button>
+      <div class="sidebar-works-host" id="sidebarWorksHost"></div>
+    </div>
     <nav class="sidebar-nav" aria-label="Módulos de física" id="sidebarNav">
       <!-- Rellenado por app.js desde el catálogo del nivel actual -->
     </nav>
@@ -70,7 +70,7 @@
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" fill="none" stroke="currentColor" stroke-width="2"/>
         </svg>
       </button>
-      <span class="version-badge">v1.2.0</span>
+      <span class="version-badge">v1.3.0</span>
     </div>
   </aside>
 
@@ -116,7 +116,7 @@
   <!-- Right Panel -->
   <aside class="right-panel" id="rightPanel">
     <input type="file" id="importWorksFile" accept="application/json,.json" hidden>
-    <div class="panel-section">
+    <div class="panel-section" id="simTransportControls">
       <h3 class="panel-title">Controles</h3>
       <div class="control-group">
         <label class="control-label" for="speedSlider">Velocidad</label>

@@ -20,6 +20,11 @@ import {
 
 /** Poll de trabajos en vivo (solo docente con examen activo). */
 let examSyncTimer = null;
+/** Clave schoolKey|examCode del poll actual (evita reinicios en bucle). */
+let examSyncKey = null;
+/** Overlay del modal (opcional; el poll sigue en segundo plano). */
+let examSyncOverlay = null;
+const EXAM_SYNC_MS = 5000;
 
 function escapeHtml(str) {
   return String(str ?? '')
@@ -88,11 +93,56 @@ function formatDate(iso) {
   }
 }
 
+/** Marca de tiempo del trabajo (guardado / importado / archivo). */
+function workTimestamp(w) {
+  const raw = w?.savedAt || w?.importedAt || w?.archivedAt || w?.createdAt || 0;
+  const t = new Date(raw).getTime();
+  return Number.isFinite(t) ? t : 0;
+}
+
+/**
+ * Código del examen actual en este dispositivo (docente activo o sesión unida).
+ * @returns {string|null}
+ */
+export function getCurrentExamCode() {
+  try {
+    // Lazy: evita import circular en carga inicial
+    const sessionRaw = localStorage.getItem('fisicahn_session_v1');
+    const session = sessionRaw ? JSON.parse(sessionRaw) : null;
+    if (session?.mode === 'exam' && session?.examCode) {
+      return String(session.examCode);
+    }
+    const teacherRaw = localStorage.getItem('fisicahn_teacher_v1');
+    const rec = teacherRaw ? JSON.parse(teacherRaw) : null;
+    if (rec?.examActive && rec?.examCode) return String(rec.examCode);
+    const tokRaw = localStorage.getItem('fisicahn_exam_token_v1');
+    const tok = tokRaw ? JSON.parse(tokRaw) : null;
+    if (tok?.active && tok?.code) return String(tok.code);
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+/** ¿El trabajo pertenece al examen actual? */
+function isWorkFromCurrentExam(w, examCode = getCurrentExamCode()) {
+  if (!examCode || !w) return false;
+  return String(w.examCode || '') === String(examCode);
+}
+
 function describe(w) {
+  const examCode = getCurrentExamCode();
+  const examTag =
+    examCode && isWorkFromCurrentExam(w, examCode)
+      ? `Examen actual (${examCode})`
+      : w.examCode
+        ? `Examen ${w.examCode}`
+        : null;
   return [
     w.moduleTitle || w.moduleId || 'Módulo',
     w.studentName || null,
     w.schoolName || null,
+    examTag,
     formatDate(w.savedAt || w.importedAt)
   ]
     .filter(Boolean)
@@ -149,22 +199,53 @@ export function renderWorksSidebar(host, opts = {}) {
   });
 }
 
+/**
+ * @param {HTMLElement} host
+ * @param {{
+ *   filter?: 'all'|'saved'|'imported',
+ *   sort?: 'time-desc'|'time-asc',
+ *   examScope?: 'all'|'current'|'other',
+ *   evaluate?: boolean
+ * }} opts
+ */
 export function renderWorksList2(host, opts = {}) {
   if (!host) return;
   const filter = opts.filter || 'all';
+  const sort = opts.sort || 'time-desc';
+  const examScope = opts.examScope || 'all';
   const evaluate = opts.evaluate !== false;
+  const currentExam = getCurrentExamCode();
   let works = listWorks();
+
   if (filter === 'saved') {
     works = works.filter((w) => workOrigin(w) !== 'imported');
   } else if (filter === 'imported') {
     works = works.filter((w) => workOrigin(w) === 'imported');
   }
 
+  if (currentExam && examScope === 'current') {
+    works = works.filter((w) => isWorkFromCurrentExam(w, currentExam));
+  } else if (currentExam && examScope === 'other') {
+    works = works.filter((w) => !isWorkFromCurrentExam(w, currentExam));
+  }
+
+  // Tiempo: mayor→menor = más reciente primero; menor→mayor = más antiguo primero
+  works.sort((a, b) => {
+    const da = workTimestamp(a);
+    const db = workTimestamp(b);
+    return sort === 'time-asc' ? da - db : db - da;
+  });
+
   if (!works.length) {
+    let emptyExtra = '';
+    if (filter === 'imported') emptyExtra = ' importados';
+    else if (filter === 'saved') emptyExtra = ' guardados';
+    if (currentExam && examScope === 'current') emptyExtra += ' del examen actual';
+    else if (currentExam && examScope === 'other') emptyExtra += ' fuera del examen actual';
     host.innerHTML = `
       <div class="works-list2-empty">
-        <p>No hay trabajos${filter === 'imported' ? ' importados' : filter === 'saved' ? ' guardados' : ''}.</p>
-        <p class="placeholder-text">Guarda un trabajo en un módulo de simulación.</p>
+        <p>No hay trabajos${emptyExtra}.</p>
+        <p class="placeholder-text">Guarda un trabajo en un módulo de simulación o cambia los filtros.</p>
       </div>`;
     return;
   }
@@ -388,10 +469,23 @@ export function openWorksModal(opts = {}) {
             <div id="worksChList" class="works-challenge-list"></div>
           </div>
         </div>
-        <div class="works-modal-filters" role="tablist">
-          <button type="button" class="works-filter" data-filter="all">Todos</button>
-          <button type="button" class="works-filter" data-filter="saved">Guardados</button>
-          <button type="button" class="works-filter" data-filter="imported">Importados</button>
+        <div class="works-modal-filters-wrap">
+          <div class="works-modal-filters" role="tablist" aria-label="Origen">
+            <button type="button" class="works-filter" data-filter="all">Todos</button>
+            <button type="button" class="works-filter" data-filter="saved">Guardados</button>
+            <button type="button" class="works-filter" data-filter="imported">Importados</button>
+          </div>
+          <div class="works-modal-filters works-modal-filters-sort" role="group" aria-label="Orden por tiempo">
+            <span class="works-filter-label">Tiempo</span>
+            <button type="button" class="works-filter" data-sort="time-desc" title="Más recientes primero">Mayor → menor</button>
+            <button type="button" class="works-filter" data-sort="time-asc" title="Más antiguos primero">Menor → mayor</button>
+          </div>
+          <div class="works-modal-filters works-modal-filters-exam" role="group" aria-label="Examen actual" hidden>
+            <span class="works-filter-label">Examen</span>
+            <button type="button" class="works-filter" data-exam-scope="all">Cualquiera</button>
+            <button type="button" class="works-filter" data-exam-scope="current">Examen actual</button>
+            <button type="button" class="works-filter" data-exam-scope="other">No en examen actual</button>
+          </div>
         </div>
         <div id="worksModalList" class="works-modal-body"></div>
         <footer class="works-modal-footer">
@@ -405,6 +499,7 @@ export function openWorksModal(opts = {}) {
     const close = () => {
       overlay.hidden = true;
       document.body.classList.remove('works-modal-open');
+      // No detener el poll: el docente sigue recibiendo trabajos de la clase.
     };
     overlay.querySelector('#worksModalClose').addEventListener('click', close);
     overlay.querySelector('#worksModalDone').addEventListener('click', close);
@@ -413,32 +508,76 @@ export function openWorksModal(opts = {}) {
     });
 
     overlay._filter = 'saved';
+    overlay._sort = 'time-desc';
+    overlay._examScope = 'all';
     overlay._hub = false;
 
     const listEl = () => overlay.querySelector('#worksModalList');
-    const paint = () => {
+
+    const syncFilterButtons = () => {
+      overlay.querySelectorAll('.works-filter[data-filter]').forEach((b) => {
+        b.classList.toggle('active', b.dataset.filter === overlay._filter);
+      });
+      overlay.querySelectorAll('.works-filter[data-sort]').forEach((b) => {
+        b.classList.toggle('active', b.dataset.sort === overlay._sort);
+      });
+      overlay.querySelectorAll('.works-filter[data-exam-scope]').forEach((b) => {
+        b.classList.toggle('active', b.dataset.examScope === overlay._examScope);
+      });
+      const examRow = overlay.querySelector('.works-modal-filters-exam');
+      const code = getCurrentExamCode();
+      if (examRow) {
+        examRow.hidden = !code;
+        if (!code && overlay._examScope !== 'all') {
+          overlay._examScope = 'all';
+        }
+        // etiqueta con código actual
+        const curBtn = examRow.querySelector('[data-exam-scope="current"]');
+        if (curBtn && code) {
+          curBtn.textContent = `Examen actual (${code})`;
+        }
+      }
+    };
+
+    /** Solo repinta la lista (sin reiniciar poll). */
+    const paintList = () => {
       renderWorksList2(listEl(), {
         filter: overlay._filter,
+        sort: overlay._sort || 'time-desc',
+        examScope: overlay._examScope || 'all',
         evaluate: true
       });
       updateWorksCountBadges();
-      // filtros UI
-      overlay.querySelectorAll('.works-filter').forEach((b) => {
-        b.classList.toggle('active', b.dataset.filter === overlay._filter);
-      });
-      // hub: import/export visibles
+      syncFilterButtons();
       const imp = overlay.querySelector('#worksModalImport');
       const exp = overlay.querySelector('#worksModalExport');
       if (imp) imp.hidden = !overlay._hub;
       if (exp) exp.hidden = !overlay._hub;
+    };
+    const paint = () => {
+      paintList();
       refreshExamBar(overlay);
     };
     overlay._paint = paint;
+    overlay._paintList = paintList;
+    overlay._syncFilterButtons = syncFilterButtons;
 
-    overlay.querySelectorAll('.works-filter').forEach((btn) => {
+    overlay.querySelectorAll('.works-filter[data-filter]').forEach((btn) => {
       btn.addEventListener('click', () => {
         overlay._filter = btn.dataset.filter || 'all';
-        paint();
+        paintList();
+      });
+    });
+    overlay.querySelectorAll('.works-filter[data-sort]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        overlay._sort = btn.dataset.sort || 'time-desc';
+        paintList();
+      });
+    });
+    overlay.querySelectorAll('.works-filter[data-exam-scope]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        overlay._examScope = btn.dataset.examScope || 'all';
+        paintList();
       });
     });
 
@@ -462,10 +601,65 @@ export function openWorksModal(opts = {}) {
   }
 
   overlay._filter = initialFilter;
+  if (!overlay._sort) overlay._sort = 'time-desc';
+  if (!overlay._examScope) overlay._examScope = 'all';
   overlay._hub = hub;
   overlay.hidden = false;
   document.body.classList.add('works-modal-open');
-  overlay._paint?.();
+  // Preferir Importados si hay examen en curso; sync al abrir
+  Promise.resolve()
+    .then(async () => {
+      try {
+        const auth = await import('./auth.js');
+        const st = auth.getExamStatus();
+        const session = auth.getSession();
+        const code =
+          (st.active && st.code) ||
+          (session?.mode === 'exam' && session?.examCode) ||
+          null;
+        if (code && (initialFilter === 'saved' || !opts.filter)) {
+          overlay._filter = 'imported';
+        }
+        // Con examen activo, resaltar trabajos de ese código si el usuario no eligió otro alcance
+        if (code && opts.examScope) {
+          overlay._examScope = opts.examScope;
+        }
+      } catch {
+        /* ignore */
+      }
+      if (opts.sort) overlay._sort = opts.sort;
+      overlay._paint?.();
+      ensureTeacherExamSync();
+    })
+    .catch(() => {
+      overlay._paint?.();
+    });
+}
+
+/** Botón para expandir/plegar el editor de retos (móvil). */
+function ensureChallengeEditorToggle(overlay, editor) {
+  if (!editor || editor.dataset.toggleBound === '1') return;
+  editor.dataset.toggleBound = '1';
+  let btn = overlay.querySelector('#worksChToggleBtn');
+  if (!btn) {
+    btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = 'worksChToggleBtn';
+    btn.className = 'ctrl-btn works-ch-toggle';
+    btn.textContent = 'Retos del examen';
+    editor.parentElement?.insertBefore(btn, editor);
+  }
+  const syncLabel = () => {
+    const collapsed = editor.classList.contains('is-collapsed');
+    btn.textContent = collapsed ? 'Mostrar retos del examen' : 'Ocultar retos del examen';
+    btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  };
+  btn.addEventListener('click', () => {
+    editor.classList.toggle('is-collapsed');
+    editor.dataset.userExpanded = editor.classList.contains('is-collapsed') ? '0' : '1';
+    syncLabel();
+  });
+  syncLabel();
 }
 
 /** Draft de retos del docente en el hub (antes/durante el examen). */
@@ -486,13 +680,8 @@ function saveChallengeDraft(pack) {
 }
 
 async function refreshExamBar(overlay) {
-  const bar = overlay.querySelector('#worksExamBar');
+  const bar = overlay?.querySelector('#worksExamBar');
   if (!bar) return;
-  if (!overlay._hub) {
-    bar.hidden = true;
-    stopExamWorksPolling();
-    return;
-  }
 
   try {
     const { getSession, getExamStatus } = await import('./auth.js');
@@ -500,66 +689,133 @@ async function refreshExamBar(overlay) {
     // Solo docentes ven la barra de crear código
     if (!session || session.role !== 'teacher') {
       bar.hidden = true;
-      stopExamWorksPolling();
       return;
     }
-    bar.hidden = false;
+    // Hub o examen activo: mostrar controles de clase
     const st = getExamStatus();
-    const codeEl = overlay.querySelector('#worksExamCode');
     const code =
       st.active && st.code
         ? st.code
         : session.examCode && session.mode === 'exam'
           ? session.examCode
           : null;
+    if (!overlay._hub && !code) {
+      bar.hidden = true;
+      return;
+    }
+    bar.hidden = false;
+    const codeEl = overlay.querySelector('#worksExamCode');
     if (codeEl) codeEl.textContent = code || '———';
     const editor = overlay.querySelector('#worksChallengeEditor');
-    if (editor) editor.hidden = false;
+    // En móvil el editor de retos empieza plegado para no bloquear la lista
+    if (editor) {
+      editor.hidden = false;
+      ensureChallengeEditorToggle(overlay, editor);
+      const narrow = typeof window !== 'undefined' && window.matchMedia('(max-width: 720px)').matches;
+      if (narrow && editor.dataset.userExpanded !== '1') {
+        editor.classList.add('is-collapsed');
+      }
+    }
     renderChallengeDraftList(overlay);
 
     const hint = overlay.querySelector('.works-exam-hint');
     if (hint) {
       hint.textContent =
-        'Genera un código en línea. Los trabajos de los alumnos aparecen en Importados; si borran uno en su PC, desaparece aquí hasta que finalices el examen (entonces se archivan).';
+        'Genera un código en línea. Los trabajos de los alumnos llegan a Importados. Usa «Actualizar clase» o espera el auto-sync cada 5 s.';
     }
 
     if (code && session.schoolKey) {
       startExamWorksPolling(session.schoolKey, code, overlay);
-    } else {
-      stopExamWorksPolling();
     }
   } catch {
     bar.hidden = true;
   }
 }
 
-function stopExamWorksPolling() {
+export function stopExamWorksPolling() {
   if (examSyncTimer) {
     clearInterval(examSyncTimer);
     examSyncTimer = null;
   }
+  examSyncKey = null;
+  examSyncOverlay = null;
 }
 
-function startExamWorksPolling(schoolKey, examCode, overlay) {
-  stopExamWorksPolling();
+/**
+ * Poll en segundo plano de trabajos de examen (docente).
+ * No reinicia si ya corre el mismo schoolKey+código (evita bucles).
+ */
+export function startExamWorksPolling(schoolKey, examCode, overlay) {
+  if (!schoolKey) return;
+  const key = `${schoolKey}|${examCode || ''}`;
+  if (overlay) examSyncOverlay = overlay;
+
+  if (examSyncTimer && examSyncKey === key) {
+    // Ya hay poll: solo actualiza referencia del modal
+    return;
+  }
+
+  if (examSyncTimer) {
+    clearInterval(examSyncTimer);
+    examSyncTimer = null;
+  }
+  examSyncKey = key;
+
   const tick = async () => {
     try {
       const r = await syncTeacherExamWorks({ schoolKey, examCode });
-      const hint = overlay?.querySelector('#worksExamSyncHint');
+      const ov = examSyncOverlay || document.getElementById('worksModal');
+      const hint = ov?.querySelector?.('#worksExamSyncHint');
       if (hint) {
         hint.hidden = false;
-        hint.textContent = `Clase en vivo: +${r.added} · −${r.removed} · ~${r.updated} · total ${r.total}`;
+        const t = new Date().toLocaleTimeString('es-HN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        hint.textContent = `Clase en vivo · ${t}: +${r.added} · −${r.removed} · ~${r.updated} · total ${r.total}`;
       }
-      overlay?._paint?.();
+      // Solo lista — NO refreshExamBar (evitaba bucle de re-sync)
+      if (ov && !ov.hidden) {
+        if (typeof ov._paintList === 'function') ov._paintList();
+        else if (typeof ov._paint === 'function') ov._paint();
+      }
       updateWorksCountBadges();
       const side = document.getElementById('worksList');
       if (side) renderWorksSidebar(side);
+      // Badge del catálogo
+      try {
+        window.dispatchEvent(
+          new CustomEvent('fisicahn:exam-works-sync', { detail: r })
+        );
+      } catch {
+        /* ignore */
+      }
     } catch {
-      /* ignore */
+      /* ignore red */
     }
   };
   tick();
-  examSyncTimer = setInterval(tick, 8000);
+  examSyncTimer = setInterval(tick, EXAM_SYNC_MS);
+}
+
+/**
+ * Arranca o reanuda el poll si el docente tiene examen activo.
+ * Llamar al iniciar la app y al crear un código.
+ */
+export async function ensureTeacherExamSync() {
+  try {
+    const { getSession, getExamStatus } = await import('./auth.js');
+    const session = getSession();
+    if (!session || session.role !== 'teacher' || !session.schoolKey) return;
+    const st = getExamStatus();
+    const code =
+      st.active && st.code
+        ? st.code
+        : session.examCode && session.mode === 'exam'
+          ? session.examCode
+          : null;
+    if (!code) return;
+    startExamWorksPolling(session.schoolKey, code, document.getElementById('worksModal'));
+  } catch {
+    /* ignore */
+  }
 }
 
 async function manualSyncExamWorks(overlay) {
@@ -570,13 +826,17 @@ async function manualSyncExamWorks(overlay) {
     const st = getExamStatus();
     const code = st.code || session?.examCode;
     if (!session?.schoolKey) throw new Error('Falta el colegio en la sesión docente.');
+    // Forzar un tick aunque el poll ya exista
+    examSyncKey = null;
     const r = await syncTeacherExamWorks({ schoolKey: session.schoolKey, examCode: code });
+    startExamWorksPolling(session.schoolKey, code, overlay);
     if (msg) {
       msg.hidden = false;
       msg.className = 'works-exam-msg ok';
       msg.textContent = `Sincronizado: ${r.added} nuevos, ${r.removed} eliminados por alumnos, ${r.total} en total.`;
     }
-    overlay._paint?.();
+    if (typeof overlay._paintList === 'function') overlay._paintList();
+    else overlay._paint?.();
     updateWorksCountBadges();
   } catch (e) {
     if (msg) {
@@ -623,7 +883,13 @@ async function generateExamFromHub(overlay) {
     }
     setMsg(`Código ${code} activo. Compártelo con la clase. Los trabajos llegan a Importados.`, true);
     window.dispatchEvent(new CustomEvent('fisicahn:session', { detail: auth.getSession() }));
+    // Forzar poll inmediato con el código nuevo
+    examSyncKey = null;
+    if (session.schoolKey) startExamWorksPolling(session.schoolKey, code, overlay);
     refreshExamBar(overlay);
+    // Preferir pestaña Importados para ver la clase
+    overlay._filter = 'imported';
+    overlay._paintList?.();
   } catch (e) {
     setMsg(e.message || 'Error al generar código', false);
   }
@@ -633,26 +899,33 @@ async function endExamFromHub(overlay) {
   try {
     const auth = await import('./auth.js');
     const st = auth.getExamStatus();
-    const code = st.code;
+    const code = st.code || auth.getSession()?.examCode || null;
     stopExamWorksPolling();
-    // Última sync + archivo permanente en PC del docente
-    const session = auth.getSession();
-    if (session?.schoolKey) {
-      await syncTeacherExamWorks({ schoolKey: session.schoolKey, examCode: code });
-      await archiveExamWorksForTeacher({ examCode: code });
+    // Cierra en la nube + este dispositivo; los alumnos salen solos vía poll
+    const result = auth.endExamSession({ archiveWorks: true, endCloud: true });
+    if (result?.done) {
+      try {
+        await result.done;
+      } catch {
+        /* ignore */
+      }
     }
-    auth.endExamSession({ archiveWorks: true, endCloud: true });
     const codeEl = overlay.querySelector('#worksExamCode');
     if (codeEl) codeEl.textContent = '———';
     const msg = overlay.querySelector('#worksExamMsg');
     if (msg) {
       msg.hidden = false;
       msg.textContent =
-        'Examen finalizado. Los JSON de los alumnos quedan en Mis trabajos (importados) para que los evalúes.';
+        'Examen finalizado en todos los dispositivos. Los JSON de los alumnos quedan en Mis trabajos (importados) para que los evalúes.';
       msg.className = 'works-exam-msg ok';
     }
     overlay._paint?.();
     updateWorksCountBadges();
+    try {
+      window.dispatchEvent(new CustomEvent('fisicahn:session', { detail: auth.getSession() }));
+    } catch {
+      /* ignore */
+    }
   } catch {
     /* ignore */
   }

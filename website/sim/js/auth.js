@@ -327,7 +327,8 @@ export async function joinExamCode(examCodeInput) {
     throw new Error('Código incorrecto para la sesión de examen activa en este PC.');
   }
 
-  // Nube (si hay)
+  // Nube (si hay): solo marcamos examCloud si el código está activo en la nube
+  let examCloud = false;
   try {
     const { validateExamCode } = await import('./supabase-client.js');
     if (typeof validateExamCode === 'function') {
@@ -337,8 +338,9 @@ export async function joinExamCode(examCodeInput) {
           'Código no encontrado o inactivo en la nube. Pide al docente un código vigente.'
         );
       }
-      if (cloud.cloud && cloud.found && cloud.exam?.school_key) {
-        schoolKey = cloud.exam.school_key;
+      if (cloud.cloud && cloud.found) {
+        examCloud = true;
+        if (cloud.exam?.school_key) schoolKey = cloud.exam.school_key;
       }
     }
   } catch (e) {
@@ -357,6 +359,7 @@ export async function joinExamCode(examCodeInput) {
     ...session,
     mode: 'exam',
     examCode,
+    examCloud,
     schoolKey: schoolKey || session.schoolKey,
     schoolName: schoolName || session.schoolName
   };
@@ -364,6 +367,7 @@ export async function joinExamCode(examCodeInput) {
   logAudit('exam_join', {
     role: next.role,
     examCode,
+    examCloud,
     name: next.studentName || next.email
   });
 
@@ -379,17 +383,155 @@ export async function joinExamCode(examCodeInput) {
     /* sin pack */
   }
 
+  startExamLivenessPolling();
   return next;
 }
 
 /** Sale del modo examen (vuelve a práctica) sin cerrar sesión. */
-export function leaveExamMode() {
+export function leaveExamMode(opts = {}) {
   const session = getSession();
   if (!session) return null;
-  const next = { ...session, mode: 'practice', examCode: null };
+  const prevCode = session.examCode || null;
+  const next = {
+    ...session,
+    mode: 'practice',
+    examCode: null,
+    examCloud: false
+  };
   setSession(next);
-  logAudit('exam_leave', { role: next.role });
+  stopExamLivenessPolling();
+
+  // Limpiar pack de retos y token de lab si corresponden a este examen
+  try {
+    localStorage.removeItem('fisicahn_exam_challenges_v1');
+  } catch {
+    /* ignore */
+  }
+  try {
+    const tok = JSON.parse(localStorage.getItem('fisicahn_exam_token_v1') || 'null');
+    if (tok && (!prevCode || String(tok.code) === String(prevCode))) {
+      localStorage.removeItem('fisicahn_exam_token_v1');
+    }
+  } catch {
+    /* ignore */
+  }
+
+  if (!opts.silent) {
+    logAudit('exam_leave', { role: next.role, code: prevCode, reason: opts.reason || 'manual' });
+  }
   return next;
+}
+
+/* ─── Vigencia del examen en la nube (todos los dispositivos) ─── */
+const EXAM_LIVE_MS = 4000;
+let _examLiveTimer = null;
+let _examLiveBusy = false;
+
+/** Arranca el poll de “¿sigue activo el código?” (alumnos y docentes en modo examen). */
+export function startExamLivenessPolling() {
+  stopExamLivenessPolling();
+  const session = getSession();
+  if (!session || session.mode !== 'exam' || !session.examCode) return;
+  // Solo códigos de la nube (examCloud === false = pizarra offline explícito)
+  if (session.examCloud === false) return;
+
+  const tick = () => {
+    checkExamStillActive().catch(() => {});
+  };
+  tick();
+  _examLiveTimer = setInterval(tick, EXAM_LIVE_MS);
+}
+
+export function stopExamLivenessPolling() {
+  if (_examLiveTimer) {
+    clearInterval(_examLiveTimer);
+    _examLiveTimer = null;
+  }
+  _examLiveBusy = false;
+}
+
+/**
+ * Reanuda el poll si la sesión ya está en examen (arranque de la app).
+ */
+export function ensureExamLivenessPolling() {
+  const session = getSession();
+  if (session?.mode === 'exam' && session.examCode) {
+    startExamLivenessPolling();
+  }
+}
+
+/**
+ * Consulta la nube: si el código ya no está activo, saca a este dispositivo del examen.
+ * @returns {Promise<{ active: boolean, remoteEnded?: boolean }>}
+ */
+export async function checkExamStillActive() {
+  if (_examLiveBusy) return { active: true };
+  const session = getSession();
+  if (!session || session.mode !== 'exam' || !session.examCode) {
+    stopExamLivenessPolling();
+    return { active: false };
+  }
+
+  const code = String(session.examCode);
+  // Si este PC es el docente y aún marca examen local activo, no expulsar aquí
+  // (el cierre lo hace endExamSession en el equipo del docente).
+  try {
+    const st = getExamStatus();
+    if (session.role === 'teacher' && st.active && String(st.code) === code) {
+      return { active: true };
+    }
+  } catch {
+    /* ignore */
+  }
+
+  // Exámenes solo offline (pizarra) no se pueden invalidar por la nube
+  if (session.examCloud === false) {
+    return { active: true };
+  }
+
+  _examLiveBusy = true;
+  try {
+    const { validateExamCode } = await import('./supabase-client.js');
+    const cloud = await validateExamCode(code);
+    // Solo actuar con respuesta clara de la nube (no en fallos de red)
+    if (cloud.cloud && cloud.found === false) {
+      forceLeaveExamRemote({ code, reason: 'cloud_inactive' });
+      return { active: false, remoteEnded: true };
+    }
+    return { active: true };
+  } catch {
+    return { active: true };
+  } finally {
+    _examLiveBusy = false;
+  }
+}
+
+/**
+ * El docente finalizó el examen en otro sitio / en la nube: salir aquí y avisar a la UI.
+ */
+export function forceLeaveExamRemote({ code = null, reason = 'cloud_inactive' } = {}) {
+  const session = getSession();
+  if (!session || session.mode !== 'exam') return null;
+
+  const endedCode = code || session.examCode;
+  leaveExamMode({ silent: true, reason });
+  logAudit('exam_remote_end', { code: endedCode, reason, role: session.role });
+
+  try {
+    window.dispatchEvent(
+      new CustomEvent('fisicahn:exam-ended', {
+        detail: { code: endedCode, remote: true, reason }
+      })
+    );
+  } catch {
+    /* ignore */
+  }
+  try {
+    window.dispatchEvent(new CustomEvent('fisicahn:session', { detail: getSession() }));
+  } catch {
+    /* ignore */
+  }
+  return getSession();
 }
 
 /**
@@ -450,17 +592,20 @@ export async function createExamCodeOnline() {
   const next = {
     ...session,
     mode: 'exam',
-    examCode: code
+    examCode: code,
+    examCloud: true
   };
   setSession(next);
   logAudit('exam_create_online', { code });
+  startExamLivenessPolling();
   return code;
 }
 
 /**
- * Finaliza el examen en este equipo.
- * Opcionalmente desactiva el código en la nube y archiva trabajos del docente.
+ * Finaliza el examen en este equipo y, si hay nube, desactiva el código para todos.
+ * Los alumnos con ese código salen del modo examen en cuanto su poll ve active=false.
  * @param {{ archiveWorks?: boolean, endCloud?: boolean }} opts
+ * @returns {{ code: string|null, schoolKey: string|null, done?: Promise<void> }}
  */
 export function endExamSession(opts = {}) {
   const rec = getTeacherRecord();
@@ -469,19 +614,36 @@ export function endExamSession(opts = {}) {
   if (rec) {
     rec.examActive = false;
     rec.examCode = null;
+    rec.examStartedAt = null;
     localStorage.setItem(TEACHER_KEY, JSON.stringify(rec));
   }
+  // Token de lab en este PC
+  try {
+    localStorage.removeItem('fisicahn_exam_token_v1');
+  } catch {
+    /* ignore */
+  }
+
   logAudit('exam_end', { code });
+
+  // Este dispositivo sale del modo examen de inmediato
+  leaveExamMode({ silent: true, reason: 'teacher_end' });
+  stopExamLivenessPolling();
 
   const archiveWorks = opts.archiveWorks !== false;
   const endCloud = opts.endCloud !== false;
 
-  // Fire-and-forget: nube + archivo local para evaluación posterior
-  (async () => {
+  // Nube primero (para que los alumnos detecten el cierre), luego archivo local
+  const done = (async () => {
     try {
       if (endCloud && schoolKey) {
         const { endExamOnCloud } = await import('./supabase-client.js');
-        await endExamOnCloud({ schoolKey, code });
+        // Reintentar una vez: el cierre remoto depende de active=false
+        let r = await endExamOnCloud({ schoolKey, code });
+        if (!r?.ok && !r?.skipped) {
+          await new Promise((res) => setTimeout(res, 400));
+          r = await endExamOnCloud({ schoolKey, code });
+        }
       }
     } catch {
       /* ignore */
@@ -498,13 +660,20 @@ export function endExamSession(opts = {}) {
       /* ignore */
     }
     try {
-      window.dispatchEvent(new CustomEvent('fisicahn:exam-ended', { detail: { code } }));
+      window.dispatchEvent(
+        new CustomEvent('fisicahn:exam-ended', { detail: { code, remote: false } })
+      );
+    } catch {
+      /* ignore */
+    }
+    try {
+      window.dispatchEvent(new CustomEvent('fisicahn:session', { detail: getSession() }));
     } catch {
       /* ignore */
     }
   })();
 
-  return { code, schoolKey };
+  return { code, schoolKey, done };
 }
 
 export function getExamStatus() {

@@ -6,13 +6,14 @@
 import { PhysicsEngine } from './physics-engine.js';
 import { Renderer } from './renderer.js';
 import { CATALOG, getById, getUnifiedCatalog, getSimulationCatalog, WORKS_MODULE } from './catalog.js';
-import { getSession, logAudit } from './auth.js';
+import { getSession, logAudit, ensureExamLivenessPolling } from './auth.js';
 import { saveWork, listWorks, getWork, initWorksStorage } from './works.js';
 import {
   bindWorksPanelControls,
   renderWorksSidebar,
   updateWorksCountBadges,
-  openWorksModal
+  openWorksModal,
+  ensureTeacherExamSync
 } from './works-panel.js';
 import { ensureSessionGate, renderSessionBadge, renderUserChip } from './session-gate.js';
 import { bindUserMenu } from './user-menu.js';
@@ -39,6 +40,9 @@ const STORAGE_KEY = 'fisicahn_progress';
 const ENGINE_PATHS = {
   kinematics: './modules/kinematics.js',
   dynamics: './modules/dynamics.js',
+  'force-kinetic': './modules/force-kinetic.js',
+  friction: './modules/friction.js',
+  statics: './modules/statics.js',
   electricity: './modules/electricity.js',
   optics: './modules/optics.js',
   whiteboard: './modules/whiteboard.js',
@@ -263,7 +267,7 @@ const ui = {
   }
 };
 
-/** Tras init del módulo: rellena retos si hay JSON o pack de examen. */
+/** Tras init del módulo: retos solo en modo examen con pack del docente. */
 async function setupChallengesForEngine(engineKey) {
   if (!engineKey || engineKey === 'whiteboard' || engineKey === 'placeholder') {
     ui.setChallenges(null);
@@ -279,6 +283,74 @@ async function setupChallengesForEngine(engineKey) {
   } catch (e) {
     console.warn('setupChallengesForEngine', e);
     ui.setChallenges(null);
+  }
+}
+
+/**
+ * Aviso cuando el examen termina (este equipo o el docente en la nube).
+ */
+function showExamEndedBanner(detail = {}) {
+  const remote = !!detail.remote;
+  const code = detail.code ? String(detail.code) : '';
+  let el = document.getElementById('examEndedBanner');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'examEndedBanner';
+    el.className = 'exam-ended-banner';
+    el.setAttribute('role', 'status');
+    document.body.appendChild(el);
+  }
+  el.innerHTML = `
+    <strong>${remote ? 'El docente finalizó el examen' : 'Examen finalizado'}</strong>
+    <span>${
+      remote
+        ? `Código ${code || '—'} ya no está activo. Volviste a modo práctica.`
+        : `Código ${code || '—'} cerrado. Los alumnos conectados salen del examen automáticamente.`
+    }</span>
+    <button type="button" class="exam-ended-banner-close" aria-label="Cerrar aviso">×</button>
+  `;
+  el.hidden = false;
+  el.querySelector('.exam-ended-banner-close')?.addEventListener('click', () => {
+    el.hidden = true;
+  });
+  clearTimeout(showExamEndedBanner._t);
+  showExamEndedBanner._t = setTimeout(() => {
+    if (el) el.hidden = true;
+  }, 12000);
+}
+
+async function onExamEndedGlobal(ev) {
+  const detail = ev?.detail || {};
+  try {
+    renderUserChip(document.getElementById('userChipHost'));
+    renderSessionBadge(document.getElementById('sessionBadgeHost'));
+  } catch {
+    /* ignore */
+  }
+  showExamEndedBanner(detail);
+  if (state.currentModule) {
+    try {
+      await setupChallengesForEngine(state.currentModule);
+    } catch {
+      /* ignore */
+    }
+  } else {
+    try {
+      ui?.setChallenges?.(null);
+    } catch {
+      /* ignore */
+    }
+  }
+  try {
+    const { stopExamWorksPolling } = await import('./works-panel.js');
+    stopExamWorksPolling();
+  } catch {
+    /* ignore */
+  }
+  try {
+    updateWorksCountBadges();
+  } catch {
+    /* ignore */
   }
 }
 
@@ -317,7 +389,12 @@ function renderCatalogGrids() {
   for (const mod of getUnifiedCatalog()) {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'catalog-card' + (mod.special === 'works' ? ' catalog-card-works' : '');
+    const accent =
+      mod.accent && /^[a-z0-9-]+$/i.test(mod.accent) ? mod.accent : '';
+    btn.className =
+      'catalog-card' +
+      (mod.special === 'works' ? ' catalog-card-works' : '') +
+      (accent ? ` catalog-card-accent-${accent}` : '');
     btn.setAttribute('data-catalog-id', mod.id);
     btn.dataset.catalogId = mod.id;
     const statusLabel =
@@ -332,11 +409,17 @@ function renderCatalogGrids() {
       'aria-label',
       `${mod.title}. ${mod.special === 'works' ? 'Gestionar trabajos guardados e importados' : statusLabel}`
     );
+    const glyph = mod.glyph
+      ? `<span class="catalog-card-glyph" aria-hidden="true">${escapeHtml(mod.glyph)}</span>`
+      : '';
     btn.innerHTML = `
       <div class="catalog-card-top">
-        <div>
-          <div class="catalog-card-title">${escapeHtml(mod.title)}</div>
-          <div class="catalog-card-en">${escapeHtml(mod.titleEn || '')}</div>
+        <div class="catalog-card-heading">
+          ${glyph}
+          <div>
+            <div class="catalog-card-title">${escapeHtml(mod.title)}</div>
+            <div class="catalog-card-en">${escapeHtml(mod.titleEn || '')}</div>
+          </div>
         </div>
         <span class="catalog-badge ${mod.special === 'works' ? 'works' : mod.status}">${escapeHtml(
           statusLabel
@@ -357,7 +440,74 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
-function showCatalog() {
+/* ============================================
+   Historial del navegador (checkpoints web)
+   Menú ↔ módulo: Atrás / Adelante del browser
+   URL: #/  |  #/m/<catalogId>
+   ============================================ */
+/** true mientras se aplica un popstate (no reescribir history). */
+let _historySilent = false;
+
+function parseAppRoute() {
+  const raw = String(location.hash || '')
+    .replace(/^#/, '')
+    .replace(/^\//, '');
+  const parts = raw.split('/').filter(Boolean);
+  if ((parts[0] === 'm' || parts[0] === 'sim') && parts[1]) {
+    try {
+      return { view: 'sim', catalogId: decodeURIComponent(parts[1]) };
+    } catch {
+      return { view: 'sim', catalogId: parts[1] };
+    }
+  }
+  return { view: 'catalog', catalogId: null };
+}
+
+function appRouteUrl(view, catalogId) {
+  if (view === 'sim' && catalogId) {
+    return `#/m/${encodeURIComponent(catalogId)}`;
+  }
+  return '#/';
+}
+
+/**
+ * @param {'catalog'|'sim'} view
+ * @param {string|null} catalogId
+ * @param {'push'|'replace'|'none'} mode
+ */
+function syncBrowserHistory(view, catalogId, mode = 'replace') {
+  if (_historySilent || mode === 'none') return;
+  if (typeof history === 'undefined' || !history.pushState) return;
+  const histState = {
+    fisicahn: 1,
+    view,
+    catalogId: view === 'sim' ? catalogId || null : null
+  };
+  const url = appRouteUrl(view, catalogId);
+  try {
+    if (mode === 'push') history.pushState(histState, '', url);
+    else history.replaceState(histState, '', url);
+  } catch {
+    /* ignore (file://, etc.) */
+  }
+}
+
+/** Vuelve al menú: preferir history.back() si el checkpoint actual es un módulo. */
+function goToCatalog() {
+  const st = typeof history !== 'undefined' ? history.state : null;
+  if (st?.fisicahn && st.view === 'sim') {
+    try {
+      history.back();
+      return;
+    } catch {
+      /* fall through */
+    }
+  }
+  showCatalog({ history: 'replace' });
+}
+
+function showCatalog(opts = {}) {
+  const historyMode = opts.history ?? 'replace';
   state.view = 'catalog';
   catalogView.hidden = false;
   simShell.hidden = true;
@@ -374,6 +524,7 @@ function showCatalog() {
   renderCatalogGrids();
   bindCatalogCardClicks();
   saveProgress();
+  syncBrowserHistory('catalog', null, historyMode);
 }
 
 function showSimShell() {
@@ -393,19 +544,23 @@ function showSimShell() {
   });
 }
 
-/** Barra lateral: todos los módulos de simulación (+ acceso a trabajos). */
+/** Barra lateral: cabecera fija (logo / todos / trabajos) + lista de módulos con scroll (PC). */
 function fillSidebarUnified() {
   if (!sidebarNav) return;
   sidebarNav.innerHTML = '';
 
-  // Acceso rápido a trabajos desde el lab
-  const worksBtn = document.createElement('button');
-  worksBtn.type = 'button';
-  worksBtn.className = 'module-btn module-btn-works';
-  worksBtn.dataset.catalogId = WORKS_MODULE.id;
-  worksBtn.innerHTML = `<span>${escapeHtml(WORKS_MODULE.title)}</span>`;
-  worksBtn.addEventListener('click', () => openWorksModal({ filter: 'saved', hub: false }));
-  sidebarNav.appendChild(worksBtn);
+  // Mis trabajos en la cabecera fija (no se mueve al hacer scroll de módulos)
+  const worksHost = document.getElementById('sidebarWorksHost');
+  if (worksHost) {
+    worksHost.innerHTML = '';
+    const worksBtn = document.createElement('button');
+    worksBtn.type = 'button';
+    worksBtn.className = 'module-btn module-btn-works';
+    worksBtn.dataset.catalogId = WORKS_MODULE.id;
+    worksBtn.innerHTML = `<span>${escapeHtml(WORKS_MODULE.title)}</span>`;
+    worksBtn.addEventListener('click', () => openWorksModal({ filter: 'all', hub: true }));
+    worksHost.appendChild(worksBtn);
+  }
 
   for (const mod of getSimulationCatalog()) {
     const btn = document.createElement('button');
@@ -422,8 +577,10 @@ function fillSidebarUnified() {
 /**
  * Entra a un módulo del catálogo (carga motor real o placeholder).
  * “Mis trabajos” abre el gestor sin salir del menú principal.
+ * @param {string} catalogId
+ * @param {{ history?: 'push'|'replace'|'none' }} [opts]
  */
-async function openCatalogModule(catalogId) {
+async function openCatalogModule(catalogId, opts = {}) {
   const entry = getById(catalogId);
   if (!entry) return;
 
@@ -440,6 +597,16 @@ async function openCatalogModule(catalogId) {
     return;
   }
 
+  const prevView = state.view;
+  const prevId = state.catalogId;
+  // Menú → módulo: push (checkpoint). Módulo → módulo: replace (Atrás = menú).
+  let historyMode = opts.history;
+  if (!historyMode) {
+    if (prevView === 'catalog') historyMode = 'push';
+    else if (prevView === 'sim' && prevId && prevId !== catalogId) historyMode = 'replace';
+    else historyMode = 'replace';
+  }
+
   state.catalogId = catalogId;
   state.catalogLevel = entry.level || 'all';
   showSimShell();
@@ -447,7 +614,7 @@ async function openCatalogModule(catalogId) {
 
   if (!ensureEngine()) {
     alert('No se pudo iniciar el motor de simulación. Recarga la página (Ctrl+Shift+R).');
-    showCatalog();
+    showCatalog({ history: 'replace' });
     return;
   }
 
@@ -457,6 +624,7 @@ async function openCatalogModule(catalogId) {
   const engineKey = entry.engineKey || 'placeholder';
   await loadEngineModule(engineKey, entry);
   saveProgress();
+  syncBrowserHistory('sim', catalogId, historyMode);
 }
 
 /* ============================================
@@ -524,14 +692,10 @@ async function loadEngineModule(engineKey, catalogEntry = null) {
     await setupChallengesForEngine(resolvedKey);
     // Activar panel de gráficas solo si el módulo lo pide
     if (mod.useCharts === true) ui.showCharts(true);
-    // Arrancar loop (pizarra queda en pausa; resto corre)
+    // Arrancar loop (pizarra sin pausa/velocidad: el dibujo depende del RAF)
     if (engine && !engine.isRunning?.()) engine.start();
-    if (resolvedKey === 'whiteboard') {
-      engine?.pause?.(true);
-      updatePlayPauseUI();
-    } else {
-      ensureRunning();
-    }
+    ensureRunning();
+    updateTransportControlsForModule(resolvedKey);
   } catch (err) {
     console.error(`Error cargando motor ${resolvedKey}:`, err);
     if (paramsPanel) {
@@ -547,6 +711,28 @@ function ensureRunning() {
   if (!engine.isRunning?.()) engine.start();
   engine.pause(false);
   updatePlayPauseUI();
+}
+
+/** true si el módulo actual es la pizarra (sin simulación temporal). */
+function isWhiteboardModule(key = state.currentModule) {
+  return key === 'whiteboard';
+}
+
+/**
+ * En pizarra se ocultan velocidad, pausa y paso (no aplican al dibujo).
+ * En el resto de módulos se muestran de nuevo.
+ */
+function updateTransportControlsForModule(key = state.currentModule) {
+  const hide = isWhiteboardModule(key);
+  const transport = document.getElementById('simTransportControls');
+  if (transport) transport.hidden = hide;
+  const mobilePlay = document.getElementById('mobilePlayBtn');
+  if (mobilePlay) mobilePlay.hidden = hide;
+  if (hide && simStatus) {
+    simStatus.textContent = 'Pizarra';
+    delete simStatus.dataset.t;
+  }
+  if (!hide) updatePlayPauseUI();
 }
 
 /* ============================================
@@ -578,6 +764,7 @@ function loadProgress() {
    ============================================ */
 
 function togglePause() {
+  if (isWhiteboardModule()) return;
   engine?.pause?.();
   updatePlayPauseUI();
 }
@@ -645,6 +832,7 @@ function bindMobileSimBar() {
 }
 
 speedSlider?.addEventListener('input', () => {
+  if (isWhiteboardModule()) return;
   const val = parseFloat(speedSlider.value);
   if (speedDisplay) speedDisplay.textContent = val.toFixed(1) + '×';
   engine?.setSpeed?.(val);
@@ -661,7 +849,7 @@ resetBtn?.addEventListener('click', () => {
 });
 
 stepBtn?.addEventListener('click', () => {
-  if (!engine) return;
+  if (!engine || isWhiteboardModule()) return;
   if (!engine.isPaused()) engine.pause();
   engine.step();
   // Un frame de render con el estado nuevo
@@ -684,7 +872,7 @@ document.getElementById('settingsBtn')?.addEventListener('click', () => {
 });
 
 catalogBackBtn?.addEventListener('click', () => {
-  showCatalog();
+  goToCatalog();
 });
 
 bottomTabs.forEach((btn) => {
@@ -807,6 +995,7 @@ document.addEventListener('keydown', (e) => {
 
   switch (e.code) {
     case 'Space':
+      if (isWhiteboardModule()) return;
       e.preventDefault();
       togglePause();
       break;
@@ -816,7 +1005,7 @@ document.addEventListener('keydown', (e) => {
       break;
     case 'Escape':
       e.preventDefault();
-      showCatalog();
+      goToCatalog();
       break;
     case 'KeyI': {
       const inst = state.moduleInstances[state.currentModule];
@@ -930,7 +1119,9 @@ function onEngineRender(ctx, alpha, elapsed) {
       fpsCounter.textContent = `${fps} FPS`;
     }
   }
-  if (!engine.isPaused() && simStatus) {
+  if (isWhiteboardModule()) {
+    if (simStatus && simStatus.textContent !== 'Pizarra') simStatus.textContent = 'Pizarra';
+  } else if (!engine.isPaused() && simStatus) {
     // Actualizar reloj de sim a ~4 Hz vía resto entero
     const t = Math.floor(elapsed * 4);
     if (simStatus.dataset.t !== String(t)) {
@@ -1232,11 +1423,12 @@ export async function openWorkInModule(workId) {
       b.classList.toggle('active', b.dataset.tool === snap.tools.tool);
     });
   }
-  if (typeof snap.speed === 'number' && speedSlider) {
+  if (!isWhiteboardModule() && typeof snap.speed === 'number' && speedSlider) {
     speedSlider.value = String(snap.speed);
     speedSlider.dispatchEvent(new Event('input', { bubbles: true }));
   }
-  if (snap.paused && engine && !engine.isPaused()) {
+  // Pizarra nunca se restaura en pausa (el dibujo no se vería)
+  if (!isWhiteboardModule() && snap.paused && engine && !engine.isPaused()) {
     engine.pause(true);
     updatePlayPauseUI();
   }
@@ -1327,14 +1519,33 @@ async function init() {
     }
   });
   refreshWorksList();
+  // Docente con examen activo: poll de trabajos aunque el modal esté cerrado
+  ensureTeacherExamSync().catch(() => {});
+  // Alumnos/docentes en examen en la nube: detectar cierre del docente en todos los dispositivos
+  try {
+    ensureExamLivenessPolling();
+  } catch {
+    /* ignore */
+  }
+  window.addEventListener('fisicahn:exam-ended', onExamEndedGlobal);
+  window.addEventListener('fisicahn:session', () => {
+    try {
+      ensureExamLivenessPolling();
+    } catch {
+      /* ignore */
+    }
+  });
 
   document.getElementById('openWhiteboardBtn')?.addEventListener('click', () => {
     openCatalogModule('whiteboard');
   });
   document.getElementById('sidebarBrandBtn')?.addEventListener('click', () => {
-    showCatalog();
+    goToCatalog();
   });
   document.getElementById('saveWorkBtn')?.addEventListener('click', () => handleSaveWork());
+
+  // Checkpoints del navegador: Atrás/Adelante entre menú y módulos
+  window.addEventListener('popstate', onAppPopState);
 
   const saved = loadProgress();
   if (canvas && engine) {
@@ -1343,23 +1554,43 @@ async function init() {
     console.error('Canvas o motor no disponible');
   }
 
-  // No restaurar "my-works" como vista sim
+  // Ruta por hash (#/m/id) tiene prioridad; si no, última vista guardada
+  const route = parseAppRoute();
   const resumeId = saved.lastCatalogId;
-  if (
+  const routeModule =
+    route.view === 'sim' &&
+    route.catalogId &&
+    route.catalogId !== WORKS_MODULE.id &&
+    getById(route.catalogId) &&
+    getById(route.catalogId).special !== 'works'
+      ? route.catalogId
+      : null;
+  const savedModule =
+    !routeModule &&
     saved.lastView === 'sim' &&
     resumeId &&
     resumeId !== WORKS_MODULE.id &&
     getById(resumeId) &&
     getById(resumeId).special !== 'works'
-  ) {
+      ? resumeId
+      : null;
+
+  if (routeModule) {
     try {
-      await openCatalogModule(resumeId);
+      await openCatalogModule(routeModule, { history: 'replace' });
+    } catch (e) {
+      console.error('Abrir ruta:', e);
+      showCatalog({ history: 'replace' });
+    }
+  } else if (savedModule) {
+    try {
+      await openCatalogModule(savedModule, { history: 'replace' });
     } catch (e) {
       console.error('Reabrir módulo:', e);
-      showCatalog();
+      showCatalog({ history: 'replace' });
     }
   } else {
-    showCatalog();
+    showCatalog({ history: 'replace' });
   }
 
   const session = getSession();
@@ -1369,6 +1600,35 @@ async function init() {
 
   state.loaded = true;
   console.log('FísicaHN: listo —', CATALOG.length, 'módulos');
+}
+
+/** Atrás / Adelante del navegador. */
+function onAppPopState(ev) {
+  const st = ev?.state;
+  _historySilent = true;
+  const done = () => {
+    _historySilent = false;
+  };
+
+  // Estado nuestro
+  if (st?.fisicahn) {
+    if (st.view === 'sim' && st.catalogId && getById(st.catalogId)?.special !== 'works') {
+      openCatalogModule(st.catalogId, { history: 'none' }).finally(done);
+      return;
+    }
+    showCatalog({ history: 'none' });
+    done();
+    return;
+  }
+
+  // Sin state (p. ej. entrada antigua): interpretar hash
+  const route = parseAppRoute();
+  if (route.view === 'sim' && route.catalogId && getById(route.catalogId)) {
+    openCatalogModule(route.catalogId, { history: 'none' }).finally(done);
+    return;
+  }
+  showCatalog({ history: 'none' });
+  done();
 }
 
 init().catch((err) => {
