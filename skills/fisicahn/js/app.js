@@ -21,6 +21,7 @@ import { initNetworkStatusUI } from './network-status.js';
 import { initPanelResize } from './panel-resize.js';
 import { ChallengeEngine, loadChallengeDataForEngine } from './challenges.js';
 import { enhanceParamsPanel, typesetMath, ensureChallengesCss, ensureKatex } from './module-ui.js';
+import { createModuleInstance } from './core/sim-module.js';
 
 /* ============================================
    Estado
@@ -669,7 +670,9 @@ async function loadEngineModule(engineKey, catalogEntry = null) {
 
   try {
     const mod = await import(path);
-    state.moduleInstances[resolvedKey] = mod;
+    const ctx = { engine, renderer, scene: renderer, ui, canvas };
+    const instance = createModuleInstance(mod, ctx);
+    state.moduleInstances[resolvedKey] = instance;
     engine?.reset?.();
     renderer?.resetCamera?.();
     renderer?.clearOverlays?.();
@@ -677,32 +680,59 @@ async function loadEngineModule(engineKey, catalogEntry = null) {
     measureState.anglePoints = [];
     measureState.probe = null;
     ui.showCharts(false);
-    if (typeof mod.init === 'function') {
-      if (resolvedKey === 'placeholder') {
-        mod.init(engine, renderer, ui, {
-          title,
-          blurb: catalogEntry?.blurb || ''
-        });
+    const meta =
+      resolvedKey === 'placeholder'
+        ? { title, blurb: catalogEntry?.blurb || '' }
+        : catalogEntry || null;
+    try {
+      if (instance.isSimModule) {
+        // Nuevo contrato: el módulo guarda su propio estado/contexto en el ctor.
+        instance.init(meta);
       } else {
-        // meta opcional: título/blurb del catálogo (tras unificar entradas)
-        mod.init(engine, renderer, ui, catalogEntry || null);
+        // Módulo legacy: el adaptador reenvía a las functions sueltas originales.
+        instance.init(engine, renderer, ui, meta);
       }
+    } catch (err) {
+      console.error(`Error en init de ${resolvedKey}:`, err);
+      showModuleBroken(title);
     }
     // Retos en barra inferior (solo motores con casos de uso o pack de examen)
-    await setupChallengesForEngine(resolvedKey);
+    await setupChallengesForEngine(resolvedKey).catch(() => ui.setChallenges(null));
     // Activar panel de gráficas solo si el módulo lo pide
-    if (mod.useCharts === true) ui.showCharts(true);
+    if (instance.useCharts === true) ui.showCharts(true);
     // Arrancar loop (pizarra sin pausa/velocidad: el dibujo depende del RAF)
     if (engine && !engine.isRunning?.()) engine.start();
     ensureRunning();
     updateTransportControlsForModule(resolvedKey);
   } catch (err) {
     console.error(`Error cargando motor ${resolvedKey}:`, err);
-    if (paramsPanel) {
-      paramsPanel.innerHTML = `<p class="placeholder-text" style="color: var(--danger)">Error al cargar ${escapeHtml(
-        title
-      )}. Verifica la consola.</p>`;
-    }
+    showModuleBroken(title);
+  }
+}
+
+/** Pantalla de error degradada en lugar de congelar la app (contrato §1.2). */
+function showModuleBroken(title) {
+  if (paramsPanel) {
+    paramsPanel.innerHTML = `<p class="placeholder-text" style="color: var(--danger)">Error al cargar ${escapeHtml(
+      title
+    )}. Verifica la consola.</p>
+      <button type="button" class="ctrl-btn" style="margin-top: 8px" data-reload-module>
+        Reintentar módulo
+      </button>`;
+    paramsPanel.querySelector('[data-reload-module]')?.addEventListener('click', () => {
+      if (state.catalogId && getById(state.catalogId)) {
+        openCatalogModule(state.catalogId, { history: 'none' });
+      }
+    });
+  }
+  try {
+    engine?.pause?.(true);
+  } catch {
+    /* ignore */
+  }
+  if (simStatus) {
+    simStatus.textContent = 'Error del módulo';
+    delete simStatus.dataset.t;
   }
 }
 
@@ -1025,7 +1055,14 @@ document.addEventListener('keydown', (e) => {
 function onEngineUpdate(dt) {
   if (state.view !== 'sim') return;
   const inst = state.moduleInstances[state.currentModule];
-  if (inst && typeof inst.update === 'function') inst.update(dt);
+  try {
+    if (inst && typeof inst.update === 'function') inst.update(dt);
+  } catch (err) {
+    // Un error en update() no debe romper el bucle RAF (§1.2).
+    console.error('Error en update del módulo:', err);
+    attemptRecoverLoop();
+    return;
+  }
   // Gráficas SVG a ~10 Hz (no a 60 fps) — reduce layout/innerHTML
   try {
     if (inst && inst.useCharts === true && typeof inst.getCharts === 'function') {
@@ -1039,6 +1076,23 @@ function onEngineUpdate(dt) {
   } catch {
     /* no bloquear el loop */
   }
+}
+
+/**
+ * Al degradar por error del módulo: pausa el bucle para evitar un RAF infinito
+ * con excepciones y avisa en la barra de estado.
+ */
+function attemptRecoverLoop() {
+  try {
+    engine?.pause?.(true);
+  } catch {
+    /* ignore */
+  }
+  if (simStatus && isWhiteboardModule() === false) {
+    simStatus.textContent = 'Pausado (error en la sim)';
+    delete simStatus.dataset.t;
+  }
+  updatePlayPauseUI();
 }
 
 /** Acepta string SVG o { series: [{label, points:[{x,y}]}] } */
@@ -1106,7 +1160,12 @@ function onEngineRender(ctx, alpha, elapsed) {
     renderer.drawGrid({ spacing: 1 });
   }
   if (inst && typeof inst.render === 'function') {
-    inst.render(ctx, alpha, elapsed);
+    try {
+      inst.render(ctx, alpha, elapsed);
+    } catch (err) {
+      console.error('Error en render del módulo:', err);
+      attemptRecoverLoop();
+    }
   }
   // Tras módulos que tocan setTransform (p. ej. pizarra), restaurar espacio CSS
   engine.applyDprTransform?.();

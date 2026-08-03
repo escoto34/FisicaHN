@@ -1,9 +1,14 @@
 /**
  * Cinemática — MRU / MRUV + espacio infinito.
+ *
+ * Primer modulo migrado al contrato `SimModule`: el estado vive en la instancia
+ * (no en `let` de nivel de modulo), y la estela usa el `TrailBuffer` compartido.
  */
 
-import { Vector2D } from '../utils/vector2d.js';
+import { SimModule } from '../core/sim-module.js';
+import { TrailBuffer } from '../core/trail-buffer.js';
 import { roundTo } from '../utils/math-helpers.js';
+import { Vector2D } from '../utils/vector2d.js';
 import {
   setModuleInfo,
   setModuleFormulas,
@@ -12,259 +17,269 @@ import {
   clearChallenges
 } from '../module-ui.js';
 
-export const useCharts = true;
-
-let pos = new Vector2D(0, 0);
-let vel = new Vector2D(2, 0);
-let accel = new Vector2D(0, 0);
-let trail = [];
-const MAX_TRAIL = 200;
-let isRunning = false;
-let unbounded = false;
-let _engine = null;
-let _renderer = null;
-let _ui = null;
-let tSamples = [];
-
-const params = { vx: 2, vy: 0, ax: 0, ay: 0 };
-
-export function init(engine, renderer, ui, meta = null) {
-  _engine = engine;
-  _renderer = renderer;
-  _ui = ui;
-
-  pos = new Vector2D(-8, 0);
-  vel = new Vector2D(params.vx, params.vy);
-  accel = new Vector2D(params.ax, params.ay);
-  trail = [];
-  tSamples = [];
-  unbounded = false;
-  isRunning = true;
-  renderer.resetCamera();
-  ui.showCharts?.(true);
-
-  setModuleInfo(ui, {
-    title: meta?.title || 'Cinemática',
-    blurb:
-      meta?.blurb ||
-      'MRU y MRUV en 1D o en el plano: posición, velocidad y aceleración (sin fuerzas).',
-    story:
-      'Galileo estudió la caída de cuerpos y el movimiento en planos inclinados; Newton unificó estas ideas en leyes del movimiento. Hoy la cinemática describe trayectorias en vehículos, satélites y animaciones. Aquí unificamos el movimiento unidimensional y bidimensional: usa vx, vy, ax, ay (pon vy=ay=0 para 1D).',
-    cases: [
-      '1D: auto en carretera a velocidad casi constante (MRU, solo vx).',
-      '1D: avión acelerando en la pista (MRUV, ax ≠ 0).',
-      '2D: proyectil o cohete con vx y vy (trayectoria en el plano).'
-    ]
-  });
-
-  setModuleFormulas(ui, {
-    title: 'Ecuaciones del movimiento',
-    items: [
-      {
-        name: 'MRU (velocidad constante)',
-        formula: 'x = x<sub>0</sub> + v · t',
-        note: 'La posición cambia de forma proporcional al tiempo.'
-      },
-      {
-        name: 'MRUV (aceleración constante)',
-        formula: 'x = x<sub>0</sub> + v<sub>0</sub>·t + ½·a·t²',
-        note: 'La velocidad también cambia: v = v<sub>0</sub> + a·t'
-      },
-      {
-        name: 'Velocidad media',
-        formula: 'v<sub>med</sub> = Δx / Δt',
-        note: 'Desplazamiento sobre el intervalo de tiempo.'
-      }
-    ]
-  });
-  clearChallenges(ui);
-  ui.setData('<p class="tab-text">Los datos aparecerán al iniciar la simulación.</p>');
-  renderParams();
-}
-
-export function destroy() {
-  isRunning = false;
-  if (_renderer) _renderer.resetCamera();
-  _engine = _renderer = _ui = null;
-}
-
-export function reset(engine, renderer) {
-  pos = new Vector2D(-8, 0);
-  vel = new Vector2D(params.vx, params.vy);
-  accel = new Vector2D(params.ax, params.ay);
-  trail = [];
-  tSamples = [];
-  if (renderer) {
-    if (unbounded) renderer.follow(pos.x, pos.y);
-    else renderer.resetCamera();
+export default class Kinematics extends SimModule {
+  constructor(ctx) {
+    super(ctx);
+    this.params = { vx: 2, vy: 0, ax: 0, ay: 0 };
+    this.pos = new Vector2D(0, 0);
+    this.vel = new Vector2D(0, 0);
+    this.accel = new Vector2D(0, 0);
+    this.trail = new TrailBuffer(160);
+    this.tSamples = [];
+    this.isRunning = false;
+    this.unbounded = false;
+    this.useCharts = true;
   }
-  engine?.reset?.();
-}
 
-export function setTool(toolId) {
-  if (toolId === 'unbounded') setUnbounded(!unbounded);
-}
+  init(meta = null) {
+    this.pos = new Vector2D(-8, 0);
+    this.vel = new Vector2D(this.params.vx, this.params.vy);
+    this.accel = new Vector2D(this.params.ax, this.params.ay);
+    this.trail.clear();
+    this.tSamples = [];
+    this.unbounded = false;
+    this.isRunning = true;
+    this.renderer?.resetCamera?.();
+    this.ui.showCharts?.(true);
 
-export function setUnbounded(on) {
-  unbounded = !!on;
-  if (_renderer) {
-    if (unbounded) _renderer.follow(pos.x, pos.y);
-    else _renderer.resetCamera();
+    setModuleInfo(this.ui, {
+      title: meta?.title || 'Cinemática',
+      blurb:
+        meta?.blurb ||
+        'MRU y MRUV en 1D o en el plano: posición, velocidad y aceleración (sin fuerzas).',
+      story:
+        'Galileo estudió la caída de cuerpos y el movimiento en planos inclinados; Newton unificó estas ideas en leyes del movimiento. Hoy la cinemática describe trayectorias en vehículos, satélites y animaciones. Aquí unificamos el movimiento unidimensional y bidimensional: usa vx, vy, ax, ay (pon vy=ay=0 para 1D).',
+      cases: [
+        '1D: auto en carretera a velocidad casi constante (MRU, solo vx).',
+        '1D: avión acelerando en la pista (MRUV, ax distinto de 0).',
+        '2D: proyectil o cohete con vx y vy (trayectoria en el plano).'
+      ]
+    });
+
+    setModuleFormulas(this.ui, {
+      title: 'Ecuaciones del movimiento',
+      items: [
+        {
+          name: 'MRU (velocidad constante)',
+          formula: 'x = x<sub>0</sub> + v · t',
+          note: 'La posición cambia de forma proporcional al tiempo.'
+        },
+        {
+          name: 'MRUV (aceleración constante)',
+          formula: 'x = x<sub>0</sub> + v<sub>0</sub>·t + ½·a·t²',
+          note: 'La velocidad tambien cambia: v = v<sub>0</sub> + a·t'
+        },
+        {
+          name: 'Velocidad media',
+          formula: 'v<sub>med</sub> = Δx / Δt',
+          note: 'Desplazamiento sobre el intervalo de tiempo.'
+        }
+      ]
+    });
+    clearChallenges(this.ui);
+    this.ui.setData('<p class="tab-text">Los datos apareceran al iniciar la simulacion.</p>');
+    this.renderParams();
   }
-  const btn = document.getElementById('param_unbounded');
-  if (btn) {
-    btn.setAttribute('aria-pressed', unbounded ? 'true' : 'false');
-    btn.classList.toggle('active', unbounded);
-    btn.textContent = unbounded ? 'Espacio infinito: ON' : 'Espacio infinito: OFF';
+
+  destroy() {
+    this.isRunning = false;
+    this.renderer?.resetCamera?.();
   }
-}
 
-export function getUnbounded() {
-  return unbounded;
-}
+  reset() {
+    this.pos = new Vector2D(-8, 0);
+    this.vel = new Vector2D(this.params.vx, this.params.vy);
+    this.accel = new Vector2D(this.params.ax, this.params.ay);
+    this.trail.clear();
+    this.tSamples = [];
+    if (this.unbounded) this.renderer?.follow?.(this.pos.x, this.pos.y);
+    else this.renderer?.resetCamera?.();
+    this.engine?.reset?.();
+  }
 
-export function getState() {
-  return {
-    pos: { x: pos.x, y: pos.y },
-    vel: { x: vel.x, y: vel.y },
-    accel: { x: accel.x, y: accel.y },
-    unbounded,
-    params: { ...params }
-  };
-}
+  setTool(toolId) {
+    if (toolId === 'unbounded') this.setUnbounded(!this.unbounded);
+  }
 
-export function setState(s) {
-  if (!s || typeof s !== 'object') return;
-  if (s.params) Object.assign(params, s.params);
-  if (s.pos) pos = new Vector2D(s.pos.x, s.pos.y);
-  if (s.vel) vel = new Vector2D(s.vel.x, s.vel.y);
-  if (s.accel) accel = new Vector2D(s.accel.x, s.accel.y);
-  if (typeof s.unbounded === 'boolean') setUnbounded(s.unbounded);
-  trail = [];
-  tSamples = [];
-  if (typeof renderParams === 'function') {
+  setUnbounded(on) {
+    this.unbounded = !!on;
+    if (this.unbounded) this.renderer?.follow?.(this.pos.x, this.pos.y);
+    else this.renderer?.resetCamera?.();
+    const btn = document.getElementById('param_unbounded');
+    if (btn) {
+      btn.setAttribute('aria-pressed', this.unbounded ? 'true' : 'false');
+      btn.classList.toggle('active', this.unbounded);
+      btn.textContent = this.unbounded ? 'Espacio infinito: ON' : 'Espacio infinito: OFF';
+    }
+  }
+
+  getUnbounded() {
+    return this.unbounded;
+  }
+
+  getState() {
+    return {
+      pos: { x: this.pos.x, y: this.pos.y },
+      vel: { x: this.vel.x, y: this.vel.y },
+      accel: { x: this.accel.x, y: this.accel.y },
+      unbounded: this.unbounded,
+      params: { ...this.params }
+    };
+  }
+
+  setState(s) {
+    if (!s || typeof s !== 'object') return;
+    if (s.params) Object.assign(this.params, s.params);
+    if (s.pos) this.pos = new Vector2D(s.pos.x, s.pos.y);
+    if (s.vel) this.vel = new Vector2D(s.vel.x, s.vel.y);
+    if (s.accel) this.accel = new Vector2D(s.accel.x, s.accel.y);
+    if (typeof s.unbounded === 'boolean') this.setUnbounded(s.unbounded);
+    this.trail.clear();
+    this.tSamples = [];
     try {
-      renderParams();
+      this.renderParams();
     } catch {
       /* ignore */
     }
   }
-}
 
-export function update(dt) {
-  if (!isRunning) return;
-  vel = vel.add(accel.scale(dt));
-  pos = pos.add(vel.scale(dt));
-  trail.push(pos.clone());
-  if (trail.length > MAX_TRAIL) trail.shift();
-  tSamples.push({ t: (_engine?._elapsed ?? tSamples.length * dt), x: pos.x, y: pos.y, v: vel.magnitude() });
-  if (tSamples.length > 120) tSamples.shift();
-
-  if (!unbounded) {
-    if (pos.x > 9.5) {
-      pos.x = 9.5;
-      vel.x *= -1;
-    }
-    if (pos.x < -9.5) {
-      pos.x = -9.5;
-      vel.x *= -1;
-    }
-    if (pos.y > 7) {
-      pos.y = 7;
-      vel.y *= -1;
-    }
-    if (pos.y < -7) {
-      pos.y = -7;
-      vel.y *= -1;
-    }
-  } else if (_renderer) {
-    _renderer.follow(pos.x, pos.y);
-  }
-  updateData();
-}
-
-export function render(ctx, alpha, elapsed) {
-  if (!_renderer) return;
-  const r = _renderer;
-  if (trail.length > 1) {
-    ctx.save();
-    ctx.strokeStyle = 'rgba(79, 195, 247, 0.25)';
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath();
-    for (let i = 0; i < trail.length; i++) {
-      const p = r.worldToCanvas(trail[i].x, trail[i].y);
-      if (i === 0) ctx.moveTo(p.x, p.y);
-      else ctx.lineTo(p.x, p.y);
-    }
-    ctx.stroke();
-    ctx.restore();
-  }
-  r.drawObject(pos.x, pos.y, {
-    shape: 'circle',
-    size: 0.4,
-    color: '#4fc3f7',
-    label: `t = ${roundTo(elapsed, 2)} s`
-  });
-  if (vel.magnitude() > 0.01) {
-    r.drawVector(pos.x, pos.y, vel.x * 0.3, vel.y * 0.3, {
-      color: '#66bb6a',
-      label: `v = ${roundTo(vel.magnitude(), 2)} m/s`
+  update(dt) {
+    if (!this.isRunning) return;
+    this.vel = this.vel.add(this.accel.scale(dt));
+    this.pos = this.pos.add(this.vel.scale(dt));
+    this.trail.push(this.pos.clone());
+    this.tSamples.push({
+      t: this.engine?._elapsed ?? this.tSamples.length * dt,
+      x: this.pos.x,
+      y: this.pos.y,
+      v: this.vel.magnitude()
     });
+    if (this.tSamples.length > 120) this.tSamples.shift();
+
+    if (!this.unbounded) {
+      if (this.pos.x > 9.5) {
+        this.pos.x = 9.5;
+        this.vel.x *= -1;
+      }
+      if (this.pos.x < -9.5) {
+        this.pos.x = -9.5;
+        this.vel.x *= -1;
+      }
+      if (this.pos.y > 7) {
+        this.pos.y = 7;
+        this.vel.y *= -1;
+      }
+      if (this.pos.y < -7) {
+        this.pos.y = -7;
+        this.vel.y *= -1;
+      }
+    } else if (this.renderer) {
+      this.renderer.follow(this.pos.x, this.pos.y);
+    }
+    this.publishData();
   }
-  if (accel.magnitude() > 0.01) {
-    r.drawVector(pos.x, pos.y, accel.x * 0.5, accel.y * 0.5, {
-      color: '#ef5350',
-      label: `a = ${roundTo(accel.magnitude(), 2)} m/s²`
+
+  render(ctx, alpha, elapsed) {
+    if (!this.renderer) return;
+    const r = this.renderer;
+    if (this.trail.length > 1) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(79, 195, 247, 0.25)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      this.trail.forEach((p, i) => {
+        const s = r.worldToCanvas(p.x, p.y);
+        if (i === 0) ctx.moveTo(s.x, s.y);
+        else ctx.lineTo(s.x, s.y);
+      });
+      ctx.stroke();
+      ctx.restore();
+    }
+    r.drawObject(this.pos.x, this.pos.y, {
+      shape: 'circle',
+      size: 0.4,
+      color: '#4fc3f7',
+      label: `t = ${roundTo(elapsed, 2)} s`
     });
+    if (this.vel.magnitude() > 0.01) {
+      r.drawVector(this.pos.x, this.pos.y, this.vel.x * 0.3, this.vel.y * 0.3, {
+        color: '#66bb6a',
+        label: `v = ${roundTo(this.vel.magnitude(), 2)} m/s`
+      });
+    }
+    if (this.accel.magnitude() > 0.01) {
+      r.drawVector(this.pos.x, this.pos.y, this.accel.x * 0.5, this.accel.y * 0.5, {
+        color: '#ef5350',
+        label: `a = ${roundTo(this.accel.magnitude(), 2)} m/s²`
+      });
+    }
   }
-}
 
-function updateData() {
-  if (!_ui) return;
-  _ui.setData(`
-    <div class="data-grid">
-      <div>x = <strong>${roundTo(pos.x, 2)}</strong> m</div>
-      <div>y = <strong>${roundTo(pos.y, 2)}</strong> m</div>
-      <div>v<sub>x</sub> = <strong>${roundTo(vel.x, 2)}</strong> m/s</div>
-      <div>v<sub>y</sub> = <strong>${roundTo(vel.y, 2)}</strong> m/s</div>
-      <div>|v| = <strong>${roundTo(vel.magnitude(), 2)}</strong> m/s</div>
-      <div>a<sub>x</sub> = <strong>${roundTo(accel.x, 2)}</strong> m/s²</div>
-      <div>a<sub>y</sub> = <strong>${roundTo(accel.y, 2)}</strong> m/s²</div>
-      <div>${unbounded ? 'Espacio infinito ON' : 'Con paredes'}</div>
-    </div>
-  `);
-}
-
-export function getCharts() {
-  const points = tSamples.map((s) => ({ x: s.t, y: s.x }));
-  if (points.length < 2) {
-    return { title: 'x (m) frente al tiempo (s)', series: [{ label: 'x', points: [{ x: 0, y: pos.x }, { x: 1, y: pos.x }] }] };
+  /** Datos numericos separados de la presentacion (contrato readout). */
+  readout() {
+    return {
+      x: { value: this.pos.x, unit: 'm' },
+      y: { value: this.pos.y, unit: 'm' },
+      vx: { value: this.vel.x, unit: 'm/s' },
+      vy: { value: this.vel.y, unit: 'm/s' },
+      v: { value: this.vel.magnitude(), unit: 'm/s' },
+      ax: { value: this.accel.x, unit: 'm/s²' },
+      ay: { value: this.accel.y, unit: 'm/s²' }
+    };
   }
-  return {
-    title: 'x (m) frente al tiempo (s)',
-    series: [{ label: 'x', points }]
-  };
-}
 
-function renderParams() {
-  if (!_ui) return;
-  _ui.setParams(`
-    <div class="control-group">
-      <button type="button" class="ctrl-btn unbounded-btn" id="param_unbounded" aria-pressed="false">
-        Espacio infinito: OFF
-      </button>
-    </div>
-    ${paramControl({ id: 'vx', labelTex: 'v_x', labelRest: 'velocidad', min: -5, max: 5, step: 0.1, value: params.vx, unit: 'm/s' })}
-    ${paramControl({ id: 'vy', labelTex: 'v_y', labelRest: 'velocidad', min: -5, max: 5, step: 0.1, value: params.vy, unit: 'm/s' })}
-    ${paramControl({ id: 'ax', labelTex: 'a_x', labelRest: 'aceleración', min: -2, max: 2, step: 0.1, value: params.ax, unit: 'm/s²' })}
-    ${paramControl({ id: 'ay', labelTex: 'a_y', labelRest: 'aceleración', min: -2, max: 2, step: 0.1, value: params.ay, unit: 'm/s²' })}
-  `);
-  setTimeout(() => {
-    document.getElementById('param_unbounded')?.addEventListener('click', () => setUnbounded(!unbounded));
-    bindParamControls(['vx', 'vy', 'ax', 'ay'], (id, val) => {
-      params[id] = val;
-      reset(_engine, _renderer);
-    });
-  }, 0);
+  publishData() {
+    if (!this.ui) return;
+    this.ui.setData(`
+      <div class="data-grid">
+        <div>x = <strong>${roundTo(this.pos.x, 2)}</strong> m</div>
+        <div>y = <strong>${roundTo(this.pos.y, 2)}</strong> m</div>
+        <div>v<sub>x</sub> = <strong>${roundTo(this.vel.x, 2)}</strong> m/s</div>
+        <div>v<sub>y</sub> = <strong>${roundTo(this.vel.y, 2)}</strong> m/s</div>
+        <div>|v| = <strong>${roundTo(this.vel.magnitude(), 2)}</strong> m/s</div>
+        <div>a<sub>x</sub> = <strong>${roundTo(this.accel.x, 2)}</strong> m/s²</div>
+        <div>a<sub>y</sub> = <strong>${roundTo(this.accel.y, 2)}</strong> m/s²</div>
+        <div>${this.unbounded ? 'Espacio infinito ON' : 'Con paredes'}</div>
+      </div>
+    `);
+  }
+
+  getCharts() {
+    const points = this.tSamples.map((s) => ({ x: s.t, y: s.x }));
+    if (points.length < 2) {
+      return {
+        title: 'x (m) frente al tiempo (s)',
+        series: [{ label: 'x', points: [{ x: 0, y: this.pos.x }, { x: 1, y: this.pos.x }] }]
+      };
+    }
+    return {
+      title: 'x (m) frente al tiempo (s)',
+      series: [{ label: 'x', points }]
+    };
+  }
+
+  renderParams() {
+    if (!this.ui) return;
+    this.ui.setParams(`
+      <div class="control-group">
+        <button type="button" class="ctrl-btn unbounded-btn" id="param_unbounded" aria-pressed="false">
+          Espacio infinito: OFF
+        </button>
+      </div>
+      ${paramControl({ id: 'vx', labelTex: 'v_x', labelRest: 'velocidad', min: -5, max: 5, step: 0.1, value: this.params.vx, unit: 'm/s' })}
+      ${paramControl({ id: 'vy', labelTex: 'v_y', labelRest: 'velocidad', min: -5, max: 5, step: 0.1, value: this.params.vy, unit: 'm/s' })}
+      ${paramControl({ id: 'ax', labelTex: 'a_x', labelRest: 'aceleración', min: -2, max: 2, step: 0.1, value: this.params.ax, unit: 'm/s²' })}
+      ${paramControl({ id: 'ay', labelTex: 'a_y', labelRest: 'aceleración', min: -2, max: 2, step: 0.1, value: this.params.ay, unit: 'm/s²' })}
+    `);
+    setTimeout(() => {
+      document.getElementById('param_unbounded')?.addEventListener('click', () =>
+        this.setUnbounded(!this.unbounded)
+      );
+      bindParamControls(['vx', 'vy', 'ax', 'ay'], (id, val) => {
+        this.params[id] = val;
+        this.reset();
+      });
+    }, 0);
+  }
 }
