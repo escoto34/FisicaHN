@@ -35,6 +35,21 @@ jobs:
           submodules: false
           fetch-depth: 1
 
+      - name: Guard — no editar carpetas generadas (WAVE 0.2)
+        run: |
+          GEN="website/sim"
+          if [ -d "$GEN/js" ]; then
+            if ! diff -rq --exclude='supabase-config.js' "$GEN/js" skills/fisicahn/js >/dev/null 2>&1; then
+              echo "::error::$GEN/js difiere de skills/fisicahn/js"
+              echo "skills/fisicahn/ es el único origen; $GEN se regenera en cada build."
+              diff -rq --exclude='supabase-config.js' "$GEN/js" skills/fisicahn/js | head -20
+              exit 1
+            fi
+            echo "OK: $GEN/js está en sync con skills/fisicahn/js"
+          else
+            echo "$GEN no existe en el checkout (normal en primera ejecución) — sin comprobación"
+          fi
+
       - name: Check Supabase secrets
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

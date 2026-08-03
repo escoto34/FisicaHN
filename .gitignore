@@ -56,6 +56,9 @@ mobile/android/key.properties
 *.p12
 
 # --- Descargas del sitio ---
+# sim/ se genera con scripts/build-website.sh (no editar a mano)
+website/sim/
+
 # El ZIP offline sí puede versionarse (fisicahn.zip).
 # APKs con número de versión: van a Releases o se copian a FisicaHN-android.apk
 website/downloads/FisicaHN-*-release.apk

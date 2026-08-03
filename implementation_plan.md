@@ -1,3 +1,7 @@
+> **NOTA (WAVE 0.3):** documento **histórico**. Describe una arquitectura (18 módulos,
+> pestañas de nivel, rutas `js/core/`) que el código real ya **no** sigue. El plan vigente
+> es `mejoras.md`.
+
 # Simulador de Física Interactivo — fisicahn (v3 optimizado)
 
 Simulador web **100% offline** para colegios técnicos en Honduras. HTML5 + CSS3 + JavaScript vanilla. Cero dependencias externas. Sin build step. Compatible con `file://` (doble clic desde USB).
