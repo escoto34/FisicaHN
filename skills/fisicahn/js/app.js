@@ -21,7 +21,7 @@ import { initNetworkStatusUI } from './network-status.js';
 import { initPanelResize } from './panel-resize.js';
 import { ChallengeEngine, loadChallengeDataForEngine } from './challenges.js';
 import { enhanceParamsPanel, typesetMath, ensureChallengesCss, ensureKatex } from './module-ui.js';
-import { createModuleInstance } from './core/sim-module.js';
+import { createModuleInstance, implementsMethod } from './core/sim-module.js';
 import { Camera } from './core/camera.js';
 import { LayerStack } from './core/layers.js';
 import { Scene } from './core/scene.js';
@@ -823,7 +823,12 @@ function mountDeclarativeParams(mod, instance) {
  * puede restar dos lecturas en lugar de comparar cadenas.
  */
 function pumpReadout(instance) {
-  if (!instance || typeof instance.readout !== 'function' || !instance.isSimModule) return;
+  // Regla: el anfitrión se hace cargo del panel Datos **sólo** en módulos del
+  // contrato completo (`draw` + `readout`). Un módulo a medio migrar como
+  // `kinematics` tiene `readout()` pero sigue escribiendo su propio HTML con
+  // `ui.setData()` desde `update()`; si el anfitrión escribiera también, los
+  // dos formatos parpadearían en el mismo panel.
+  if (!implementsMethod(instance, 'readout') || !implementsMethod(instance, 'draw')) return;
   const now = performance.now();
   if (now - _lastReadoutAt < READOUT_MIN_MS) return;
   _lastReadoutAt = now;
@@ -1134,7 +1139,7 @@ document.getElementById('exportSvgBtn')?.addEventListener('click', () => {
   const inst = comparison?.a || state.moduleInstances[state.currentModule];
   const size = renderer?.cssSize?.() || { w: 800, h: 600 };
   const ok = exportSvg({
-    instance: inst,
+    instance: implementsMethod(inst, 'draw') ? inst : null,
     scene,
     camera,
     size,
@@ -1507,7 +1512,9 @@ function onEngineRender(ctx, alpha, elapsed) {
   // migrados usan `draw(scene)` y el resto sigue con `render(ctx)`.
   scene.beginFrame(ctx, { theme, dt: engine.getDelta?.() ?? 1 / 60, elapsed, alpha });
   scene.beginHud(ctx);
-  if (inst && typeof inst.draw === 'function' && inst.isSimModule) {
+  // `implementsMethod` y no `typeof`: `SimModule` define `draw` vacío, así que
+  // un módulo migrado que aún dibuja con `render(ctx)` se quedaría en blanco.
+  if (implementsMethod(inst, 'draw')) {
     try {
       inst.draw(scene);
     } catch (err) {

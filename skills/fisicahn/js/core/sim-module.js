@@ -149,3 +149,26 @@ export function createModuleInstance(mod, ctx) {
   }
   return createLegacyAdapter(mod);
 }
+
+/**
+ * ¿La instancia **sobreescribe** un método del contrato, o sólo hereda el vacío
+ * de `SimModule`?
+ *
+ * `typeof inst.draw === 'function'` no sirve para decidirlo: la clase base
+ * define `draw`, `readout` y compañía como cuerpos vacíos, así que un módulo
+ * migrado a `SimModule` pero que aún dibuja con `render(ctx)` —como
+ * `kinematics`— daría `true` y el anfitrión lo mandaría a la implementación
+ * vacía, dejando el lienzo en blanco.
+ *
+ * @param {object} instance
+ * @param {string} method
+ * @returns {boolean}
+ */
+export function implementsMethod(instance, method) {
+  if (!instance) return false;
+  const fn = instance[method];
+  if (typeof fn !== 'function') return false;
+  // Un adaptador legacy reenvía al namespace: si la función existe, es propia.
+  if (instance.legacy) return true;
+  return fn !== SimModule.prototype[method];
+}

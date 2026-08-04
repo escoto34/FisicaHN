@@ -21,7 +21,7 @@
  * 4. Lectura comparada con la diferencia calculada.
  */
 
-import { SimModule } from './sim-module.js';
+import { SimModule, implementsMethod } from './sim-module.js';
 import { getTheme } from './theme.js';
 
 /** Ancho en px CSS de la zona sensible de la divisoria. */
@@ -73,7 +73,11 @@ export class ComparisonController {
    */
   static supports(mod) {
     const Ctor = mod?.default;
-    return Ctor instanceof Function && Ctor.prototype instanceof SimModule;
+    if (!(Ctor instanceof Function) || !(Ctor.prototype instanceof SimModule)) return false;
+    // Además de ser instanciable, debe dibujar con la escena: un módulo que
+    // aún usa `render(ctx)` heredaría el `draw` vacío y daría dos paneles en
+    // blanco, que es peor que no ofrecer la comparación.
+    return Ctor.prototype.draw !== SimModule.prototype.draw;
   }
 
   /** Crea las dos instancias y arranca la comparación. */
@@ -257,7 +261,7 @@ export class ComparisonController {
   }
 
   _safeReadout(inst) {
-    if (!inst || typeof inst.readout !== 'function') return {};
+    if (!implementsMethod(inst, 'readout')) return {};
     try {
       return inst.readout() || {};
     } catch (err) {
