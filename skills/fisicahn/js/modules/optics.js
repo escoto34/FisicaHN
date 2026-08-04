@@ -244,8 +244,9 @@ export function render(ctx) {
   if (!_renderer) return;
   const r = _renderer;
   const o = lastOptics || computeOptics();
-  const w = r.canvas.width;
-  const h = r.canvas.height;
+  // px CSS: `r.canvas.width` es el buffer de dispositivo y con DPR 1,75
+  // mandaba la leyenda fuera de pantalla y estiraba los medios (§2.0).
+  const { w, h } = r.viewport();
 
   const left = r.worldToCanvas(-10, 0);
   const right = r.worldToCanvas(10, 0);

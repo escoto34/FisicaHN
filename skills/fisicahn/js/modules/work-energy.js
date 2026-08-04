@@ -150,7 +150,7 @@ export function render(ctx) {
   const maxE = Math.max(Math.abs(Wapp), Math.abs(Wfric), Ec, 20);
   const bar = (label, val, color, i) => {
     const h = (Math.abs(val) / maxE) * 100;
-    const bx = ctx.canvas.width - 50 - i * 36;
+    const bx = r.viewport().w - 50 - i * 36;
     ctx.fillStyle = color;
     ctx.fillRect(bx, 120 - h, 22, h);
     ctx.fillStyle = '#ccc';

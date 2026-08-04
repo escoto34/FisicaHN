@@ -1,241 +1,385 @@
 /**
- * Momentum y colisiones 1D.
+ * @fileoverview Cantidad de movimiento — momento lineal, impulso y choques 1D.
+ *
+ * **Módulo de referencia de la WAVE 2.** Es el primero migrado al contrato
+ * `SimModule` con `draw(scene)`, y sirve de patrón para el resto:
+ *
+ * - El estado vive en la instancia, no en variables de nivel de módulo. Eso es
+ *   lo que habilita la comparación lado a lado de §2.9 — «choque elástico
+ *   frente a inelástico» es justo el caso de uso que la motiva.
+ * - Los parámetros son un esquema declarativo (§2.7): sin `renderParams()`
+ *   escrito a mano ni `setTimeout(…, 0)` para enlazar los controles.
+ * - Dibuja con el vocabulario de la escena (§2.4), en un único espacio de
+ *   coordenadas: nada de `ctx.canvas.width`, que era el bug de DPR de §2.0
+ *   (las barras de energía se salían de pantalla en móvil).
+ * - `readout()` devuelve números, no HTML: la presentación es del anfitrión, y
+ *   la comparación puede restar dos lecturas.
+ *
+ * El modo **impulso** existe porque «Impulso» no merece un motor propio: sería
+ * idéntico a éste. Es un modo, no un módulo duplicado (§3.2).
  */
 
-import { roundTo } from '../utils/math-helpers.js';
-import {
-  setModuleInfo,
-  setModuleFormulas,
-  paramControl,
-  bindParamControls,
-  clearChallenges
-} from '../module-ui.js';
+import { SimModule } from '../core/sim-module.js';
+import { TrailBuffer } from '../core/trail-buffer.js';
+import { roundTo } from '../core/geometry.js';
+import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
-let _engine, _renderer, _ui;
-let t = 0;
-let collided = false;
-let x1, x2, v1, v2;
-const y = 0;
+/** Altura del riel en el mundo. Todo el módulo es 1D sobre esta recta. */
+const RAIL_Y = 0;
+/** Semiancho del riel, en unidades de mundo. */
+const RAIL_HALF = 9.5;
 
-const params = {
-  m1: 2,
-  m2: 3,
-  v1i: 4,
-  v2i: -1,
-  tipo: 'elastico', // elastico | inelastico | perfecto
-  e: 0.5
-};
+export default class MomentumModule extends SimModule {
+  /** Encuadre propio: el riel pide más ancho que alto (§2.2). */
+  static viewport = { width: 22, height: 12 };
 
-function resolveCollision() {
-  const m1 = params.m1;
-  const m2 = params.m2;
-  const u1 = v1;
-  const u2 = v2;
+  /** Esquema declarativo: la app construye y enlaza el panel (§2.7). */
+  static params = [
+    {
+      id: 'modo',
+      type: 'select',
+      label: 'Modo',
+      value: 'choque',
+      options: [
+        { value: 'choque', label: 'Choque' },
+        { value: 'impulso', label: 'Impulso (F·Δt)' }
+      ]
+    },
+    {
+      id: 'tipo',
+      type: 'select',
+      label: 'Tipo de choque',
+      value: 'elastico',
+      options: [
+        { value: 'elastico', label: 'Elástico' },
+        { value: 'inelastico', label: 'Inelástico (coef. e)' },
+        { value: 'perfecto', label: 'Perfectamente inelástico' }
+      ]
+    },
+    { id: 'm1', label: 'Masa 1', latex: 'm_1', unit: 'kg', min: 0.5, max: 10, step: 0.5, value: 2 },
+    { id: 'm2', label: 'Masa 2', latex: 'm_2', unit: 'kg', min: 0.5, max: 10, step: 0.5, value: 3 },
+    { id: 'v1i', label: 'Velocidad inicial 1', latex: 'v_1', unit: 'm/s', min: -8, max: 8, step: 0.5, value: 4 },
+    { id: 'v2i', label: 'Velocidad inicial 2', latex: 'v_2', unit: 'm/s', min: -8, max: 8, step: 0.5, value: -1 },
+    { id: 'e', label: 'Coef. de restitución', latex: 'e', min: 0, max: 1, step: 0.05, value: 0.5 },
+    { id: 'F', label: 'Fuerza aplicada', latex: 'F', unit: 'N', min: 0, max: 40, step: 1, value: 12 },
+    { id: 'dt', label: 'Duración', latex: '\\Delta t', unit: 's', min: 0.1, max: 3, step: 0.1, value: 1 }
+  ];
 
-  if (params.tipo === 'perfecto') {
-    const vf = (m1 * u1 + m2 * u2) / (m1 + m2);
-    v1 = vf;
-    v2 = vf;
-  } else if (params.tipo === 'elastico') {
-    v1 = ((m1 - m2) * u1 + 2 * m2 * u2) / (m1 + m2);
-    v2 = ((m2 - m1) * u2 + 2 * m1 * u1) / (m1 + m2);
-  } else {
-    const e = params.e;
-    v1 = ((m1 - e * m2) * u1 + m2 * (1 + e) * u2) / (m1 + m2);
-    v2 = ((m2 - e * m1) * u2 + m1 * (1 + e) * u1) / (m1 + m2);
-  }
-}
-
-function energy() {
-  return 0.5 * params.m1 * v1 * v1 + 0.5 * params.m2 * v2 * v2;
-}
-
-function momentum() {
-  return params.m1 * v1 + params.m2 * v2;
-}
-
-export function init(engine, renderer, ui) {
-  _engine = engine;
-  _renderer = renderer;
-  _ui = ui;
-  renderer.resetCamera();
-  resetState();
-
-  setModuleInfo(ui, {
-    title: 'Momentum',
-    blurb: 'Momento lineal y colisiones en una dimensión.',
-    story: 'La conservación del momento es central en choques y propulsión (cohetes).',
-    cases: ['Bolas de billar.', 'Vagones que se acoplan.', 'Retroceso de un arma.']
-  });
-
-  setModuleFormulas(ui, { items: [
-    { name: 'Momento lineal', formula: 'p = m · v' },
-    { name: 'Conservación', formula: 'Σ p<sub>i</sub> = Σ p<sub>f</sub>', note: 'En un sistema aislado de fuerzas externas netas.' }
-  ]});
-
-  clearChallenges(ui);
-  renderParams();
-}
-
-function resetState() {
-  t = 0;
-  collided = false;
-  x1 = -6;
-  x2 = 4;
-  v1 = params.v1i;
-  v2 = params.v2i;
-}
-
-export function destroy() {
-  _engine = _renderer = _ui = null;
-}
-
-export function reset(engine) {
-  resetState();
-  engine.reset();
-}
-
-export function setTool() {}
-
-export function update(dt) {
-  t += dt;
-  if (!collided) {
-    x1 += v1 * dt;
-    x2 += v2 * dt;
-    const r1 = 0.35 + params.m1 * 0.08;
-    const r2 = 0.35 + params.m2 * 0.08;
-    if (x1 + r1 >= x2 - r2 && v1 > v2) {
-      resolveCollision();
-      collided = true;
-      x1 = x2 - r1 - r2 - 0.01;
-    }
-  } else {
-    x1 += v1 * dt;
-    x2 += v2 * dt;
-  }
-  updateData();
-}
-
-export function render(ctx) {
-  if (!_renderer) return;
-  const r = _renderer;
-
-  // riel
-  const a = r.worldToCanvas(-10, y - 0.6);
-  const b = r.worldToCanvas(10, y - 0.6);
-  ctx.save();
-  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(a.x, a.y);
-  ctx.lineTo(b.x, b.y);
-  ctx.stroke();
-  ctx.restore();
-
-  const s1 = 0.35 + params.m1 * 0.08;
-  const s2 = 0.35 + params.m2 * 0.08;
-  r.drawObject(x1, y, { shape: 'rect', size: s1, color: '#4fc3f7', label: `m1=${params.m1}` });
-  r.drawObject(x2, y, { shape: 'rect', size: s2, color: '#ffb74d', label: `m2=${params.m2}` });
-  r.drawVector(x1, y + s1, v1 * 0.25, 0, { color: '#66bb6a', label: `v1=${roundTo(v1, 2)}` });
-  r.drawVector(x2, y + s2, v2 * 0.25, 0, { color: '#66bb6a', label: `v2=${roundTo(v2, 2)}` });
-
-  ctx.save();
-  ctx.font = '12px monospace';
-  ctx.fillStyle = 'rgba(255,255,255,0.65)';
-  ctx.fillText(collided ? 'Después del choque' : 'Antes del choque', 10, 16);
-  ctx.fillText(`p total = ${roundTo(momentum(), 3)}`, 10, 34);
-  ctx.fillText(`Ec = ${roundTo(energy(), 3)} J`, 10, 52);
-  ctx.restore();
-
-  // barras Ec en chart area via setChart is heavy; simple canvas bars
-  const maxE = Math.max(energy(), 0.5 * params.m1 * params.v1i ** 2 + 0.5 * params.m2 * params.v2i ** 2, 1);
-  const barH = (energy() / maxE) * 80;
-  ctx.fillStyle = 'rgba(102,187,106,0.5)';
-  ctx.fillRect(ctx.canvas.width - 40, 100 - barH, 24, barH);
-  ctx.fillStyle = '#aaa';
-  ctx.font = '10px sans-serif';
-  ctx.fillText('Ec', ctx.canvas.width - 38, 112);
-}
-
-function updateData() {
-  _ui?.setData(`
-    <div style="font-family:var(--font-mono);font-size:0.82rem;line-height:1.7">
-      <div>v1 = ${roundTo(v1, 3)} m/s · v2 = ${roundTo(v2, 3)} m/s</div>
-      <div>p = ${roundTo(momentum(), 3)} kg·m/s</div>
-      <div>Ec = ${roundTo(energy(), 3)} J</div>
-      <div>${collided ? 'Choque resuelto' : 'En aproximación'}</div>
-    </div>
-  `);
-}
-
-function renderParams() {
-  _ui.setParams(`
-    <div class="control-group">
-      <label class="control-label">Tipo de choque</label>
-      <select id="param_tipo" class="custom-select" style="width:100%;padding:8px;background:var(--bg-tertiary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:6px">
-        <option value="elastico" ${params.tipo === 'elastico' ? 'selected' : ''}>Elástico</option>
-        <option value="inelastico" ${params.tipo === 'inelastico' ? 'selected' : ''}>Inelástico (e)</option>
-        <option value="perfecto" ${params.tipo === 'perfecto' ? 'selected' : ''}>Perfectamente inelástico</option>
-      </select>
-    </div>
-    <div class="control-group">
-      <label class="control-label">$m_1$ (kg)</label>
-      <div class="slider-row"><input type="range" id="p_m1" class="custom-slider" min="0.5" max="10" step="0.5" value="${params.m1}"><span id="d_m1">${params.m1}</span></div>
-    </div>
-    <div class="control-group">
-      <label class="control-label">$m_2$ (kg)</label>
-      <div class="slider-row"><input type="range" id="p_m2" class="custom-slider" min="0.5" max="10" step="0.5" value="${params.m2}"><span id="d_m2">${params.m2}</span></div>
-    </div>
-    <div class="control-group">
-      <label class="control-label">$v_1$ inicial</label>
-      <div class="slider-row"><input type="range" id="p_v1" class="custom-slider" min="-8" max="8" step="0.5" value="${params.v1i}"><span id="d_v1">${params.v1i}</span></div>
-    </div>
-    <div class="control-group">
-      <label class="control-label">$v_2$ inicial</label>
-      <div class="slider-row"><input type="range" id="p_v2" class="custom-slider" min="-8" max="8" step="0.5" value="${params.v2i}"><span id="d_v2">${params.v2i}</span></div>
-    </div>
-    <div class="control-group">
-      <label class="control-label">$e$ (inelástico)</label>
-      <div class="slider-row"><input type="range" id="p_e" class="custom-slider" min="0" max="1" step="0.05" value="${params.e}"><span id="d_e">${params.e}</span></div>
-    </div>
-  `);
-  setTimeout(() => {
-    const re = () => {
-      resetState();
-      _engine?.reset();
+  constructor(ctx) {
+    super(ctx);
+    /** Valores vivos del esquema; el panel escribe aquí directamente. */
+    this.params = {
+      modo: 'choque',
+      tipo: 'elastico',
+      m1: 2,
+      m2: 3,
+      v1i: 4,
+      v2i: -1,
+      e: 0.5,
+      F: 12,
+      dt: 1
     };
-    document.getElementById('param_tipo')?.addEventListener('change', (e) => {
-      params.tipo = e.target.value;
-      re();
+    this.t = 0;
+    this.collided = false;
+    this.x1 = -6;
+    this.x2 = 4;
+    this.v1 = 4;
+    this.v2 = -1;
+    /** Historial p(t) para la gráfica en lienzo. Anillo: sin `shift()` por frame. */
+    this.history = new TrailBuffer(240);
+    /** Cuerpo que el usuario está arrastrando, o null. */
+    this.dragging = null;
+    this.useCharts = false;
+  }
+
+  init() {
+    this.reset();
+
+    setModuleInfo(this.ui, {
+      title: 'Cantidad de movimiento',
+      blurb: 'Momento lineal, impulso y choques en una dimensión.',
+      story:
+        'La conservación del momento es el principio que explica desde el retroceso de un arma hasta la propulsión de un cohete: no hace falta apoyarse en nada externo, basta con expulsar masa.',
+      cases: [
+        'Bolas de billar: choque casi elástico.',
+        'Dos vagones que se acoplan: perfectamente inelástico.',
+        'Retroceso de un arma al disparar.',
+        'Airbag: alarga Δt para reducir la fuerza del mismo impulso.'
+      ]
     });
-    const bind = (id, key, disp) => {
-      const el = document.getElementById(id);
-      el?.addEventListener('input', () => {
-        params[key] = parseFloat(el.value);
-        const d = document.getElementById(disp);
-        if (d) d.textContent = String(params[key]);
-        re();
-      });
-    };
-    bind('p_m1', 'm1', 'd_m1');
-    bind('p_m2', 'm2', 'd_m2');
-    bind('p_v1', 'v1i', 'd_v1');
-    bind('p_v2', 'v2i', 'd_v2');
-    bind('p_e', 'e', 'd_e');
-  }, 0);
-}
 
-export function getState() {
-  return { x1, x2, v1, v2, collided, t, params: { ...params } };
-}
-export function setState(s) {
-  if (!s || typeof s !== 'object') return;
-  if (s.params) Object.assign(params, s.params);
-  if (s.x1 != null) x1 = s.x1;
-  if (s.x2 != null) x2 = s.x2;
-  if (s.v1 != null) v1 = s.v1;
-  if (s.v2 != null) v2 = s.v2;
-  if (typeof s.collided === 'boolean') collided = s.collided;
-  if (s.t != null) t = s.t;
-  renderParams();
+    setModuleFormulas(this.ui, {
+      items: [
+        { name: 'Momento lineal', formula: 'p = m · v' },
+        {
+          name: 'Conservación',
+          formula: 'Σ p_i = Σ p_f',
+          note: 'En un sistema aislado de fuerzas externas netas.'
+        },
+        {
+          name: 'Impulso',
+          formula: 'J = F · Δt = Δp',
+          note: 'El área bajo la gráfica $F$–$t$ es el cambio de momento.'
+        },
+        {
+          name: 'Coeficiente de restitución',
+          formula: 'e = (v_2f − v_1f) / (v_1i − v_2i)',
+          note: '$e = 1$ elástico, $e = 0$ perfectamente inelástico.'
+        }
+      ]
+    });
+
+    clearChallenges(this.ui);
+  }
+
+  reset() {
+    this.t = 0;
+    this.collided = false;
+    this.history.clear();
+    if (this.params.modo === 'impulso') {
+      // Un solo cuerpo en reposo al que se aplica F durante Δt.
+      this.x1 = -6;
+      this.v1 = 0;
+      this.x2 = RAIL_HALF;
+      this.v2 = 0;
+    } else {
+      this.x1 = -6;
+      this.x2 = 4;
+      this.v1 = this.params.v1i;
+      this.v2 = this.params.v2i;
+    }
+  }
+
+  /** Radio del cuerpo i, creciente con la masa para que se lea de un vistazo. */
+  radius(which) {
+    const m = which === 1 ? this.params.m1 : this.params.m2;
+    return 0.35 + m * 0.08;
+  }
+
+  /** Resuelve el choque según el tipo elegido. */
+  _resolveCollision() {
+    const { m1, m2, tipo } = this.params;
+    const u1 = this.v1;
+    const u2 = this.v2;
+
+    if (tipo === 'perfecto') {
+      const vf = (m1 * u1 + m2 * u2) / (m1 + m2);
+      this.v1 = vf;
+      this.v2 = vf;
+      return;
+    }
+    // El caso elástico es el de restitución con e = 1; se escribe aparte
+    // porque es la fórmula que aparece en el libro de texto.
+    const e = tipo === 'elastico' ? 1 : this.params.e;
+    this.v1 = ((m1 - e * m2) * u1 + m2 * (1 + e) * u2) / (m1 + m2);
+    this.v2 = ((m2 - e * m1) * u2 + m1 * (1 + e) * u1) / (m1 + m2);
+  }
+
+  momentum() {
+    return this.params.m1 * this.v1 + this.params.m2 * this.v2;
+  }
+
+  energy() {
+    return 0.5 * this.params.m1 * this.v1 ** 2 + 0.5 * this.params.m2 * this.v2 ** 2;
+  }
+
+  /** Fuerza aplicada en el instante actual (sólo en modo impulso). */
+  appliedForce() {
+    if (this.params.modo !== 'impulso') return 0;
+    return this.t <= this.params.dt ? this.params.F : 0;
+  }
+
+  update(dt) {
+    if (this.dragging) return; // arrastrando: la física espera
+    this.t += dt;
+
+    if (this.params.modo === 'impulso') {
+      const F = this.appliedForce();
+      this.v1 += (F / this.params.m1) * dt;
+      this.x1 += this.v1 * dt;
+      if (this.x1 > RAIL_HALF) this.x1 = -RAIL_HALF;
+    } else {
+      this.x1 += this.v1 * dt;
+      this.x2 += this.v2 * dt;
+      if (!this.collided) {
+        const r1 = this.radius(1);
+        const r2 = this.radius(2);
+        if (this.x1 + r1 >= this.x2 - r2 && this.v1 > this.v2) {
+          this._resolveCollision();
+          this.collided = true;
+          // Separarlos un pelo evita que se re-detecte el contacto.
+          this.x1 = this.x2 - r1 - r2 - 0.01;
+        }
+      }
+    }
+
+    this.history.push({ x: this.t, y: this.momentum() });
+  }
+
+  /* ---------- interacción directa (§2.6) ---------- */
+
+  onPickStart(id) {
+    this.dragging = id;
+  }
+
+  onDrag(id, world) {
+    const r = this.radius(id === 'm1' ? 1 : 2);
+    const x = Math.max(-RAIL_HALF + r, Math.min(RAIL_HALF - r, world.x));
+    if (id === 'm1') this.x1 = x;
+    else this.x2 = x;
+  }
+
+  onDragEnd() {
+    this.dragging = null;
+  }
+
+  /* ---------- dibujo declarativo (§2.4) ---------- */
+
+  draw(scene) {
+    const impulso = this.params.modo === 'impulso';
+    const r1 = this.radius(1);
+    const r2 = this.radius(2);
+
+    // Riel
+    scene.line(-RAIL_HALF, RAIL_Y - 0.7, RAIL_HALF, RAIL_Y - 0.7, {
+      color: 'spring',
+      width: 3
+    });
+
+    // `id` registra el cuerpo como seleccionable: la escena resuelve el
+    // hit testing y el arrastre llega a onDrag sin que el módulo lo calcule.
+    scene.body(this.x1, RAIL_Y, { shape: 'rect', r: r1, color: 'mass', id: 'm1' });
+    scene.vector(this.x1, RAIL_Y + r1 + 0.45, this.v1 * 0.25, 0, {
+      color: 'velocity',
+      label: `v₁ = ${roundTo(this.v1, 2)} m/s`
+    });
+    // La masa va bajo el riel y la velocidad encima: si comparten el lado, la
+    // etiqueta del vector se monta sobre la del cuerpo.
+    scene.label(this.x1, RAIL_Y - 1.0, `m₁ = ${this.params.m1} kg`, { color: 'mass' });
+
+    if (!impulso) {
+      scene.body(this.x2, RAIL_Y, { shape: 'rect', r: r2, color: 'mass2', id: 'm2' });
+      scene.vector(this.x2, RAIL_Y + r2 + 0.45, this.v2 * 0.25, 0, {
+        color: 'velocity',
+        label: `v₂ = ${roundTo(this.v2, 2)} m/s`,
+        labelSide: -1
+      });
+      scene.label(this.x2, RAIL_Y - 1.0, `m₂ = ${this.params.m2} kg`, { color: 'mass2' });
+    } else {
+      const F = this.appliedForce();
+      if (F > 0) {
+        scene.vector(this.x1 - r1, RAIL_Y, -F * 0.06, 0, {
+          color: 'force',
+          label: `F = ${F} N`,
+          labelSide: -1
+        });
+      }
+    }
+
+    // HUD: estado, magnitudes y leyenda. Anclado al viewport, así que en
+    // comparación lado a lado cada mitad tiene el suyo.
+    const hud = scene.hud;
+    hud.chip(
+      impulso
+        ? this.t <= this.params.dt
+          ? 'Aplicando fuerza'
+          : 'Fuerza retirada'
+        : this.collided
+          ? 'Después del choque'
+          : 'Antes del choque',
+      'top-left'
+    );
+    hud.readout(
+      [
+        { label: 'p', value: this.momentum(), unit: 'kg·m/s' },
+        { label: 'Ec', value: this.energy(), unit: 'J' },
+        ...(impulso ? [{ label: 'J', value: this.impulse(), unit: 'N·s' }] : [])
+      ],
+      'bottom-left'
+    );
+
+    // Gráfica p(t) dentro del lienzo: conservación visible sin salir a un SVG
+    // externo. Es la primitiva `plot` de §2.4.
+    // Abajo a la derecha: arriba está la barra de controles de vista.
+    const vp = scene.viewport();
+    if (vp.w > 420 && this.history.length > 1) {
+      hud.plot(
+        { x: vp.x + vp.w - 210, y: vp.y + vp.h - 128, w: 195, h: 116 },
+        {
+          title: 'Momento total p(t)',
+          series: [{ points: this.history, color: 'energy', label: 'p' }],
+          yRange: this._pRange()
+        }
+      );
+    }
+  }
+
+  /** Rango fijo del eje p: si autoescalara, la recta constante no se vería. */
+  _pRange() {
+    const p0 = this.params.m1 * this.params.v1i + this.params.m2 * this.params.v2i;
+    const span = Math.max(Math.abs(p0), Math.abs(this.momentum()), 1) * 1.4;
+    return [-span, span];
+  }
+
+  /** Impulso acumulado sobre el cuerpo 1 (modo impulso). */
+  impulse() {
+    return this.params.F * Math.min(this.t, this.params.dt);
+  }
+
+  /* ---------- datos numéricos, no HTML (§1.1) ---------- */
+
+  readout() {
+    const out = {
+      'v₁': { value: roundTo(this.v1, 3), unit: 'm/s' },
+      'p total': { value: roundTo(this.momentum(), 3), unit: 'kg·m/s' },
+      'Ec': { value: roundTo(this.energy(), 3), unit: 'J' }
+    };
+    if (this.params.modo === 'impulso') {
+      out['J'] = { value: roundTo(this.impulse(), 3), unit: 'N·s' };
+      out['Δp'] = { value: roundTo(this.params.m1 * this.v1, 3), unit: 'kg·m/s' };
+    } else {
+      out['v₂'] = { value: roundTo(this.v2, 3), unit: 'm/s' };
+      const p0 = this.params.m1 * this.params.v1i + this.params.m2 * this.params.v2i;
+      out['Ec perdida'] = {
+        value: roundTo(
+          0.5 * this.params.m1 * this.params.v1i ** 2 +
+            0.5 * this.params.m2 * this.params.v2i ** 2 -
+            this.energy(),
+          3
+        ),
+        unit: 'J'
+      };
+      out['Δp sistema'] = { value: roundTo(this.momentum() - p0, 3), unit: 'kg·m/s' };
+    }
+    return out;
+  }
+
+  getState() {
+    return {
+      x1: this.x1,
+      x2: this.x2,
+      v1: this.v1,
+      v2: this.v2,
+      collided: this.collided,
+      t: this.t,
+      params: { ...this.params }
+    };
+  }
+
+  setState(s) {
+    if (!s || typeof s !== 'object') return;
+    if (s.params) Object.assign(this.params, s.params);
+    if (Number.isFinite(s.x1)) this.x1 = s.x1;
+    if (Number.isFinite(s.x2)) this.x2 = s.x2;
+    if (Number.isFinite(s.v1)) this.v1 = s.v1;
+    if (Number.isFinite(s.v2)) this.v2 = s.v2;
+    if (typeof s.collided === 'boolean') this.collided = s.collided;
+    if (Number.isFinite(s.t)) this.t = s.t;
+    this.history.clear();
+  }
+
+  destroy() {
+    this.history.clear();
+    this.dragging = null;
+  }
 }

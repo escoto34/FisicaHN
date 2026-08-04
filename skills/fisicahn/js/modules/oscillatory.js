@@ -110,7 +110,7 @@ export function render(ctx) {
   ctx.setLineDash([4, 4]);
   ctx.beginPath();
   ctx.moveTo(eq.x, 0);
-  ctx.lineTo(eq.x, ctx.canvas.height);
+  ctx.lineTo(eq.x, r.viewport().h);
   ctx.stroke();
   ctx.restore();
 }

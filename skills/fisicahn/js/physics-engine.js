@@ -59,6 +59,8 @@ export class PhysicsEngine {
     this._fpsFrames = 0;
     this._fpsTime = 0;
     this._dpr = 1;
+    /** Duración del último frame (s), expuesta por getDelta(). */
+    this._frameTime = DEFAULT_DT;
     this._resizeObs = null;
     this._resizeRaf = 0;
 
@@ -311,6 +313,16 @@ export class PhysicsEngine {
   }
 
   /**
+   * Duración del último frame en segundos, ya acotada por MAX_FRAME_TIME.
+   * La cámara la usa para que su interpolación no dependa de la tasa de
+   * refresco: a 144 Hz el seguimiento iría casi tres veces más rápido (§2.2).
+   * @returns {number}
+   */
+  getDelta() {
+    return this._frameTime || DEFAULT_DT;
+  }
+
+  /**
    * Fuerza un tick de física (útil para avance por paso).
    */
   step() {
@@ -363,6 +375,7 @@ export class PhysicsEngine {
 
     // Limitar frameTime para evitar espirales de muerte
     if (frameTime > MAX_FRAME_TIME) frameTime = MAX_FRAME_TIME;
+    this._frameTime = frameTime;
 
     this._accumulator += frameTime * this._speed;
 

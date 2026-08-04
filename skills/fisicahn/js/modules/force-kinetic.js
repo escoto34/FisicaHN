@@ -197,7 +197,7 @@ export function render(ctx) {
   const maxE = Math.max(ec, Math.abs(Wnet), 15);
   const barH = (val, color, i, label) => {
     const h = (Math.abs(val) / maxE) * 110;
-    const bx = ctx.canvas.width - 48 - i * 40;
+    const bx = r.viewport().w - 48 - i * 40;
     ctx.fillStyle = color;
     ctx.fillRect(bx, 130 - h, 26, h);
     ctx.fillStyle = 'rgba(255,255,255,0.75)';

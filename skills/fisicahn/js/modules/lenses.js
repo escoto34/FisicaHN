@@ -240,8 +240,7 @@ export function render(ctx) {
   const im = image();
   const fSigned = params.tipo === 'convergente' ? params.f : -params.f;
   const conv = params.tipo === 'convergente';
-  const w = ctx.canvas?.clientWidth || ctx.canvas?.width || 800;
-  const h = ctx.canvas?.clientHeight || ctx.canvas?.height || 500;
+  const { w, h } = r.viewport();
 
   // Fondo sutil: zona objeto (izq) / imagen potencial (der)
   ctx.save();

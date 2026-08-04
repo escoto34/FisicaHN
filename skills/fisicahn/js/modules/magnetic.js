@@ -239,8 +239,7 @@ function chip(ctx, text, x, y, fill) {
 export function render(ctx) {
   if (!_renderer || !pos || !vel) return;
   const r = _renderer;
-  const w = ctx.canvas?.clientWidth || ctx.canvas?.width || 800;
-  const h = ctx.canvas?.clientHeight || ctx.canvas?.height || 500;
+  const { w, h } = r.viewport();
   const R = orbitRadius();
   const c = orbitCenter();
 

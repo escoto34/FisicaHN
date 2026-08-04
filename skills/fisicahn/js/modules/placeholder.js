@@ -1,4 +1,5 @@
 import { clearChallenges, setModuleInfo, setModuleFormulas } from '../module-ui.js';
+import { getTheme } from '../core/theme.js';
 /**
  * Módulo placeholder para entradas del catálogo aún sin simulación dedicada.
  */
@@ -6,8 +7,10 @@ import { clearChallenges, setModuleInfo, setModuleFormulas } from '../module-ui.
 let title = 'Próximamente';
 let blurb = '';
 let t = 0;
+let _renderer = null;
 
 export function init(engine, renderer, ui, meta = {}) {
+  _renderer = renderer;
   title = meta.title || title;
   blurb = meta.blurb || '';
   t = 0;
@@ -28,21 +31,20 @@ export function update(dt) {
 }
 
 export function render(ctx) {
-  // Usar coordenadas CSS (el motor ya aplicó setTransform(dpr))
-  const canvas = ctx.canvas;
-  const dpr = Math.max(window.devicePixelRatio || 1, 1);
-  const w = canvas.clientWidth || canvas.width / dpr || 320;
-  const h = canvas.clientHeight || canvas.height / dpr || 240;
+  // El renderer da px CSS; antes este módulo recalculaba su propio DPR, que
+  // era el tercero de los parches divergentes al mismo bug (§2.0).
+  const { w, h } = _renderer?.viewport?.() || { w: 320, h: 240 };
+  const theme = getTheme();
   ctx.save();
-  ctx.fillStyle = 'rgba(12, 15, 20, 0.35)';
+  ctx.fillStyle = theme.dark ? 'rgba(12, 15, 20, 0.35)' : 'rgba(255, 255, 255, 0.35)';
   ctx.fillRect(0, 0, w, h);
-  ctx.fillStyle = '#9aa8b8';
+  ctx.fillStyle = theme.text;
   ctx.font = '600 18px system-ui, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(title, w / 2, h / 2 - 12);
   ctx.font = '14px system-ui, sans-serif';
-  ctx.fillStyle = '#6b7a8c';
+  ctx.fillStyle = theme.textDim;
   ctx.fillText('Simulación en desarrollo', w / 2, h / 2 + 16);
   ctx.restore();
 }
@@ -51,4 +53,6 @@ export function reset() {
   t = 0;
 }
 
-export function destroy() {}
+export function destroy() {
+  _renderer = null;
+}

@@ -113,7 +113,7 @@ export function render(ctx) {
   ctx.save();
   for (const w of waves) {
     const c = r.worldToCanvas(w.x, 0);
-    const rx = w.r * (ctx.canvas.width / r.worldWidth);
+    const rx = r.camera.toPixels(w.r);
     ctx.strokeStyle = 'rgba(79,195,247,0.35)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();

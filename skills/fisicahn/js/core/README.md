@@ -40,3 +40,62 @@ panel de datos.
 
 Regla de uso: **no** crear copias privadas de estas funciones en un módulo.
 Si falta una utilidad, se añade aquí y se importa.
+
+## Canvas (WAVE 2)
+
+El lienzo deja de ser un `<canvas>` que se borra entero 60 veces por segundo.
+Sigue habiendo **un único elemento en el DOM**; lo que cambia es lo que hay
+detrás.
+
+| Archivo | Qué aporta |
+|---|---|
+| `camera.js` | Escala **isotrópica** (adiós al mundo deformado en pantalla ancha), zoom anclado al cursor, pan, `follow()` interpolado, viewports rectangulares |
+| `layers.js` | Capas `background` / `world` / `hud` con invalidación independiente; la rejilla pasa de ~68 operaciones por frame a 0 en régimen estacionario |
+| `scene.js` | API declarativa: `scene.body(…)`, `scene.vector(…)`, `scene.hud.plot(…)`. Oculta el backend, lo que permite exportar a SVG |
+| `theme.js` | Tokens de color + perfiles `dark` / `light` / `projector` / `colorSafe` |
+| `interaction.js` | Rueda, pellizco, pan, picking y arrastre de objetos; `MeasureTools` reutilizable |
+| `params-schema.js` | Panel construido desde `static params` |
+| `scene-export.js` | PNG del lienzo y SVG vectorial (grabador del contexto 2D) |
+| `compare.js` | Comparación lado a lado: dos instancias, dos viewports, un solo bucle |
+
+### Regla dura de coordenadas
+
+Un módulo **nunca** accede a `ctx.canvas`. En su lugar:
+
+```js
+scene.viewport()   // { x, y, w, h } SIEMPRE en px CSS
+scene.world()      // { left, right, top, bottom } en unidades de mundo
+```
+
+`ctx.canvas.width` devuelve píxeles de **dispositivo**: en un móvil con DPR 1,75
+es 1,75× el ancho CSS, y ése era el origen de los ocho bugs que mandaban las
+leyendas fuera de pantalla. Los módulos legacy tienen la misma vía de escape en
+`renderer.viewport()`.
+
+### Cómo se ve un módulo migrado
+
+`modules/momentum.js` es la referencia: estado en la instancia, `static params`,
+`static viewport`, `draw(scene)` y `readout()` con números en vez de HTML.
+
+```js
+export default class MiModulo extends SimModule {
+  static viewport = { width: 22, height: 12 };
+  static params = [{ id: 'm', label: 'Masa', unit: 'kg', min: 0.1, max: 10, step: 0.1, value: 1 }];
+
+  update(dt) { /* física pura */ }
+
+  draw(scene) {
+    scene.body(this.x, 0, { shape: 'circle', r: 0.3, color: 'mass', id: 'bola' });
+    scene.vector(this.x, 0, this.v * 0.25, 0, { color: 'velocity', label: 'v' });
+    scene.hud.chip(`Ec = ${roundTo(this.ec, 2)} J`, 'top-right');
+  }
+
+  onDrag(id, world) { this.x = world.x; }   // manipulación directa
+  readout() { return { 'v': { value: this.v, unit: 'm/s' } }; }
+}
+```
+
+Los colores son **tokens** (`'velocity'`, `'mass'`, `'force'`), nunca literales:
+así el modo proyector y la paleta segura para daltonismo funcionan sin tocar el
+módulo. Regla que las acompaña: **el color nunca es el único portador de
+información** — debe ir con estilo de línea, etiqueta o forma.

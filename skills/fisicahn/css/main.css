@@ -380,6 +380,138 @@ button.sidebar-brand-btn:hover .sidebar-title {
   border-color: rgba(255, 255, 255, 0.15);
 }
 
+/* Contenedor posicionado: los controles de vista flotan sobre el lienzo sin
+   robarle altura al flex, que es lo que define el tamaño del buffer (§2.2). */
+.canvas-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+}
+
+.view-controls {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  background: color-mix(in srgb, var(--bg-secondary) 82%, transparent);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  backdrop-filter: blur(6px);
+  opacity: 0.55;
+  transition: opacity 0.15s;
+}
+
+/* Discretos hasta que se buscan: en clase, la barra no debe competir con la
+   simulación, pero tiene que estar a un movimiento de ratón de distancia. */
+.canvas-stage:hover .view-controls,
+.view-controls:focus-within {
+  opacity: 1;
+}
+
+.view-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.view-btn:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.view-btn.active {
+  background: var(--accent, #4ea1ff);
+  color: #fff;
+}
+
+.view-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.view-zoom {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  min-width: 40px;
+  text-align: center;
+  user-select: none;
+}
+
+.view-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--border-color);
+  margin: 0 3px;
+}
+
+/* Lectura numérica de `readout()`: la app formatea, el módulo sólo da números. */
+.readout-grid {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 3px 10px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.82rem;
+}
+
+.readout-row {
+  display: contents;
+}
+
+.readout-key {
+  color: var(--text-secondary);
+}
+
+.readout-val {
+  color: var(--text-primary);
+  text-align: right;
+}
+
+.readout-unit {
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
+/* Tabla comparada de §2.9: la columna Δ es la que convierte dos vistas en una medida. */
+.compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.78rem;
+}
+
+.compare-table th,
+.compare-table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border-color);
+  text-align: right;
+}
+
+.compare-table thead th,
+.compare-table tbody th {
+  text-align: left;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.compare-table tbody td:nth-child(4) {
+  color: var(--accent, #4ea1ff);
+}
+
 #simCanvas {
   flex: 1 1 auto;
   width: 100%;

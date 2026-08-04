@@ -154,8 +154,8 @@ function updateData() {
 export function render(ctx) {
   if (!_renderer) return;
   const r = _renderer;
-  const W = ctx.canvas.width;
-  const H = ctx.canvas.height;
+  // px CSS, no píxeles de dispositivo (§2.0).
+  const { w: W, h: H } = r.viewport();
 
   if (params.mode === 'diffusion') {
     // rod as heat map

@@ -22,6 +22,14 @@ import { initPanelResize } from './panel-resize.js';
 import { ChallengeEngine, loadChallengeDataForEngine } from './challenges.js';
 import { enhanceParamsPanel, typesetMath, ensureChallengesCss, ensureKatex } from './module-ui.js';
 import { createModuleInstance } from './core/sim-module.js';
+import { Camera } from './core/camera.js';
+import { LayerStack } from './core/layers.js';
+import { Scene } from './core/scene.js';
+import { CanvasInteraction, MeasureTools } from './core/interaction.js';
+import { getTheme, getThemeName, setTheme, cycleTheme, toggleProjector, onThemeChange, THEMES } from './core/theme.js';
+import { renderSchemaHtml, bindSchema, defaultValues, syncSchema } from './core/params-schema.js';
+import { exportPng, exportSvg } from './core/scene-export.js';
+import { ComparisonController } from './core/compare.js';
 
 /* ============================================
    Estado
@@ -31,6 +39,8 @@ const state = {
   catalogLevel: 'middle',
   catalogId: null,
   currentModule: null,
+  /** Namespace del `import()` activo: lo necesita la comparación (§2.9). */
+  currentModuleNamespace: null,
   moduleInstances: {},
   loaded: false
 };
@@ -77,14 +87,11 @@ function engineTitle(engineKey, catalogEntry) {
   return engineKey === 'placeholder' ? 'Próximamente' : engineKey;
 }
 
-/** Herramientas de medición globales */
-const measureState = {
-  tool: 'pointer',
-  rulerPoints: [],
-  anglePoints: [],
-  probe: null,
-  stopwatchEl: null
-};
+/**
+ * Herramientas de medición globales. El estado vive ahora en `MeasureTools`
+ * (§2.6), reutilizable por los 42 módulos en lugar de sólo por el activo.
+ */
+const measureState = new MeasureTools();
 
 /* ============================================
    DOM
@@ -114,9 +121,24 @@ let challengeEngine = null;
 /** Motor / renderer: lazy al entrar al laboratorio (el menú no crea canvas loop) */
 let engine = null;
 let renderer = null;
+/** @type {Camera|null} */
+let camera = null;
+/** @type {LayerStack|null} */
+let layers = null;
+/** @type {Scene|null} */
+let scene = null;
+/** @type {CanvasInteraction|null} */
+let interaction = null;
+/** @type {ComparisonController|null} */
+let comparison = null;
+/** Desenlace del panel declarativo del módulo activo (§2.7). */
+let unbindParams = null;
 let _lastFpsShown = -1;
 let _lastChartAt = 0;
+let _lastReadoutAt = 0;
 const CHART_MIN_MS = 100; // ~10 Hz de SVG (evita innerHTML a 60 fps)
+/** Misma cadencia para `readout()`: los datos no se leen a 60 Hz (§3.1). */
+const READOUT_MIN_MS = 100;
 
 function bindEngineCallbacks() {
   if (!engine) return;
@@ -128,11 +150,14 @@ function bindEngineCallbacks() {
       renderer.setDpr?.(engine._dpr || 1);
       renderer.invalidateCssSize?.();
     }
+    // El tamaño cambió: las capas fuera de pantalla deben reconstruirse.
+    layers?.invalidateAll();
   };
 }
 
 /**
- * Crea motor+renderer la primera vez que se abre un módulo.
+ * Crea motor, renderer y el núcleo de la WAVE 2 (cámara, capas, escena e
+ * interacción) la primera vez que se abre un módulo.
  * @returns {boolean}
  */
 function ensureEngine() {
@@ -143,20 +168,49 @@ function ensureEngine() {
   }
   try {
     engine = new PhysicsEngine(canvas);
+    camera = new Camera({ worldWidth: 20, worldHeight: 15 });
     renderer = new Renderer(canvas, {
-      worldWidth: 20,
-      worldHeight: 15,
+      camera,
       ctx: engine.ctx,
       dpr: engine._dpr || 1
     });
+    layers = new LayerStack(canvas, { ctx: engine.ctx, dpr: engine._dpr || 1 });
+    scene = new Scene({ camera, layers, canvas });
+    interaction = new CanvasInteraction(canvas, {
+      camera,
+      scene,
+      // En pausa nada repinta solo: mover la cámara debe pedir un frame.
+      onChange: () => engine?.requestPaint?.()
+    });
+    // Un cambio de tema invalida el fondo (rejilla y ejes cambian de color).
+    onThemeChange(() => {
+      layers?.invalidateAll();
+      updateViewControlsUI();
+      engine?.requestPaint?.();
+    });
     bindEngineCallbacks();
+    applyStoredTheme();
     return true;
   } catch (err) {
     console.error('FísicaHN: error al crear motor/renderer', err);
     engine = null;
     renderer = null;
+    camera = null;
+    layers = null;
+    scene = null;
+    interaction = null;
     return false;
   }
+}
+
+/** Refleja el tema persistido en el atributo que lee el CSS de la app. */
+function applyStoredTheme() {
+  try {
+    document.documentElement.dataset.canvasTheme = getThemeName();
+  } catch {
+    /* sin DOM */
+  }
+  updateViewControlsUI();
 }
 
 /* ============================================
@@ -634,6 +688,15 @@ async function openCatalogModule(catalogId, opts = {}) {
 
 async function destroyCurrentEngine() {
   const key = state.currentModule;
+  if (comparison) {
+    comparison.destroy();
+    comparison = null;
+  }
+  if (unbindParams) {
+    unbindParams();
+    unbindParams = null;
+  }
+  interaction?.setTarget(null);
   if (key && state.moduleInstances[key]) {
     try {
       state.moduleInstances[key].destroy?.();
@@ -670,15 +733,22 @@ async function loadEngineModule(engineKey, catalogEntry = null) {
 
   try {
     const mod = await import(path);
-    const ctx = { engine, renderer, scene: renderer, ui, canvas };
+    const ctx = { engine, renderer, scene, ui, canvas, camera };
     const instance = createModuleInstance(mod, ctx);
     state.moduleInstances[resolvedKey] = instance;
+    state.currentModuleNamespace = mod;
     engine?.reset?.();
+    // Encuadre declarado por el módulo (`static viewport`), en vez del 20×15
+    // global que la app imponía a los 27 motores (§2.2).
+    const vp = mod?.default?.viewport || instance.viewport || null;
+    camera?.setWorldSize(vp?.width || 20, vp?.height || 15);
     renderer?.resetCamera?.();
     renderer?.clearOverlays?.();
-    measureState.rulerPoints = [];
-    measureState.anglePoints = [];
-    measureState.probe = null;
+    layers?.invalidateAll();
+    measureState.clear();
+    // La pizarra necesita el puntero para dibujar: sin zoom ni pan encima.
+    interaction?.setEnabled(resolvedKey !== 'whiteboard');
+    interaction?.setTarget(instance);
     ui.showCharts(false);
     const meta =
       resolvedKey === 'placeholder'
@@ -688,6 +758,8 @@ async function loadEngineModule(engineKey, catalogEntry = null) {
       if (instance.isSimModule) {
         // Nuevo contrato: el módulo guarda su propio estado/contexto en el ctor.
         instance.init(meta);
+        // Panel declarativo: la app lo construye y lo enlaza (§2.7).
+        mountDeclarativeParams(mod, instance);
       } else {
         // Módulo legacy: el adaptador reenvía a las functions sueltas originales.
         instance.init(engine, renderer, ui, meta);
@@ -696,6 +768,7 @@ async function loadEngineModule(engineKey, catalogEntry = null) {
       console.error(`Error en init de ${resolvedKey}:`, err);
       showModuleBroken(title);
     }
+    updateViewControlsUI();
     // Retos en barra inferior (solo motores con casos de uso o pack de examen)
     await setupChallengesForEngine(resolvedKey).catch(() => ui.setChallenges(null));
     // Activar panel de gráficas solo si el módulo lo pide
@@ -707,6 +780,145 @@ async function loadEngineModule(engineKey, catalogEntry = null) {
   } catch (err) {
     console.error(`Error cargando motor ${resolvedKey}:`, err);
     showModuleBroken(title);
+  }
+}
+
+/**
+ * Construye y enlaza el panel a partir de `static params` (§2.7).
+ *
+ * Sustituye al `renderParams()` escrito a mano en cada módulo y al
+ * `setTimeout(…, 0)` que hacía falta para enlazar los controles después de que
+ * la app inyectara el HTML: aquí los nodos ya existen cuando se enlazan.
+ *
+ * @param {object} mod - Namespace del módulo.
+ * @param {object} instance
+ */
+function mountDeclarativeParams(mod, instance) {
+  const schema = mod?.default?.params;
+  if (!schema || !Array.isArray(schema) || !schema.length) return;
+
+  if (!instance.params) instance.params = defaultValues(schema);
+  ui.setParams(renderSchemaHtml(schema, instance.params));
+
+  if (unbindParams) unbindParams();
+  unbindParams = bindSchema(paramsPanel, schema, instance.params, (id, value) => {
+    try {
+      // Un cambio de parámetro devuelve la simulación a su estado inicial: es
+      // lo que hacían los 27 módulos a mano tras cada slider.
+      instance.reset?.();
+      engine?.reset?.();
+    } catch (err) {
+      console.error('Error al aplicar un parámetro:', err);
+    }
+    comparison?.syncParam(id, value, 'a');
+    engine?.requestPaint?.();
+  });
+}
+
+/**
+ * Vuelca `readout()` en la pestaña Datos con su propia cadencia (~10 Hz).
+ *
+ * Los módulos migrados devuelven números en vez de HTML, así que la
+ * presentación es responsabilidad del anfitrión — y la comparación de §2.9
+ * puede restar dos lecturas en lugar de comparar cadenas.
+ */
+function pumpReadout(instance) {
+  if (!instance || typeof instance.readout !== 'function' || !instance.isSimModule) return;
+  const now = performance.now();
+  if (now - _lastReadoutAt < READOUT_MIN_MS) return;
+  _lastReadoutAt = now;
+
+  let data;
+  try {
+    data = instance.readout();
+  } catch (err) {
+    console.error('Error en readout del módulo:', err);
+    return;
+  }
+  const rows = Object.entries(data || {});
+  if (!rows.length) return;
+
+  if (comparison?.active) {
+    ui.setData(comparison.readoutTable());
+    return;
+  }
+  ui.setData(
+    `<div class="readout-grid">${rows
+      .map(
+        ([k, v]) =>
+          `<div class="readout-row"><span class="readout-key">${escapeHtml(k)}</span><span class="readout-val">${escapeHtml(
+            String(v?.value ?? '—')
+          )}</span><span class="readout-unit">${escapeHtml(v?.unit || '')}</span></div>`
+      )
+      .join('')}</div>`
+  );
+}
+
+/**
+ * Activa o desactiva la comparación lado a lado (§2.9).
+ *
+ * Sólo está disponible en módulos migrados a `SimModule`: un namespace legacy
+ * comparte estado entre «instancias» y daría dos vistas idénticas, que es peor
+ * que no ofrecer la función.
+ */
+function toggleComparison() {
+  if (comparison) {
+    comparison.destroy();
+    comparison = null;
+    interaction?.setTarget(state.moduleInstances[state.currentModule]);
+    updateViewControlsUI();
+    engine?.requestPaint?.();
+    return;
+  }
+  const mod = state.currentModuleNamespace;
+  if (!ComparisonController.supports(mod)) {
+    ui.showTab('info');
+    ui.setInfo(
+      'La comparación lado a lado necesita un módulo migrado al contrato nuevo. ' +
+        'Pruébala en <strong>Cantidad de movimiento</strong>.'
+    );
+    return;
+  }
+  comparison = new ComparisonController({
+    mod,
+    camera,
+    scene,
+    canvas,
+    hostCtx: { engine, renderer, ui, canvas, camera },
+    labels: ['A', 'B'],
+    onChange: () => engine?.requestPaint?.()
+  });
+  const entry = state.catalogId ? getById(state.catalogId) : null;
+  if (!comparison.start(entry)) {
+    comparison = null;
+    return;
+  }
+  // El panel manda sobre el lado A; B copia salvo la variable independiente.
+  const inst = state.moduleInstances[state.currentModule];
+  if (inst?.params && comparison.a?.params) Object.assign(comparison.a.params, inst.params);
+  interaction?.setTarget(comparison.a);
+  ui.showTab('data');
+  updateViewControlsUI();
+  engine?.requestPaint?.();
+}
+
+/** Sincroniza el estado visual de los controles de vista con el modelo. */
+function updateViewControlsUI() {
+  const zoomLabel = document.getElementById('zoomLabel');
+  if (zoomLabel && camera) zoomLabel.textContent = `${Math.round(camera.zoom * 100)}%`;
+  const themeBtn = document.getElementById('themeBtn');
+  if (themeBtn) {
+    themeBtn.title = `Tema del lienzo: ${THEMES[getThemeName()]?.label || getThemeName()} (T)`;
+    themeBtn.dataset.theme = getThemeName();
+  }
+  const compareBtn = document.getElementById('compareBtn');
+  if (compareBtn) {
+    const supported = ComparisonController.supports(state.currentModuleNamespace);
+    compareBtn.classList.toggle('active', !!comparison?.active);
+    compareBtn.disabled = !supported && !comparison;
+    compareBtn.title = supported
+      ? 'Comparación lado a lado (C)'
+      : 'Comparación no disponible en este módulo todavía';
   }
 }
 
@@ -872,11 +1084,73 @@ playPauseBtn?.addEventListener('click', togglePause);
 
 resetBtn?.addEventListener('click', () => {
   engine?.reset?.();
+  if (comparison?.active) {
+    comparison.reset();
+    engine?.requestPaint?.();
+    return;
+  }
   const inst = state.moduleInstances[state.currentModule];
   if (inst && typeof inst.reset === 'function') {
     inst.reset(engine, renderer, ui);
   }
 });
+
+/* ============================================
+   Controles de vista (§2.2, §2.5, §2.8, §2.9)
+   ============================================ */
+
+document.getElementById('zoomInBtn')?.addEventListener('click', () => {
+  camera?.zoomBy(1.25);
+  updateViewControlsUI();
+  engine?.requestPaint?.();
+});
+
+document.getElementById('zoomOutBtn')?.addEventListener('click', () => {
+  camera?.zoomBy(1 / 1.25);
+  updateViewControlsUI();
+  engine?.requestPaint?.();
+});
+
+document.getElementById('resetViewBtn')?.addEventListener('click', () => {
+  camera?.reset();
+  updateViewControlsUI();
+  engine?.requestPaint?.();
+});
+
+document.getElementById('themeBtn')?.addEventListener('click', () => {
+  cycleTheme();
+});
+
+document.getElementById('projectorBtn')?.addEventListener('click', () => {
+  toggleProjector();
+});
+
+document.getElementById('exportPngBtn')?.addEventListener('click', () => {
+  if (!canvas) return;
+  exportPng(canvas, moduleTitle?.textContent || 'simulacion');
+});
+
+document.getElementById('exportSvgBtn')?.addEventListener('click', () => {
+  const inst = comparison?.a || state.moduleInstances[state.currentModule];
+  const size = renderer?.cssSize?.() || { w: 800, h: 600 };
+  const ok = exportSvg({
+    instance: inst,
+    scene,
+    camera,
+    size,
+    name: moduleTitle?.textContent || 'simulacion',
+    drawBackground: null
+  });
+  if (!ok) {
+    ui.showTab('info');
+    ui.setInfo(
+      'La exportación a SVG necesita un módulo migrado al dibujo declarativo. ' +
+        'Usa <strong>Exportar PNG</strong> mientras tanto.'
+    );
+  }
+});
+
+document.getElementById('compareBtn')?.addEventListener('click', toggleComparison);
 
 stepBtn?.addEventListener('click', () => {
   if (!engine || isWhiteboardModule()) return;
@@ -926,18 +1200,18 @@ toolBtns.forEach((btn) => {
       return;
     }
     if (tool === 'erase') {
-      measureState.rulerPoints = [];
-      measureState.anglePoints = [];
-      measureState.probe = null;
+      measureState.clear();
       renderer.clearOverlays();
+      engine?.requestPaint?.();
       return;
     }
 
     toolBtns.forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
-    measureState.tool = tool;
-    measureState.rulerPoints = [];
-    measureState.anglePoints = [];
+    measureState.setTool(tool);
+    // La capa de interacción necesita saber si el puntero es para medir o
+    // para manipular objetos: son gestos incompatibles sobre el mismo clic.
+    interaction?.setTool(tool);
 
     const inst = state.moduleInstances[state.currentModule];
     if (inst && typeof inst.setTool === 'function') {
@@ -949,19 +1223,14 @@ toolBtns.forEach((btn) => {
 canvas?.addEventListener('pointerdown', (e) => {
   if (state.view !== 'sim' || !renderer) return;
   if (state.currentModule === 'whiteboard') return;
+  if (measureState.tool === 'pointer') return; // manipulación directa: §2.6
   const world = renderer.getMousePos(e);
-  if (measureState.tool === 'probe') {
-    measureState.probe = world;
+  if (measureState.handleClick(world) && measureState.tool === 'probe') {
     ui.setData(
       `<div style="font-family:var(--font-mono)">Sonda: x=${world.x.toFixed(3)} m, y=${world.y.toFixed(3)} m</div>`
     );
-  } else if (measureState.tool === 'ruler') {
-    measureState.rulerPoints.push(world);
-    if (measureState.rulerPoints.length > 2) measureState.rulerPoints = [world];
-  } else if (measureState.tool === 'angle') {
-    measureState.anglePoints.push(world);
-    if (measureState.anglePoints.length > 3) measureState.anglePoints = [world];
   }
+  engine?.requestPaint?.();
 });
 
 function toggleStopwatchPanel() {
@@ -1045,6 +1314,41 @@ document.addEventListener('keydown', (e) => {
       }
       break;
     }
+    // Atajos de la WAVE 2: la cámara y el tema se manejan sin soltar el ratón.
+    case 'Equal':
+    case 'NumpadAdd':
+      e.preventDefault();
+      camera?.zoomBy(1.25);
+      updateViewControlsUI();
+      engine?.requestPaint?.();
+      break;
+    case 'Minus':
+    case 'NumpadSubtract':
+      e.preventDefault();
+      camera?.zoomBy(1 / 1.25);
+      updateViewControlsUI();
+      engine?.requestPaint?.();
+      break;
+    case 'Digit0':
+    case 'Numpad0':
+      e.preventDefault();
+      camera?.reset();
+      updateViewControlsUI();
+      engine?.requestPaint?.();
+      break;
+    case 'KeyT':
+      e.preventDefault();
+      cycleTheme();
+      break;
+    case 'KeyP':
+      // Modo proyector: el atajo importa porque se usa de pie, ante la clase.
+      e.preventDefault();
+      toggleProjector();
+      break;
+    case 'KeyC':
+      e.preventDefault();
+      toggleComparison();
+      break;
   }
 });
 
@@ -1055,6 +1359,14 @@ document.addEventListener('keydown', (e) => {
 function onEngineUpdate(dt) {
   if (state.view !== 'sim') return;
   const inst = state.moduleInstances[state.currentModule];
+
+  if (comparison?.active) {
+    // Ambos lados avanzan con el mismo paso: si no, la comparación mentiría.
+    comparison.update(dt);
+    pumpReadout(comparison.a);
+    return;
+  }
+
   try {
     if (inst && typeof inst.update === 'function') inst.update(dt);
   } catch (err) {
@@ -1063,6 +1375,7 @@ function onEngineUpdate(dt) {
     attemptRecoverLoop();
     return;
   }
+  pumpReadout(inst);
   // Gráficas SVG a ~10 Hz (no a 60 fps) — reduce layout/innerHTML
   try {
     if (inst && inst.useCharts === true && typeof inst.getCharts === 'function') {
@@ -1148,18 +1461,60 @@ function applyModuleCharts(charts) {
   );
 }
 
+/**
+ * Bucle de dibujo por capas (§2.1).
+ *
+ * Antes se borraba el lienzo entero y se redibujaba todo 60 veces por segundo,
+ * incluida una rejilla estática de ~68 operaciones que casi nunca cambia. Ahora
+ * el fondo vive en una capa fuera de pantalla y sólo se repinta cuando cambia
+ * su firma: tamaño, cámara o tema.
+ */
 function onEngineRender(ctx, alpha, elapsed) {
   if (state.view !== 'sim' || !renderer || !engine) return;
+  const theme = getTheme();
   // Sincronizar DPR y limpiar buffer completo (evita basura de color en Android)
   renderer.setDpr?.(engine._dpr || 1);
   engine.applyDprTransform?.();
-  renderer.clear();
+
+  const { w: cssW, h: cssH } = renderer.cssSize();
+  // La cámara interpola su seguimiento una vez por frame, no por subpaso.
+  camera.update(engine.getDelta?.() ?? 1 / 60);
+  layers.resize(cssW, cssH, engine._dpr || 1);
+  layers.beginFrame(theme.bg);
+
   const inst = state.moduleInstances[state.currentModule];
   const skipGrid = inst && inst.skipWorldGrid === true;
-  if (!skipGrid) {
-    renderer.drawGrid({ spacing: 1 });
+
+  if (comparison?.active) {
+    // Comparación: dos viewports sobre el mismo lienzo, un solo bucle RAF.
+    scene.dt = engine.getDelta?.() ?? 1 / 60;
+    scene.elapsed = elapsed;
+    comparison.draw(ctx, cssW, cssH, skipGrid ? null : () => renderer.drawGrid({ spacing: 1 }));
+    drawFpsAndStatus(elapsed);
+    return;
   }
-  if (inst && typeof inst.render === 'function') {
+
+  if (!skipGrid) {
+    // Firma de la capa: si no cambia, la rejilla no se vuelve a trazar.
+    // `drawGridTo` es imprescindible aquí: sin él la rejilla iría al lienzo
+    // visible y la capa cacheada quedaría vacía.
+    const signature = `${camera.version}|${theme.name}|${cssW}x${cssH}`;
+    layers.paint('background', signature, (bgCtx) => renderer.drawGridTo(bgCtx, { spacing: 1 }));
+    engine.applyDprTransform?.();
+  }
+
+  // La escena declarativa comparte contexto con el render legacy: los módulos
+  // migrados usan `draw(scene)` y el resto sigue con `render(ctx)`.
+  scene.beginFrame(ctx, { theme, dt: engine.getDelta?.() ?? 1 / 60, elapsed, alpha });
+  scene.beginHud(ctx);
+  if (inst && typeof inst.draw === 'function' && inst.isSimModule) {
+    try {
+      inst.draw(scene);
+    } catch (err) {
+      console.error('Error en draw del módulo:', err);
+      attemptRecoverLoop();
+    }
+  } else if (inst && typeof inst.render === 'function') {
     try {
       inst.render(ctx, alpha, elapsed);
     } catch (err) {
@@ -1169,8 +1524,14 @@ function onEngineRender(ctx, alpha, elapsed) {
   }
   // Tras módulos que tocan setTransform (p. ej. pizarra), restaurar espacio CSS
   engine.applyDprTransform?.();
-  drawMeasureOverlays(ctx);
+  if (measureState.active) measureState.draw(scene);
+  scene.endFrame();
   renderer.drawOverlays();
+  drawFpsAndStatus(elapsed);
+}
+
+/** Contador de FPS y reloj de simulación, ambos con su propia cadencia. */
+function drawFpsAndStatus(elapsed) {
   if (fpsCounter) {
     const fps = engine.getFps();
     if (fps !== _lastFpsShown) {
@@ -1187,70 +1548,6 @@ function onEngineRender(ctx, alpha, elapsed) {
       simStatus.dataset.t = String(t);
       simStatus.textContent = `En ejecución · ${elapsed.toFixed(1)}s`;
     }
-  }
-}
-
-function drawMeasureOverlays(ctx) {
-  if (!renderer) return;
-  if (measureState.probe) {
-    const p = measureState.probe;
-    renderer.drawTooltip(p.x, p.y, `x=${p.x.toFixed(2)}  y=${p.y.toFixed(2)}`);
-  }
-  if (measureState.rulerPoints.length === 1) {
-    const a = measureState.rulerPoints[0];
-    const pa = renderer.worldToCanvas(a.x, a.y);
-    ctx.save();
-    ctx.fillStyle = '#ffb74d';
-    ctx.beginPath();
-    ctx.arc(pa.x, pa.y, 5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
-  if (measureState.rulerPoints.length === 2) {
-    const [a, b] = measureState.rulerPoints;
-    const pa = renderer.worldToCanvas(a.x, a.y);
-    const pb = renderer.worldToCanvas(b.x, b.y);
-    const dist = Math.hypot(b.x - a.x, b.y - a.y);
-    ctx.save();
-    ctx.strokeStyle = '#ffb74d';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([6, 4]);
-    ctx.beginPath();
-    ctx.moveTo(pa.x, pa.y);
-    ctx.lineTo(pb.x, pb.y);
-    ctx.stroke();
-    ctx.fillStyle = '#ffb74d';
-    ctx.font = '12px monospace';
-    ctx.fillText(`${dist.toFixed(2)} m`, (pa.x + pb.x) / 2, (pa.y + pb.y) / 2 - 8);
-    ctx.restore();
-  }
-  if (measureState.anglePoints.length >= 1) {
-    ctx.save();
-    ctx.fillStyle = '#ce93d8';
-    for (const pt of measureState.anglePoints) {
-      const p = renderer.worldToCanvas(pt.x, pt.y);
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    if (measureState.anglePoints.length === 3) {
-      const [A, O, B] = measureState.anglePoints;
-      const po = renderer.worldToCanvas(O.x, O.y);
-      const pa = renderer.worldToCanvas(A.x, A.y);
-      const pb = renderer.worldToCanvas(B.x, B.y);
-      ctx.strokeStyle = '#ce93d8';
-      ctx.beginPath();
-      ctx.moveTo(pa.x, pa.y);
-      ctx.lineTo(po.x, po.y);
-      ctx.lineTo(pb.x, pb.y);
-      ctx.stroke();
-      const ang1 = Math.atan2(A.y - O.y, A.x - O.x);
-      const ang2 = Math.atan2(B.y - O.y, B.x - O.x);
-      let deg = Math.abs((ang2 - ang1) * 180 / Math.PI);
-      if (deg > 180) deg = 360 - deg;
-      ctx.fillText(`${deg.toFixed(1)}°`, po.x + 10, po.y - 10);
-    }
-    ctx.restore();
   }
 }
 

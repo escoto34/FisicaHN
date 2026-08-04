@@ -41,13 +41,25 @@ function bgColor() {
   return lightBg ? '#f4f6f8' : '#0f0f1a';
 }
 
+/** Puntero en píxeles CSS: el mismo espacio en el que dibuja `render` (§2.3). */
 function pointer(e) {
   const rect = canvas.getBoundingClientRect();
-  const scaleX = canvas.width / rect.width;
-  const scaleY = canvas.height / rect.height;
+  // El lienzo puede estar escalado por CSS: normalizar a px de layout.
+  const scaleX = rect.width ? canvas.clientWidth / rect.width : 1;
+  const scaleY = rect.height ? canvas.clientHeight / rect.height : 1;
   return {
     x: (e.clientX - rect.left) * scaleX,
     y: (e.clientY - rect.top) * scaleY
+  };
+}
+
+/** Tamaño del lienzo en píxeles CSS. */
+function cssSize() {
+  if (_renderer?.viewport) return _renderer.viewport();
+  const dpr = Math.max(window.devicePixelRatio || 1, 1);
+  return {
+    w: canvas?.clientWidth || (canvas?.width || 800) / dpr,
+    h: canvas?.clientHeight || (canvas?.height || 600) / dpr
   };
 }
 
@@ -422,8 +434,7 @@ function exportPng() {
 function addText() {
   const text = prompt('Texto para la pizarra:');
   if (!text) return;
-  const w = canvas.width;
-  const h = canvas.height;
+  const { w, h } = cssSize();
   strokes.push({
     type: 'text',
     color,
@@ -514,12 +525,12 @@ export function update() {}
 
 export function render(ctxDraw) {
   if (!ctx || !canvas) return;
-  const w = canvas.width;
-  const h = canvas.height;
+  const { w, h } = cssSize();
 
-  // Siempre repinta fondo + cuadrícula (el borrador nunca los elimina)
+  // Siempre repinta fondo + cuadrícula (el borrador nunca los elimina).
+  // Se dibuja en px CSS, conservando la transformación de DPR que aplicó el
+  // motor: así el grosor del trazo es el pedido también en pantallas HiDPI.
   ctxDraw.save();
-  ctxDraw.setTransform(1, 0, 0, 1, 0, 0);
   ctxDraw.fillStyle = bgColor();
   ctxDraw.fillRect(0, 0, w, h);
 
