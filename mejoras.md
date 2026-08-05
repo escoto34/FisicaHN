@@ -1258,6 +1258,9 @@ tests automatizados en el árbol (mismo criterio que WAVE 3).
 **Motivo del orden:** escribir 19 módulos con la API antigua obligaría a migrarlos
 después. Con el nuevo contrato, cada módulo nuevo nace ya en su forma final.
 
+> **Estado (tanda 5.1 — Fundamentos): ✅ entregada.** `units-error`, `vectors`,
+> `projectile`, `mass-weight` e `inclined-plane` (ver balance en [§5.7](#57-balance-de-la-tanda-51)).
+
 Las tandas están ordenadas por **valor curricular** (cobertura del currículo hondureño
 de secundaria primero) y por **reutilización de primitivas** de WAVE 2. Cada tanda es
 entregable por separado: al cerrar una, el catálogo crece y el proyecto queda estable.
@@ -1330,6 +1333,41 @@ Para no repetir los desajustes actuales, cada módulo nuevo debe traer:
 - `getState()` / `setState()` para que sea guardable en «Mis trabajos».
 - Fórmulas en LaTeX vía `setModuleFormulas`.
 - Al menos 5 retos en el pack de ejemplo.
+
+### 5.7 Balance de la tanda 5.1 (Fundamentos)
+
+> ✅ **Entregada** con los cinco módulos: `units-error`, `vectors`, `projectile`,
+> `mass-weight` e `inclined-plane`. Todos nacen en el contrato nuevo
+> (`SimModule` + `static params` + `draw(scene)` + `readout()` numérico), así
+> que la comparación lado a lado (§2.9) y los enlaces profundos a modo (§4.4)
+> funcionan desde el primer día.
+
+**Qué aporta cada uno a las primitivas de la tanda:**
+
+| Módulo | Primitivas ejercitadas | Detalle pedagógico |
+|---|---|---|
+| `units-error` | `rect`, `dimension`, `chip`, validación de formulario | Cifras significativas + error relativo; 5 dimensiones SI lineales; prefiere mostrar «dato inválido» antes que un resultado falso |
+| `vectors` | `vector`, `angleArc`, `dimension`, arrastre (§2.6) | Paralelogramo + descomposición; las puntas de A y B se arrastran |
+| `projectile` | `trail`, `plot`, `dimension` | Alcance por interpolación al aterrizar; gráfica y(t) en lienzo |
+| `mass-weight` | `body`, `chip`, barras multipanel | Comparación W por astro; W = m·g frente a m invariante |
+| `inclined-plane` | `polygon`, `vector`, `pulley`, `angleArc` | Triángulo de fuerzas; estática cuando |F_net| ≤ μ·N; contrapeso opcional |
+
+**Criterio de aceptación (§5.6):** todos traen `category`+`glyph`+`blurb`+`topic`
+(explicando la diferencia con sus vecinos), `serves[]` con 6 temas, `modes[]`
+con enlace profundo (`units-error`, `vectors`, `mass-weight`, `inclined-plane`),
+`readout()`, `getState()`/`setState()`, fórmulas LaTeX y 6 retos en
+`ejemplo-pack-examen.json`.
+
+**Verificación:** `node --check` sobre los 5 módulos y `catalog.js`; humo del
+índice («paralelogramo» → `vectors#suma`, «plano inclinado» → `inclined-plane#plano»,
+«conversion de unidades» → `units-error`); simulación de 240 ticks con `update()`
+por módulo sin excepciones y `readout()` con unidades correctas (R = 32.85 m,
+W = 490 N, a = 1.6 m/s² con el contrapeso por defecto).
+
+**Pendiente:** en el rango visual de la escena no se llegó a dibujar el vector de
+la tensión en la cuerda del plano inclinado (la tensión se aproxima por W₂ en el
+readout); el resto de la tanda 5.2 (péndulo, fluidos, elasticidad y modos
+nuevos) queda para la siguiente entrega.
 
 ---
 

@@ -110,6 +110,82 @@ export const CATALOG = [
       'Herramienta docente: dibujo libre. No es un módulo de física con leyes propias.'
   },
   {
+    id: 'units-error',
+    title: 'Unidades y errores',
+    titleEn: 'Units & error analysis',
+    level: 'middle',
+    category: 'medicion-vectores',
+    glyph: '📐',
+    accent: 'indigo',
+    blurb: 'Conversión de unidades, cifras significativas y propagación de errores.',
+    engineKey: 'units-error',
+    status: 'ready',
+    serves: [
+      'Conversión de unidades',
+      'Cifras significativas',
+      'Error absoluto y relativo',
+      'Unidades del SI',
+      'Notación científica',
+      'Múltiplos y submúltiplos'
+    ],
+    modes: [
+      {
+        id: 'convertir',
+        label: 'Conversión',
+        param: 'modo',
+        value: 'convertir',
+        serves: ['Conversión de unidades', 'Múltiplos y submúltiplos']
+      },
+      {
+        id: 'errores',
+        label: 'Cifras y errores',
+        param: 'modo',
+        value: 'errores',
+        serves: ['Cifras significativas', 'Error absoluto y relativo']
+      }
+    ],
+    topic:
+      'Medición y tratamiento de errores: no simula una ley física, sino la metrología previa. Es la base de todos los demás módulos.'
+  },
+  {
+    id: 'vectors',
+    title: 'Vectores',
+    titleEn: 'Vectors',
+    level: 'middle',
+    category: 'medicion-vectores',
+    glyph: '🧭',
+    accent: 'indigo',
+    blurb: 'Suma de vectores por el paralelogramo y descomposición en componentes.',
+    engineKey: 'vectors',
+    status: 'ready',
+    serves: [
+      'Vectores y escalares',
+      'Suma de vectores',
+      'Componentes de un vector',
+      'Método del paralelogramo',
+      'Descomposición de fuerzas',
+      'Dirección y magnitud'
+    ],
+    modes: [
+      {
+        id: 'suma',
+        label: 'Suma de vectores',
+        param: 'modo',
+        value: 'suma',
+        serves: ['Suma de vectores', 'Método del paralelogramo']
+      },
+      {
+        id: 'componentes',
+        label: 'Descomposición',
+        param: 'modo',
+        value: 'componentes',
+        serves: ['Componentes de un vector', 'Descomposición de fuerzas']
+      }
+    ],
+    topic:
+      'Herramienta geométrica previa a dinámica: sin componentes no se suman fuerzas. Se distingue de cinemática porque aquí no hay tiempo ni trayectoria.'
+  },
+  {
     id: 'kinematics',
     title: 'Cinemática',
     titleEn: 'Kinematics',
@@ -134,6 +210,29 @@ export const CATALOG = [
       'Describe cómo se mueve un objeto (x, v, a, t) sin preguntar por qué. Unifica el antiguo “movimiento 1D” y “2D”: el motor ya usa componentes vx, vy, ax, ay.'
   },
   {
+    id: 'projectile',
+    title: 'Proyectil',
+    titleEn: 'Projectile motion',
+    level: 'high',
+    category: 'cinematica',
+    glyph: '🚀',
+    accent: 'blue',
+    blurb: 'Tiro parabólico: alcance, altura máxima y tiempo de vuelo.',
+    engineKey: 'projectile',
+    status: 'ready',
+    serves: [
+      'Cinemática',
+      'Proyectil',
+      'Movimiento parabólico',
+      'Alcance máximo',
+      'Altura máxima',
+      'Movimiento en dos dimensiones',
+      'Caída libre'
+    ],
+    topic:
+      'Cinemática 2D con aceleración constante: la horizontal MRU y la vertical caída libre. Complementa a “Cinemática” (allí las componentes son libres; aquí vienen de v₀ y θ).'
+  },
+  {
     id: 'forces-motion',
     title: 'Fuerzas y movimiento',
     titleEn: 'Forces & Motion',
@@ -154,6 +253,83 @@ export const CATALOG = [
     ],
     topic:
       'Dinámica: la fuerza neta explica la aceleración. Distinto de cinemática (allí no hay F).'
+  },
+  {
+    id: 'mass-weight',
+    title: 'Masa y peso',
+    titleEn: 'Mass vs weight',
+    level: 'middle',
+    category: 'dinamica-fuerzas',
+    glyph: '⚖️',
+    accent: 'red',
+    blurb: 'Distinguir masa (invariante) de peso (m·g, depende del astro).',
+    engineKey: 'mass-weight',
+    status: 'ready',
+    serves: [
+      'Masa y peso',
+      'Peso y gravedad',
+      'Fuerza gravitatoria',
+      'Medición de masa',
+      'Diferencia masa y peso',
+      'Fuerza y sus efectos'
+    ],
+    modes: [
+      {
+        id: 'tierra',
+        label: 'En la Tierra',
+        param: 'astro',
+        value: 'tierra',
+        serves: ['Masa y peso', 'Peso y gravedad']
+      },
+      {
+        id: 'luna',
+        label: 'En la Luna',
+        param: 'astro',
+        value: 'luna',
+        serves: ['Fuerza gravitatoria', 'Peso y gravedad']
+      }
+    ],
+    topic:
+      'Primer contacto con W = m·g y con la diferencia entre cantidad de materia y fuerza. No trata el movimiento: para eso están Fuerzas y movimiento / Gravedad universal.'
+  },
+  {
+    id: 'inclined-plane',
+    title: 'Plano inclinado',
+    titleEn: 'Inclined plane',
+    level: 'high',
+    category: 'dinamica-fuerzas',
+    glyph: '⛰️',
+    accent: 'red',
+    blurb: 'Descomposición del peso, fricción y polea con contrapeso.',
+    engineKey: 'inclined-plane',
+    status: 'ready',
+    serves: [
+      'Leyes del movimiento de Newton',
+      'Dinámica',
+      'Plano inclinado',
+      'Diagrama de cuerpo libre',
+      'Fricción y rozamiento',
+      'Tensión y poleas',
+      'Máquinas simples'
+    ],
+    modes: [
+      {
+        id: 'plano',
+        label: 'Plano y fricción',
+        param: 'polea',
+        value: false,
+        serves: ['Plano inclinado', 'Fricción y rozamiento']
+      },
+      {
+        id: 'polea',
+        label: 'Con polea',
+        param: 'polea',
+        value: true,
+        serves: ['Tensión y poleas', 'Máquinas simples']
+      }
+    ],
+    topic:
+      'Aplicación de la segunda ley con ejes rotados: W∥ y N. Se diferencia de Fuerzas y movimiento (ejes cartesianos) y de Fricción (aquí el rozamiento se combina con la gravedad en el plano).'
   },
   {
     id: 'kinetic-force',
