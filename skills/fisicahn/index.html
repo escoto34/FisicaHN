@@ -33,13 +33,36 @@
     </header>
 
     <div class="catalog-panels catalog-panels-unified">
-      <section class="catalog-panel active" aria-label="Módulos del laboratorio">
-        <div class="catalog-grid" id="catalogGrid">
-          <noscript>
-            <p class="placeholder-text">Activa JavaScript para usar el laboratorio FísicaHN.</p>
-          </noscript>
-        </div>
-      </section>
+<section class="catalog-panel active" aria-label="Módulos del laboratorio">
+          <div class="catalog-toolbar">
+            <div class="catalog-search-wrap">
+              <svg class="catalog-search-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                <circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/>
+                <path d="M16.5 16.5L21 21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              <input type="search" class="catalog-search-input" id="catalogSearchInput"
+                placeholder="Buscar módulo, tema o modo…  (/)"
+                aria-label="Buscar en el catálogo" autocomplete="off" spellcheck="false">
+              <button type="button" class="catalog-search-clear" id="catalogSearchClear"
+                aria-label="Limpiar búsqueda" title="Limpiar búsqueda" hidden>
+                <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </button>
+            </div>
+            <div class="catalog-level-filters" role="group" aria-label="Filtrar por nivel">
+              <button type="button" class="catalog-level-pill" data-level="all" aria-pressed="true">Todos</button>
+              <button type="button" class="catalog-level-pill" data-level="middle" aria-pressed="false">ESO</button>
+              <button type="button" class="catalog-level-pill" data-level="high" aria-pressed="false">Bachillerato</button>
+              <button type="button" class="catalog-level-pill" data-level="advanced" aria-pressed="false">Universidad</button>
+            </div>
+          </div>
+          <div class="catalog-grid" id="catalogGrid">
+            <noscript>
+              <p class="placeholder-text">Activa JavaScript para usar el laboratorio FísicaHN.</p>
+            </noscript>
+          </div>
+        </section>
     </div>
   </div>
 

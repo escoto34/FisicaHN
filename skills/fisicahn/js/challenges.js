@@ -2,6 +2,8 @@
  * challenges.js — Motor de retos pedagógicos (pestaña inferior del módulo).
  */
 
+import { buildChallengeLabels } from './catalog.js';
+
 const STORAGE_KEY = 'fisicahn_challenges';
 
 /**
@@ -10,34 +12,8 @@ const STORAGE_KEY = 'fisicahn_challenges';
  */
 export const CHALLENGE_ENGINES = {};
 
-export const CHALLENGE_MODULE_LABELS = {
-  kinematics: 'Cinemática',
-  dynamics: 'Fuerzas y movimiento',
-  'force-kinetic': 'Fuerza cinética',
-  friction: 'Fricción',
-  statics: 'Estática',
-  electricity: 'Campo eléctrico y cargas',
-  optics: 'Luz y óptica geométrica',
-  momentum: 'Cantidad de movimiento',
-  oscillatory: 'Oscilaciones y energía',
-  sound: 'Sonido y ondas',
-  magnetic: 'Campos magnéticos',
-  gravity: 'Gravedad universal',
-  atomic: 'Física atómica',
-  particles: 'Cargas en campo B (partículas)',
-  rotational: 'Circular y rotacional',
-  thermodynamics: 'Termodinámica',
-  'work-energy': 'Trabajo, energía y potencia',
-  'collisions-2d': 'Colisiones multi-cuerpo (2D)',
-  lenses: 'Lentes delgadas',
-  'wave-optics': 'Interferencia y difracción',
-  circuits: 'Circuitos DC / AC',
-  'em-waves': 'Ondas electromagnéticas',
-  photoelectric: 'Efecto fotoeléctrico',
-  radioactivity: 'Decaimiento radiactivo',
-  tunneling: 'Túnel cuántico',
-  kepler: 'Kepler y asistencia gravitacional'
-};
+/** Etiquetas por motor, derivadas del catálogo (§4.5): una sola fuente. */
+export const CHALLENGE_MODULE_LABELS = buildChallengeLabels();
 
 function loadProgress() {
   try {

@@ -4,6 +4,8 @@
  * reduce trampas casuales y sella trabajos con hash.
  */
 
+import { normalizeText } from './core/text.js';
+
 const TEACHER_KEY = 'fisicahn_teacher_v1';
 const SESSION_KEY = 'fisicahn_session_v1';
 const AUDIT_KEY = 'fisicahn_audit_v1';
@@ -135,12 +137,9 @@ export async function hashPassword(password, schoolName) {
 }
 
 export function normalizeSchool(name) {
-  return String(name || '')
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\s+/g, ' ');
+  // Normalización compartida con el buscador del catálogo (§4.4):
+  // minúsculas, sin acentos (NFD) y espacios colapsados.
+  return normalizeText(name);
 }
 
 export function getTeacherRecord() {

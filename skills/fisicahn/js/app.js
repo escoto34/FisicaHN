@@ -5,7 +5,9 @@
 
 import { PhysicsEngine } from './physics-engine.js';
 import { Renderer } from './renderer.js';
-import { CATALOG, getById, getUnifiedCatalog, getSimulationCatalog, WORKS_MODULE } from './catalog.js';
+import { CATALOG, getById, getUnifiedCatalog, getSimulationCatalog, WORKS_MODULE, getCategory, buildEnginePaths } from './catalog.js';
+import { searchState, closestTerms, resultCardHtml } from './catalog-search.js';
+import { normalizeText, escapeHtml } from './core/text.js';
 import { getSession, logAudit, ensureExamLivenessPolling } from './auth.js';
 import { saveWork, listWorks, getWork, initWorksStorage } from './works.js';
 import {
@@ -36,7 +38,9 @@ import { ComparisonController } from './core/compare.js';
    ============================================ */
 const state = {
   view: 'catalog', // 'catalog' | 'sim'
-  catalogLevel: 'middle',
+  catalogLevel: 'all', // filtro por nivel del catálogo (§4.3 nº4)
+  catalogQuery: '', // consulta del buscador (§4.4)
+  catalogCollapsed: {}, // secciones plegadas (persistente, §4.2)
   catalogId: null,
   currentModule: null,
   /** Namespace del `import()` activo: lo necesita la comparación (§2.9). */
@@ -46,6 +50,11 @@ const state = {
 };
 
 const STORAGE_KEY = 'fisicahn_progress';
+/** Estado de plegado de las secciones del catálogo (persistente). */
+const COLLAPSED_KEY = 'fisicahn_catalog_collapsed';
+
+/** Rutas de motores derivadas del catálogo (§4.5): una sola fuente. */
+const ENGINE_PATHS = buildEnginePaths();
 
 /** Motores de simulación (ruta por convención ./modules/<engineKey>.js) */
 const ENGINE_PATHS = {
@@ -475,64 +484,41 @@ async function onExamEndedGlobal(ev) {
 }
 
 /* ============================================
-   Catálogo UI
+   Catálogo UI (§4.2-§4.4)
    ============================================ */
 
-/** Enlaza clics de tarjetas del catálogo (estáticas o generadas). */
-function bindCatalogCardClicks() {
-  const grid = document.getElementById('catalogGrid');
-  if (!grid) return;
-  grid.querySelectorAll('[data-catalog-id], [data-catalogId]').forEach((btn) => {
-    if (btn.dataset.boundClick === '1') return;
-    btn.dataset.boundClick = '1';
-    btn.addEventListener('click', () => {
-      const id = btn.getAttribute('data-catalog-id') || btn.dataset.catalogId;
-      if (id) openCatalogModule(id);
-    });
-  });
+/** Clave de estado de plegado: una entrada por categoría (persistente). */
+function catalogSectionKey(catId) {
+  return catId;
 }
 
-function renderCatalogGrids() {
-  const grid = document.getElementById('catalogGrid');
-  if (!grid) return;
+/** ¿El módulo pertenece al nivel filtrado? (`all` no filtra nada.) */
+function moduleIsInLevel(mod, lvl) {
+  return lvl === 'all' || mod.level === 'all' || mod.level === lvl;
+}
 
-  let worksCount = 0;
-  try {
-    worksCount = listWorks().length;
-  } catch {
-    worksCount = 0;
-  }
-
-  // Siempre regenerar desde catalog.js (el HTML estático es solo fallback sin JS).
-  // Si solo se “parcheaban” tarjetas existentes, los módulos nuevos no aparecían en el menú.
-  grid.innerHTML = '';
-  for (const mod of getUnifiedCatalog()) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    const accent =
-      mod.accent && /^[a-z0-9-]+$/i.test(mod.accent) ? mod.accent : '';
-    btn.className =
-      'catalog-card' +
-      (mod.special === 'works' ? ' catalog-card-works' : '') +
-      (accent ? ` catalog-card-accent-${accent}` : '');
-    btn.setAttribute('data-catalog-id', mod.id);
-    btn.dataset.catalogId = mod.id;
-    const statusLabel =
-      mod.special === 'works'
-        ? worksCount
-          ? `${worksCount} en caché`
-          : 'Importar / ver'
-        : mod.status === 'ready'
-          ? 'Disponible'
-          : 'Pronto';
-    btn.setAttribute(
-      'aria-label',
-      `${mod.title}. ${mod.special === 'works' ? 'Gestionar trabajos guardados e importados' : statusLabel}`
-    );
-    const glyph = mod.glyph
-      ? `<span class="catalog-card-glyph" aria-hidden="true">${escapeHtml(mod.glyph)}</span>`
-      : '';
-    btn.innerHTML = `
+/** HTML de una tarjeta del catálogo (se usa también para resultados de búsqueda). */
+export function catalogCardHtml(mod, opts = {}) {
+  const accent = mod.accent && /^[a-z0-9-]+$/i.test(mod.accent) ? mod.accent : '';
+  const statusLabel =
+    mod.special === 'works'
+      ? opts.worksCount
+        ? `${opts.worksCount} en caché`
+        : 'Importar / ver'
+      : mod.status === 'ready'
+        ? 'Disponible'
+        : 'Pronto';
+  const glyph = mod.glyph
+    ? `<span class="catalog-card-glyph" aria-hidden="true">${escapeHtml(mod.glyph)}</span>`
+    : '';
+  const mode = opts.mode ? ` data-catalog-mode="${escapeHtml(opts.mode)}"` : '';
+  return `
+    <button type="button" class="catalog-card${mod.special === 'works' ? ' catalog-card-works' : ''}${
+      accent ? ` catalog-card-accent-${accent}` : ''
+    }"
+      data-catalog-id="${escapeHtml(mod.id)}"${mode}
+      data-catalogId="${escapeHtml(mod.id)}"
+      aria-label="${escapeHtml(mod.title)} ${mod.status === 'ready' ? 'Disponible' : 'Pronto'}">
       <div class="catalog-card-top">
         <div class="catalog-card-heading">
           ${glyph}
@@ -546,18 +532,329 @@ function renderCatalogGrids() {
         )}</span>
       </div>
       <p class="catalog-card-blurb">${escapeHtml(mod.blurb)}</p>
-    `;
-    grid.appendChild(btn);
-  }
-  bindCatalogCardClicks();
+      ${mod.topic ? `<p class="catalog-card-topic">${escapeHtml(mod.topic)}</p>` : ''}
+    </button>
+  `;
 }
 
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+/** Enlaza clics de tarjetas del catálogo (estáticas o generadas). */
+function bindCatalogCardClicks() {
+  const grid = document.getElementById('catalogGrid');
+  if (!grid) return;
+  grid.querySelectorAll('[data-catalog-id], [data-catalogId]').forEach((btn) => {
+    if (btn.dataset.boundClick === '1') return;
+    btn.dataset.boundClick = '1';
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-catalog-id') || btn.dataset.catalogId;
+      const mode = btn.getAttribute('data-catalog-mode');
+      if (id) openCatalogModule(id, { mode });
+    });
+  });
+}
+
+/** HTML de la cabecera de sección (chevrón, glyph de categoría, título y nº). */
+function sectionHeaderHtml(catId, label, n, level) {
+  const key = catalogSectionKey(catId);
+  const isCollapsed = !!state.catalogCollapsed[key];
+  const cat = getCategory(catId);
+  const glyph = cat?.glyph
+    ? `<span class="catalog-sec-glyph" aria-hidden="true">${escapeHtml(cat.glyph)}</span>`
+    : '';
+  return `
+    <button type="button" class="catalog-section-head" data-collapse-key="${escapeHtml(key)}"
+      aria-expanded="${String(!isCollapsed)}">
+      <span class="catalog-sec-chevron" aria-hidden="true">${isCollapsed ? '▸' : '▾'}</span>
+      ${glyph}
+      <span class="catalog-sec-title">${escapeHtml(label)}</span>
+      <span class="catalog-sec-count">${n}</span>
+    </button>
+  `;
+}
+
+/** Marca una sección como plegada según el estado persistido. */
+function applySectionCollapsed(section, key) {
+  if (state.catalogCollapsed[key]) {
+    section.classList.add('catalog-section-collapsed');
+  }
+}
+
+/**
+ * Renderiza el grid del catálogo según el filtro de nivel y la búsqueda.
+ * §4.2: secciones por categoría · §4.4: agrupación de resultados por categoría.
+ * §4.3 nº6: si la firma (nivel + consulta) no cambió, no se regenera el DOM.
+ */
+let _lastCatalogRenderSig = null;
+
+function renderCatalogGrids() {
+  const grid = document.getElementById('catalogGrid');
+  if (!grid) return;
+
+  // Las pills reflejan siempre el estado (también tras abrir un módulo).
+  document.querySelectorAll('.catalog-level-pill').forEach((p) => {
+    p.setAttribute('aria-pressed', String(p.dataset.level === state.catalogLevel));
+  });
+
+  let worksCount = 0;
+  try {
+    worksCount = listWorks().length;
+  } catch {
+    worksCount = 0;
+  }
+
+  const query = state.catalogQuery.trim();
+  const level = state.catalogLevel;
+  const sig = `${level}::${query}::${worksCount}`;
+  if (sig === _lastCatalogRenderSig) return;
+  _lastCatalogRenderSig = sig;
+
+  grid.innerHTML = '';
+
+  if (query) {
+    renderSearchSections(grid, query);
+  } else {
+    const seen = new Set();
+    const mods = [];
+    for (const card of getUnifiedCatalog()) {
+      if (level !== 'all' && !moduleIsInLevel(card, level)) continue;
+      if (seen.has(card.id)) continue;
+      seen.add(card.id);
+      mods.push(card);
+    }
+    renderSectionedGrid(grid, mods, level, worksCount);
+  }
+  bindCatalogCardClicks();
+  bindSectionCollapse();
+  bindSearchSuggestions();
+}
+
+/** Secciones por categoría (cabecera plegable + fila de tarjetas). */
+function renderSectionedGrid(grid, mods, level, worksCount) {
+  const groups = new Map();
+  for (const mod of mods) {
+    const key = catalogSectionKey(mod.category);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(mod);
+  }
+  for (const [key, list] of groups) {
+    const cat = getCategory(key) || getCategory(list[0]?.category);
+    const label = cat?.keyword || cat?.label || key;
+    const section = document.createElement('section');
+    section.className = 'catalog-section';
+    section.setAttribute('data-category', key);
+    section.innerHTML = sectionHeaderHtml(cat?.id || key, label, list.length, level);
+    const body = document.createElement('div');
+    body.className = 'catalog-section-body';
+    const row = document.createElement('div');
+    row.className = 'catalog-row';
+    for (const mod of list) {
+      const wrap = document.createElement('div');
+      wrap.innerHTML = catalogCardHtml(mod, { worksCount });
+      row.appendChild(wrap.firstElementChild);
+    }
+    body.appendChild(row);
+    section.appendChild(body);
+    applySectionCollapsed(section, key);
+    grid.appendChild(section);
+  }
+}
+
+/** Secciones de resultados de búsqueda agrupadas por categoría (§4.4). */
+function renderSearchSections(grid, query) {
+  const st = searchState(query);
+  if (!st.groups.length) {
+    grid.innerHTML = noResultsHtml(query);
+    return;
+  }
+  const tokens = normalizeText(query).split(/\s+/).filter(Boolean);
+  for (const group of st.groups) {
+    const key = catalogSectionKey(group.categoryId);
+    const section = document.createElement('section');
+    section.className = 'catalog-section';
+    section.innerHTML = sectionHeaderHtml(group.categoryId, group.categoryLabel, group.results.length, state.catalogLevel);
+    const body = document.createElement('div');
+    body.className = 'catalog-section-body';
+    const row = document.createElement('div');
+    row.className = 'catalog-row';
+    for (const res of group.results) {
+      const wrap = document.createElement('div');
+      wrap.innerHTML = resultCardHtml(res, tokens);
+      row.appendChild(wrap.firstElementChild);
+    }
+    body.appendChild(row);
+    section.appendChild(body);
+    grid.appendChild(section);
+  }
+}
+
+/** Bloque de «sin resultados» con sugerencias por cercanía (§4.4). */
+function noResultsHtml(query) {
+  const suggestions = closestTerms(query, 3)
+    .map(
+      (s) =>
+        `<button type="button" class="search-suggestion" data-sug="${escapeHtml(s.raw)}">${escapeHtml(
+          s.raw
+        )}</button>`
+    )
+    .join('');
+  return `<div class="catalog-empty">
+    <p class="placeholder-text">Sin resultados para «${escapeHtml(query)}».</p>
+    ${suggestions ? `<p class="search-suggestions">¿Querías decir…? ${suggestions}</p>` : ''}
+  </div>`;
+}
+
+/* --- Plegado de secciones (§4.2) --- */
+
+function bindSectionCollapse() {
+  const grid = document.getElementById('catalogGrid');
+  if (!grid) return;
+  grid.querySelectorAll('.catalog-section-head').forEach((head) => {
+    if (head.dataset.bound === '1') return;
+    head.dataset.bound = '1';
+    head.addEventListener('click', () => {
+      const key = head.dataset.collapseKey;
+      const section = head.closest('.catalog-section');
+      if (!key || !section) return;
+      const collapsed = !state.catalogCollapsed[key];
+      state.catalogCollapsed[key] = collapsed;
+      section.classList.toggle('catalog-section-collapsed', collapsed);
+      head.setAttribute('aria-expanded', String(!collapsed));
+      head.querySelector('.catalog-sec-chevron').textContent = collapsed ? '▸' : '▾';
+      persistCollapsed();
+    });
+  });
+}
+
+function persistCollapsed() {
+  try {
+    localStorage.setItem(COLLAPSED_KEY, JSON.stringify(state.catalogCollapsed));
+  } catch {
+    /* almacenamiento no disponible */
+  }
+}
+
+function loadCollapsed() {
+  try {
+    const raw = localStorage.getItem(COLLAPSED_KEY);
+    state.catalogCollapsed = raw ? JSON.parse(raw) : {};
+  } catch {
+    state.catalogCollapsed = {};
+  }
+}
+
+/* --- Buscador (§4.4) --- */
+
+function bindCatalogSearch() {
+  const input = document.getElementById('catalogSearchInput');
+  const clearBtn = document.getElementById('catalogSearchClear');
+  if (!input) return;
+
+  // Foco automático, solo la primera vez que se abre el catálogo (§4.4).
+  if (!document.body.dataset.catalogSearchFocused) {
+    document.body.dataset.catalogSearchFocused = '1';
+    input.focus({ preventScroll: true });
+  }
+
+  const apply = () => {
+    state.catalogQuery = input.value.trim();
+    if (clearBtn) clearBtn.hidden = !state.catalogQuery;
+    renderCatalogGrids();
+  };
+
+  input.addEventListener('input', () => {
+    if (input.dataset.debounce) clearTimeout(input.dataset.debounce);
+    input.dataset.debounce = setTimeout(apply, 180);
+  });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      input.value = '';
+      apply();
+      input.blur();
+    } else if (e.key === 'Enter') {
+      if (input.dataset.debounce) {
+        clearTimeout(input.dataset.debounce);
+        delete input.dataset.debounce;
+      }
+      apply();
+    }
+  });
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      input.value = '';
+      apply();
+      input.focus();
+    });
+  }
+}
+
+/** Atajo de teclado «/» o Ctrl-K para enfocar el buscador (fuera de inputs). */
+function bindCatalogSearchShortcut() {
+  document.addEventListener('keydown', (e) => {
+    const isSlash = e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey;
+    const isCtrlK = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k';
+    if (!isSlash && !isCtrlK) return;
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) return;
+    if (state.view !== 'catalog') return;
+    e.preventDefault();
+    const input = document.getElementById('catalogSearchInput');
+    if (input) {
+      input.focus();
+      input.select();
+    }
+  });
+}
+
+function bindCatalogLevelFilters() {
+  const group = document.querySelector('.catalog-level-filters');
+  if (!group) return;
+  group.querySelectorAll('.catalog-level-pill').forEach((pill) => {
+    pill.addEventListener('click', () => {
+      state.catalogLevel = pill.dataset.level || 'all';
+      group.querySelectorAll('.catalog-level-pill').forEach((p) => {
+        p.setAttribute('aria-pressed', String(p === pill));
+      });
+      renderCatalogGrids();
+    });
+  });
+}
+
+/** Las sugerencias de «sin resultados» llenan el buscador y vuelven a buscar. */
+function bindSearchSuggestions() {
+  const grid = document.getElementById('catalogGrid');
+  if (!grid) return;
+  grid.querySelectorAll('.search-suggestion').forEach((btn) => {
+    if (btn.dataset.bound === '1') return;
+    btn.dataset.bound = '1';
+    btn.addEventListener('click', () => {
+      const input = document.getElementById('catalogSearchInput');
+      if (input) {
+        input.value = btn.dataset.sug || '';
+        state.catalogQuery = input.value.trim();
+        renderCatalogGrids();
+        input.focus();
+      }
+    });
+  });
+}
+
+/* --- Ficha del módulo (§4.3): «Útil para» (serves[]) --- */
+
+/** Adjunta los `serves[]` del módulo al pie del panel de parámetros. */
+function appendCatalogServes(entry) {
+  if (!paramsPanel) return;
+  const list = entry?.serves || [];
+  paramsPanel.querySelectorAll('.catalog-serves').forEach((n) => n.remove());
+  if (!list.length) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'catalog-serves';
+  const items = list
+    .map((s) => `<span class="catalog-serves-chip">${escapeHtml(s)}</span>`)
+    .join('');
+  wrap.innerHTML = `<details open>
+    <summary>Útil para</summary>
+    <div class="catalog-serves-list">${items}</div>
+  </details>`;
+  paramsPanel.appendChild(wrap);
 }
 
 /* ============================================
@@ -572,20 +869,33 @@ function parseAppRoute() {
   const raw = String(location.hash || '')
     .replace(/^#/, '')
     .replace(/^\//, '');
-  const parts = raw.split('/').filter(Boolean);
-  if ((parts[0] === 'm' || parts[0] === 'sim') && parts[1]) {
-    try {
-      return { view: 'sim', catalogId: decodeURIComponent(parts[1]) };
-    } catch {
-      return { view: 'sim', catalogId: parts[1] };
+  const [path, qs = ''] = raw.split('?');
+  const parts = path.split('/').filter(Boolean);
+  let mode = null;
+  if (qs) {
+    const m = qs.match(/[?&]mode=([^&]+)/);
+    if (m) {
+      try {
+        mode = decodeURIComponent(m[1]);
+      } catch {
+        mode = m[1];
+      }
     }
   }
-  return { view: 'catalog', catalogId: null };
+  if ((parts[0] === 'm' || parts[0] === 'sim') && parts[1]) {
+    try {
+      return { view: 'sim', catalogId: decodeURIComponent(parts[1]), mode };
+    } catch {
+      return { view: 'sim', catalogId: parts[1], mode };
+    }
+  }
+  return { view: 'catalog', catalogId: null, mode: null };
 }
 
-function appRouteUrl(view, catalogId) {
+function appRouteUrl(view, catalogId, mode = null) {
   if (view === 'sim' && catalogId) {
-    return `#/m/${encodeURIComponent(catalogId)}`;
+    const base = `#/m/${encodeURIComponent(catalogId)}`;
+    return mode ? `${base}?mode=${encodeURIComponent(mode)}` : base;
   }
   return '#/';
 }
@@ -594,16 +904,18 @@ function appRouteUrl(view, catalogId) {
  * @param {'catalog'|'sim'} view
  * @param {string|null} catalogId
  * @param {'push'|'replace'|'none'} mode
+ * @param {string|null} [routeMode] - Modo interno del módulo (enlace profundo).
  */
-function syncBrowserHistory(view, catalogId, mode = 'replace') {
+function syncBrowserHistory(view, catalogId, mode = 'replace', routeMode = null) {
   if (_historySilent || mode === 'none') return;
   if (typeof history === 'undefined' || !history.pushState) return;
   const histState = {
     fisicahn: 1,
     view,
-    catalogId: view === 'sim' ? catalogId || null : null
+    catalogId: view === 'sim' ? catalogId || null : null,
+    mode: view === 'sim' ? routeMode || null : null
   };
-  const url = appRouteUrl(view, catalogId);
+  const url = appRouteUrl(view, catalogId, routeMode);
   try {
     if (mode === 'push') history.pushState(histState, '', url);
     else history.replaceState(histState, '', url);
@@ -682,15 +994,49 @@ function fillSidebarUnified() {
     worksHost.appendChild(worksBtn);
   }
 
+  // Agrupar por categoría; solo la sección del módulo activo queda expandida.
+  const groups = new Map();
   for (const mod of getSimulationCatalog()) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'module-btn';
-    btn.dataset.catalogId = mod.id;
-    if (mod.id === state.catalogId) btn.classList.add('active');
-    btn.innerHTML = `<span>${escapeHtml(mod.title)}</span>`;
-    btn.addEventListener('click', () => openCatalogModule(mod.id));
-    sidebarNav.appendChild(btn);
+    const catId = mod.category;
+    if (!groups.has(catId)) groups.set(catId, []);
+    groups.get(catId).push(mod);
+  }
+  for (const [catId, mods] of groups) {
+    const cat = getCategory(catId);
+    const activeHere = mods.some((m) => m.id === state.catalogId);
+    const group = document.createElement('section');
+    group.className = 'sidebar-group';
+    group.setAttribute('data-category', catId);
+    const head = document.createElement('button');
+    head.type = 'button';
+    head.className = 'sidebar-group-head';
+    head.setAttribute('aria-expanded', String(activeHere));
+    head.innerHTML = `
+      <span class="sidebar-group-chevron" aria-hidden="true">${activeHere ? '▾' : '▸'}</span>
+      ${cat?.glyph ? `<span class="sidebar-group-glyph" aria-hidden="true">${escapeHtml(cat.glyph)}</span>` : ''}
+      <span class="sidebar-group-title">${escapeHtml(cat?.keyword || cat?.label || catId)}</span>
+    `;
+    const body = document.createElement('div');
+    body.className = 'sidebar-group-body';
+    if (!activeHere) group.classList.add('collapsed');
+    for (const mod of mods) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'module-btn';
+      btn.dataset.catalogId = mod.id;
+      if (mod.id === state.catalogId) btn.classList.add('active');
+      btn.innerHTML = `<span>${escapeHtml(mod.title)}</span>`;
+      btn.addEventListener('click', () => openCatalogModule(mod.id));
+      body.appendChild(btn);
+    }
+    head.addEventListener('click', () => {
+      const collapsed = group.classList.toggle('collapsed');
+      head.setAttribute('aria-expanded', String(!collapsed));
+      head.querySelector('.sidebar-group-chevron').textContent = collapsed ? '▸' : '▾';
+    });
+    group.appendChild(head);
+    group.appendChild(body);
+    sidebarNav.appendChild(group);
   }
 }
 
@@ -698,7 +1044,8 @@ function fillSidebarUnified() {
  * Entra a un módulo del catálogo (carga motor real o placeholder).
  * “Mis trabajos” abre el gestor sin salir del menú principal.
  * @param {string} catalogId
- * @param {{ history?: 'push'|'replace'|'none' }} [opts]
+ * @param {{ history?: 'push'|'replace'|'none', mode?: string|null }} [opts]
+ *   `mode`: id de un `modes[]` del catálogo → enlace profundo del buscador (§4.4).
  */
 async function openCatalogModule(catalogId, opts = {}) {
   const entry = getById(catalogId);
@@ -715,6 +1062,13 @@ async function openCatalogModule(catalogId, opts = {}) {
       }
     });
     return;
+  }
+
+  // Modo interno pedido por enlace profundo; se valida contra el catálogo.
+  let initialMode = null;
+  if (opts.mode) {
+    const mode = (entry.modes || []).find((md) => md.id === opts.mode);
+    if (mode) initialMode = mode;
   }
 
   const prevView = state.view;
@@ -742,9 +1096,11 @@ async function openCatalogModule(catalogId, opts = {}) {
   ensureKatex().catch(() => {});
 
   const engineKey = entry.engineKey || 'placeholder';
-  await loadEngineModule(engineKey, entry);
+  await loadEngineModule(engineKey, entry, initialMode);
+  // Ficha del módulo: «Útil para» (serves[]) al pie del panel de parámetros (§4.3).
+  appendCatalogServes(entry);
   saveProgress();
-  syncBrowserHistory('sim', catalogId, historyMode);
+  syncBrowserHistory('sim', catalogId, historyMode, initialMode?.id || null);
 }
 
 /* ============================================
@@ -778,8 +1134,10 @@ async function destroyCurrentEngine() {
 /**
  * @param {string} engineKey
  * @param {object|null} catalogEntry
+ * @param {{ id: string, param: string, value: * }|null} [initialMode] — modo
+ *   interno del catálogo para enlaces profundos (#/m/<id>?mode=…).
  */
-async function loadEngineModule(engineKey, catalogEntry = null) {
+async function loadEngineModule(engineKey, catalogEntry = null, initialMode = null) {
   await destroyCurrentEngine();
 
   const path = ENGINE_PATHS[engineKey] || ENGINE_PATHS.placeholder;
@@ -838,6 +1196,20 @@ async function loadEngineModule(engineKey, catalogEntry = null) {
       showModuleBroken(title);
     }
     updateViewControlsUI();
+    // Enlace profundo a un modo interno del catálogo (§4.4): aplicar el parámetro.
+    if (initialMode && instance && instance.params && initialMode.param) {
+      try {
+        instance.params[initialMode.param] = initialMode.value;
+        instance.reset?.();
+        engine?.reset?.();
+        const schema = mod?.default?.params;
+        if (Array.isArray(schema) && schema.length) {
+          syncSchema(paramsPanel, schema, instance.params);
+        }
+      } catch (err) {
+        console.error('Error al aplicar el modo inicial:', err);
+      }
+    }
     // Retos en barra inferior (solo motores con casos de uso o pack de examen)
     await setupChallengesForEngine(resolvedKey).catch(() => ui.setChallenges(null));
     // Activar panel de gráficas solo si el módulo lo pide
@@ -2043,6 +2415,12 @@ async function init() {
   // Checkpoints del navegador: Atrás/Adelante entre menú y módulos
   window.addEventListener('popstate', onAppPopState);
 
+  // Catálogo §4.2-§4.4: plegado de secciones, buscador y filtros por nivel
+  loadCollapsed();
+  bindCatalogSearch();
+  bindCatalogSearchShortcut();
+  bindCatalogLevelFilters();
+
   const saved = loadProgress();
   if (canvas && engine) {
     engine.start();
@@ -2073,7 +2451,7 @@ async function init() {
 
   if (routeModule) {
     try {
-      await openCatalogModule(routeModule, { history: 'replace' });
+      await openCatalogModule(routeModule, { history: 'replace', mode: route.mode || null });
     } catch (e) {
       console.error('Abrir ruta:', e);
       showCatalog({ history: 'replace' });
@@ -2109,7 +2487,7 @@ function onAppPopState(ev) {
   // Estado nuestro
   if (st?.fisicahn) {
     if (st.view === 'sim' && st.catalogId && getById(st.catalogId)?.special !== 'works') {
-      openCatalogModule(st.catalogId, { history: 'none' }).finally(done);
+      openCatalogModule(st.catalogId, { history: 'none', mode: st.mode || null }).finally(done);
       return;
     }
     showCatalog({ history: 'none' });
@@ -2120,7 +2498,7 @@ function onAppPopState(ev) {
   // Sin state (p. ej. entrada antigua): interpretar hash
   const route = parseAppRoute();
   if (route.view === 'sim' && route.catalogId && getById(route.catalogId)) {
-    openCatalogModule(route.catalogId, { history: 'none' }).finally(done);
+    openCatalogModule(route.catalogId, { history: 'none', mode: route.mode || null }).finally(done);
     return;
   }
   showCatalog({ history: 'none' });

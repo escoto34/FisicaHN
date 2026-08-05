@@ -17,7 +17,7 @@
 - [WAVE 1 — Contrato de módulo y núcleo compartido](#wave-1--contrato-de-módulo-y-núcleo-compartido) ✅
 - [WAVE 2 — Rediseño del canvas ★](#wave-2--rediseño-del-canvas-) ✅ — [balance](#210-lo-que-quedó-hecho)
 - [WAVE 3 — Rendimiento y uso de recursos](#wave-3--rendimiento-y-uso-de-recursos) ✅ — [balance](#310-lo-que-quedó-hecho)
-- [WAVE 4 — Catálogo por categorías y navegación](#wave-4--catálogo-por-categorías-y-navegación)
+- [WAVE 4 — Catálogo por categorías y navegación](#wave-4--catálogo-por-categorías-y-navegación) ✅ — [balance](#410-lo-que-quedó-hecho)
 - [WAVE 5 — Nuevos módulos de física](#wave-5--nuevos-módulos-de-física)
 - [WAVE 6 — Base de datos y backend](#wave-6--base-de-datos-y-backend)
 - [WAVE 7 — Herramientas y calidad](#wave-7--herramientas-y-calidad)
@@ -1191,6 +1191,64 @@ alta de un módulo a: **crear el archivo y añadir una entrada.**
 Un test de regresión (§7.4 nº 3) verifica que todo `path` existe, que todo `category`
 está en la lista de §3.5, y que ningún término de `serves[]` aparece en dos módulos sin
 justificación — esto último detectaría automáticamente una duplicación de temas futura.
+
+## 4.10 Lo que quedó hecho
+
+> ✅ **Hecha**. Balance de lo entregado, las desviaciones sobre el plan y lo que sigue
+> abierto. Verificación: `node --check` sobre los archivos tocados y pruebas de humo
+> del índice de búsqueda en Node (sin navegador).
+
+### Entregado
+
+**§4.3 nº 1-5 y 7 — Catálogo por secciones, filtros y «Útil para».**
+- `CATEGORIES` (12 categorías con glyph y accent) ya estaba en `catalog.js`; se enlaza
+  con el grid y la barra lateral.
+- Grid por **secciones plegables** con chevrón, glyph, título y contador; el estado de
+  plegado se persiste en `localStorage` (`fisicahn_catalog_collapsed`).
+- **Filtro por nivel** (Todos / ESO / Bachillerato / Universidad) reactivando
+  `state.catalogLevel` y la capa `level` que ya existía en cada entrada.
+- Ficha del módulo: «Útil para» (`serves[]`) al pie del panel de parámetros y el campo
+  `topic` en la tarjeta (por fin se muestra).
+- Barra lateral del laboratorio **agrupada por categoría**, con la sección activa
+  expandida y las demás plegadas.
+
+**§4.4 — Buscador del catálogo.** Nuevo `js/catalog-search.js`:
+- Índice plano (≈260 entradas) con pesos por campo según la tabla del plan; se
+  construye una vez y se reutiliza en grid y sugerencias.
+- Incremental (debounce 180 ms), normalización NFD compartida con `auth.js` vía
+  `js/core/text.js`, tolerancia a erratas **por palabra** (distancia 1; 2 para
+  consultas ≥6 caracteres), resultados agrupados por categoría, resaltado de la
+  coincidencia y motivo de aparición («Útil para: Impulso»).
+- «Sin resultados» nunca deja pantalla vacía: sugiere términos cercanos clickables.
+- Atajos `/` y `Ctrl-K`; foco automático la primera vez.
+- **Enlaces profundos a modos**: `#/m/<id>?mode=<modo>` — el enrutador los entiende
+  (`parseAppRoute`), se propagan por `history.state` y el módulo aplica el parámetro
+  inicial tras `init()` (`loadEngineModule`). «Impulso» abre `momentum` en el modo
+  Impulso. Funciona con los `modes[]` de `momentum`, `circuits-dc-ac` y `kepler-orbits`.
+
+**§4.5 — Registro en un solo sitio.** `ENGINE_PATHS` (app.js) y
+`CHALLENGE_MODULE_LABELS` (challenges.js) se derivan del catálogo con
+`buildEnginePaths()` y `buildChallengeLabels()`; `CHALLENGE_ENGINES` ya era un objeto
+vacío. Registrar un módulo es crear el archivo y añadir la entrada.
+
+### Desviaciones
+
+- **§4.3 nº 6 (renderizado incremental).** El grid se regenera salvo que la firma
+  (nivel + consulta + nº de trabajos) no cambie; no se llegó a un verdadero diffing de
+  tarjetas, que no aporta con 27 módulos y un render que ya es <5 ms.
+- **Buscador en la barra lateral.** El plan lo menciona («el mismo índice sirve a la
+  barra lateral»); se entregó la agrupación por categoría, que es el remedio principal
+  al listado plano. El buscador lateral puede venir en WAVE 7 con la capa de calidad.
+- **Peso de `topic`** en el índice: se indexa a ×2 como dice el plan, pero se muestra
+  en la tarjeta aunque la búsqueda no la haya resaltado.
+
+### Verificación
+
+`node --check` sobre `app.js`, `catalog.js`, `catalog-search.js`, `challenges.js`,
+`core/text.js` y `auth.js`, más pruebas de humo del índice: «eletricidad» (errata) →
+`electric-field`; «choque» → `momentum` modo `choque`; «impulso» → modo `impulso`;
+«gravitacional» → `kepler-orbits`; sin resultados → sugerencias por cercanía. Sin
+tests automatizados en el árbol (mismo criterio que WAVE 3).
 
 ---
 
