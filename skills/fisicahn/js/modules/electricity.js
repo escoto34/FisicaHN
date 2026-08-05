@@ -18,6 +18,10 @@ let isRunning = false;
 let _engine = null;
 let _renderer = null;
 let _ui = null;
+/** Puntos de trabajo para worldToCanvas en el bucle de líneas de campo (§3.2).
+ *  p1 y p2 conviven, por eso son dos. */
+const _e1 = { x: 0, y: 0 };
+const _e2 = { x: 0, y: 0 };
 
 export function init(engine, renderer, ui, meta = null) {
   _engine = engine;
@@ -97,8 +101,8 @@ export function render(ctx, alpha, elapsed) {
     const normX = ex / eTotal;
     const normY = ey / eTotal;
 
-    const p1 = r.worldToCanvas(startX, startY);
-    const p2 = r.worldToCanvas(startX + normX * 0.8, startY + normY * 0.8);
+    const p1 = r.worldToCanvas(startX, startY, _e1);
+    const p2 = r.worldToCanvas(startX + normX * 0.8, startY + normY * 0.8, _e2);
 
     ctx.strokeStyle = 'rgba(79, 195, 247, 0.12)';
     ctx.lineWidth = 0.5;

@@ -99,7 +99,16 @@ export function update(dt) {
     }
     if (p.x > 7 || p.x < -7) p.gone = true;
   }
-  packets = packets.filter((p) => !p.gone);
+  // Compactación in situ: el `filter()` creaba un array nuevo por frame (§3.2).
+  let write = 0;
+  for (let i = 0; i < packets.length; i++) {
+    const p = packets[i];
+    if (!p.gone) {
+      if (write !== i) packets[write] = p;
+      write++;
+    }
+  }
+  packets.length = write;
   updateData();
 }
 

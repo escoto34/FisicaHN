@@ -4,6 +4,31 @@ export class Vector2D {
         this.y = y;
     }
 
+    set(x, y) {
+        this.x = x;
+        this.y = y;
+        return this;
+    }
+
+    addMut(v) {
+        this.x += v.x;
+        this.y += v.y;
+        return this;
+    }
+
+    scaleMut(s) {
+        this.x *= s;
+        this.y *= s;
+        return this;
+    }
+
+    /** Suma `v·s` sin allocar (hot path de update, §3.2). */
+    addScaled(v, s) {
+        this.x += v.x * s;
+        this.y += v.y * s;
+        return this;
+    }
+
     add(v) {
         return new Vector2D(this.x + v.x, this.y + v.y);
     }

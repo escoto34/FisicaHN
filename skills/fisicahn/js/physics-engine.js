@@ -9,6 +9,14 @@ const DEFAULT_DT = 1 / 60;
 const MAX_FRAME_TIME = 0.1; // 100 ms
 const MIN_SPEED = 0.1;
 const MAX_SPEED = 5;
+/**
+ * Subpasos máximos por frame. Antes eran 5 fijos y el sobrante del acumulador
+ * se descartaba: a 30 Hz con velocidad 5× la simulación se ralentizaba en
+ * silencio (§3.3). Como `frameTime` ya está acotado por MAX_FRAME_TIME y la
+ * velocidad por MAX_SPEED, el peor caso legítimo es ceil(0.1·5/dt) = 30: con
+ * esa cota el bucle avanza siempre el tiempo prometido sin espiral de muerte.
+ */
+const MAX_SUBSTEPS = Math.ceil((MAX_FRAME_TIME * MAX_SPEED) / DEFAULT_DT);
 
 /**
  * Contexto 2D estable en móviles/tablets.
@@ -53,7 +61,7 @@ export class PhysicsEngine {
     this._accumulator = 0;
     this._lastTime = 0;
     this._frameId = null;
-    this._maxSubsteps = 5;
+    this._maxSubsteps = MAX_SUBSTEPS;
 
     this._fps = 0;
     this._fpsFrames = 0;
@@ -92,15 +100,42 @@ export class PhysicsEngine {
 
     this._elapsed = 0;
     this._visible = typeof document === 'undefined' || document.visibilityState !== 'hidden';
+    /** El canvas está dentro del viewport (batería, §3.3). */
+    this._canvasIntersecting = true;
+    /** Ahorro de batería activo por defecto (se puede desactivar en ajustes). */
+    this._batterySave = true;
+    /** Límite de fotogramas por segundo (60 o 30) para gama baja (§3.3). */
+    this._fpsLimit = 60;
+    this._lastFrameAt = 0;
     this._onVis = () => {
-      this._visible = document.visibilityState !== 'hidden';
-      if (this._visible && this._running) {
+      const visible =
+        document.visibilityState !== 'hidden' &&
+        (this._batterySave ? this._canvasIntersecting : true);
+      if (visible && !this._visible && this._running) {
         this._lastTime = performance.now() / 1000;
         this._accumulator = 0;
       }
+      this._visible = visible;
     };
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', this._onVis);
+    }
+    // Pausar el trabajo del RAF cuando el canvas sale del viewport: el menú ya
+    // corta el bucle (showCatalog → stop), pero en pestaña lateral o al hacer
+    // scroll con la simulación abierta no debe seguir gastando CPU/GPU (§3.3).
+    if (typeof IntersectionObserver !== 'undefined' && canvas) {
+      try {
+        this._intersectionObs = new IntersectionObserver(
+          (entries) => {
+            this._canvasIntersecting = entries[0]?.isIntersecting ?? true;
+            this._onVis();
+          },
+          { rootMargin: '0px' }
+        );
+        this._intersectionObs.observe(canvas);
+      } catch {
+        this._intersectionObs = null;
+      }
     }
   }
 
@@ -137,6 +172,14 @@ export class PhysicsEngine {
         /* ignore */
       }
       this._resizeObs = null;
+    }
+    if (this._intersectionObs) {
+      try {
+        this._intersectionObs.disconnect();
+      } catch {
+        /* ignore */
+      }
+      this._intersectionObs = null;
     }
     if (typeof document !== 'undefined' && this._onVis) {
       document.removeEventListener('visibilitychange', this._onVis);
@@ -292,6 +335,37 @@ export class PhysicsEngine {
     return this._speed;
   }
 
+  /**
+   * Límite de fotogramas (60 o 30) para equipos de gama baja (§3.3). A 30 FPS
+   * el RAF sigue corriendo pero se descarta la mitad de los frames: la física
+   * recupera el tiempo perdido en el siguiente frame, así que la simulación no
+   * se ralentiza, sólo se pinta la mitad de veces.
+   * @param {number} fpsLimit
+   */
+  setFpsLimit(fpsLimit) {
+    this._fpsLimit = fpsLimit === 30 ? 30 : 60;
+  }
+
+  /** @returns {number} Límite vigente. */
+  getFpsLimit() {
+    return this._fpsLimit;
+  }
+
+  /**
+   * Activa/desactiva el ahorro de batería: pausar el trabajo del RAF cuando el
+   * canvas sale del viewport (§3.3).
+   * @param {boolean} on
+   */
+  setBatterySave(on) {
+    this._batterySave = on !== false;
+    this._onVis();
+  }
+
+  /** @returns {boolean} Ahorro de batería vigente. */
+  getBatterySave() {
+    return this._batterySave;
+  }
+
   /** @returns {boolean} Si la simulación está pausada */
   isPaused() {
     return this._paused;
@@ -346,6 +420,14 @@ export class PhysicsEngine {
       return;
     }
 
+    // Límite de fotogramas (30 FPS en gama baja, §3.3): descartar este frame.
+    // El siguiente trabajo toma el frameTime acumulado y la física se pone al
+    // día, de modo que la simulación no se ralentiza, sólo se pinta menos.
+    if (this._fpsLimit === 30 && now * 1000 - this._lastFrameAt < 1000 / 30) {
+      return;
+    }
+    this._lastFrameAt = now * 1000;
+
     // Cálculo de FPS
     this._fpsFrames++;
     this._fpsTime += this._lastTime ? now - this._lastTime : 0;
@@ -379,7 +461,9 @@ export class PhysicsEngine {
 
     this._accumulator += frameTime * this._speed;
 
-    // Limitar substeps: evita cascadas de física en pestañas en segundo plano
+    // Subpasos fijos de 1/60: con la cota derivada de MAX_FRAME_TIME×MAX_SPEED
+    // nunca se descarta tiempo legítimo en régimen (§3.3). El descarte final
+    // sigue como red de seguridad ante un pico imposible, no como retardo.
     let steps = 0;
     while (this._accumulator >= DEFAULT_DT && steps < this._maxSubsteps) {
       if (this.onUpdate) this.onUpdate(DEFAULT_DT);

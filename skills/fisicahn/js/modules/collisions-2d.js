@@ -97,8 +97,9 @@ function resolvePair(a, b) {
   // separate
   const overlap = minD - dist;
   const inv = 1 / a.m + 1 / b.m;
-  a.pos = a.pos.add(new Vector2D(-nx, -ny).scale((overlap * (1 / a.m)) / inv));
-  b.pos = b.pos.add(new Vector2D(nx, ny).scale((overlap * (1 / b.m)) / inv));
+  // Mutables: antes se creaban hasta 4 Vector2D por par (§3.2).
+  a.pos.set(a.pos.x - nx * ((overlap * (1 / a.m)) / inv), a.pos.y - ny * ((overlap * (1 / a.m)) / inv));
+  b.pos.set(b.pos.x + nx * ((overlap * (1 / b.m)) / inv), b.pos.y + ny * ((overlap * (1 / b.m)) / inv));
 
   const rvx = b.vel.x - a.vel.x;
   const rvy = b.vel.y - a.vel.y;
@@ -108,8 +109,8 @@ function resolvePair(a, b) {
   const j = (-(1 + e) * velN) / inv;
   const jx = j * nx;
   const jy = j * ny;
-  a.vel = new Vector2D(a.vel.x - jx / a.m, a.vel.y - jy / a.m);
-  b.vel = new Vector2D(b.vel.x + jx / b.m, b.vel.y + jy / b.m);
+  a.vel.set(a.vel.x - jx / a.m, a.vel.y - jy / a.m);
+  b.vel.set(b.vel.x + jx / b.m, b.vel.y + jy / b.m);
 }
 
 export function update(dt) {
@@ -118,7 +119,7 @@ export function update(dt) {
   const h = dt / sub;
   for (let s = 0; s < sub; s++) {
     for (const b of bodies) {
-      b.pos = b.pos.add(b.vel.scale(h));
+      b.pos.addScaled(b.vel, h);
       // soft walls box
       const lim = 6.5;
       if (b.pos.x < -lim + b.r) {

@@ -4,6 +4,7 @@
  */
 
 import { Vector2D } from '../utils/vector2d.js';
+import { TrailBuffer } from '../core/trail-buffer.js';
 import { roundTo } from '../utils/math-helpers.js';
 import {
   setModuleInfo,
@@ -13,12 +14,16 @@ import {
 
 let _engine, _renderer, _ui;
 let pos, vel;
-let trail = [];
+/** Estela en anillo: el `push`+`shift()` era O(n) por frame (§3.2). */
+const trail = new TrailBuffer(500);
 let t = 0;
 let periodSamples = [];
 let lastTheta = 0;
 let periodEst = null;
 let planet; // for flyby
+/** Puntos de trabajo para worldToCanvas en bucles (§3.2). */
+const _pe = { x: 0, y: 0 }; // guía de la elipse
+const _tp = { x: 0, y: 0 }; // estela
 
 const params = {
   mode: 'kepler', // kepler | flyby
@@ -42,7 +47,7 @@ function resetKepler() {
   pos = new Vector2D(rp, 0);
   const vp = Math.sqrt(mu() * (1 + e) / Math.max(rp, 0.1));
   vel = new Vector2D(0, vp);
-  trail = [];
+  trail.clear();
   t = 0;
   periodSamples = [];
   lastTheta = 0;
@@ -53,7 +58,7 @@ function resetFlyby() {
   pos = new Vector2D(-10, 2.5);
   vel = new Vector2D(3.2, 0);
   planet = { pos: new Vector2D(params.planetR, 0), vel: new Vector2D(0, params.planetV) };
-  trail = [];
+  trail.clear();
   t = 0;
 }
 
@@ -105,8 +110,9 @@ export function update(dt) {
   if (params.mode === 'kepler') {
     const r = Math.hypot(pos.x, pos.y) || 1e-6;
     const aMag = mu() / (r * r);
-    vel = vel.add(new Vector2D((-aMag * pos.x) / r, (-aMag * pos.y) / r).scale(dt));
-    pos = pos.add(vel.scale(dt));
+    // Mutables: antes se creaban 4 Vector2D por tick (§3.2).
+    vel.set(vel.x + ((-aMag * pos.x) / r) * dt, vel.y + ((-aMag * pos.y) / r) * dt);
+    pos.addScaled(vel, dt);
     // period estimate via angle wrapping
     const th = Math.atan2(pos.y, pos.x);
     let dth = th - lastTheta;
@@ -123,24 +129,22 @@ export function update(dt) {
       }
     }
     lastTheta = th;
-    if (trail.length > 500) trail.shift();
-    trail.push(pos.clone());
+    trail.push({ x: pos.x, y: pos.y });
   } else {
     // flyby: sun fixed optional weak + planet
-    planet.pos = planet.pos.add(planet.vel.scale(dt));
+    planet.pos.addScaled(planet.vel, dt);
     // gravity from planet
     const dx = pos.x - planet.pos.x;
     const dy = pos.y - planet.pos.y;
     const rp = Math.hypot(dx, dy) || 1e-6;
     const ap = params.planetGM / (rp * rp);
-    vel = vel.add(new Vector2D((-ap * dx) / rp, (-ap * dy) / rp).scale(dt));
+    vel.set(vel.x + ((-ap * dx) / rp) * dt, vel.y + ((-ap * dy) / rp) * dt);
     // weak central sun for context
     const rs = Math.hypot(pos.x, pos.y) || 1e-6;
     const asun = (params.GM * 0.15) / (rs * rs);
-    vel = vel.add(new Vector2D((-asun * pos.x) / rs, (-asun * pos.y) / rs).scale(dt));
-    pos = pos.add(vel.scale(dt));
-    trail.push(pos.clone());
-    if (trail.length > 400) trail.shift();
+    vel.set(vel.x + ((-asun * pos.x) / rs) * dt, vel.y + ((-asun * pos.y) / rs) * dt);
+    pos.addScaled(vel, dt);
+    trail.push({ x: pos.x, y: pos.y });
     if (pos.x > 14 || pos.x < -14 || Math.abs(pos.y) > 12) resetFlyby();
   }
   if (_renderer) _renderer.follow?.(pos.x * 0.2, pos.y * 0.2);
@@ -195,7 +199,7 @@ export function render(ctx) {
       // focus at origin: center shifted by -c
       const x = -c + a * Math.cos(ang);
       const y = b * Math.sin(ang);
-      const p = r.worldToCanvas(x, y);
+      const p = r.worldToCanvas(x, y, _pe);
       if (i === 0) ctx.moveTo(p.x, p.y);
       else ctx.lineTo(p.x, p.y);
     }
@@ -217,7 +221,7 @@ export function render(ctx) {
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     for (let i = 0; i < trail.length; i++) {
-      const p = r.worldToCanvas(trail[i].x, trail[i].y);
+      const p = r.worldToCanvas(trail.get(i).x, trail.get(i).y, _tp);
       if (i === 0) ctx.moveTo(p.x, p.y);
       else ctx.lineTo(p.x, p.y);
     }

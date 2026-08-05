@@ -4,6 +4,7 @@
  */
 
 import { roundTo } from '../utils/math-helpers.js';
+import { TrailBuffer } from '../core/trail-buffer.js';
 import {
   setModuleInfo,
   setModuleFormulas,
@@ -17,8 +18,11 @@ let t = 0;
 let x = -6;
 let v = 0;
 let Wnet = 0;
-let trail = [];
 const MAX_TRAIL = 80;
+/** Estela en anillo: el `push`+`shift()` era O(n) por frame (§3.2). */
+const trail = new TrailBuffer(MAX_TRAIL);
+/** Punto de trabajo para worldToCanvas (bucle de estela, §3.2). */
+const _c = { x: 0, y: 0 };
 
 const params = {
   m: 2,
@@ -76,7 +80,7 @@ function resetState() {
   x = -6;
   v = params.v0;
   Wnet = 0;
-  trail = [];
+  trail.clear();
 }
 
 export function destroy() {
@@ -101,13 +105,12 @@ export function update(dt) {
   Wnet += params.F * dx;
 
   trail.push({ x, y: 0 });
-  if (trail.length > MAX_TRAIL) trail.shift();
 
   if (x > 8) {
     x = -6;
     v = params.v0;
     Wnet = 0;
-    trail = [];
+    trail.clear();
   }
   updateData();
 }
@@ -151,7 +154,7 @@ export function render(ctx) {
     ctx.setLineDash([5, 5]);
     ctx.beginPath();
     trail.forEach((p, i) => {
-      const c = r.worldToCanvas(p.x, 0);
+      const c = r.worldToCanvas(p.x, 0, _c);
       if (i === 0) ctx.moveTo(c.x, c.y);
       else ctx.lineTo(c.x, c.y);
     });
@@ -251,7 +254,7 @@ export function setState(s) {
   if (s.v != null) v = s.v;
   if (s.Wnet != null) Wnet = s.Wnet;
   if (s.t != null) t = s.t;
-  trail = [];
+  trail.clear();
   renderParams();
   updateData();
 }

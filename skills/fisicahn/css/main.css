@@ -2517,6 +2517,21 @@ body.works-modal-open { overflow: hidden; }
   color: var(--accent);
 }
 
+/* Ajustes de rendimiento y energía (§3.3) */
+#perfSettingsDock .settings-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.settings-note {
+  margin: 8px 0 0;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
 /* tool-btn sizing defined above (icon-only 40×40) */
 
 .ctrl-btn.active {

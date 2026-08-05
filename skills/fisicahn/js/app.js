@@ -190,6 +190,8 @@ function ensureEngine() {
     });
     bindEngineCallbacks();
     applyStoredTheme();
+    // Preferencias de rendimiento persistidas (30 FPS / batería, §3.3)
+    applySettingsToEngine();
     return true;
   } catch (err) {
     console.error('FísicaHN: error al crear motor/renderer', err);
@@ -217,6 +219,60 @@ function applyStoredTheme() {
    UI API para módulos
    ============================================ */
 const chartPanel = document.getElementById('chartPanel');
+
+/**
+ * Envuelve `setData` con fusión + descarga final (~10 Hz) para los módulos
+ * legacy que siguen escribiendo HTML desde `update()` a 60–300 Hz (§3.1).
+ *
+ * El `innerHTML` + `typesetMath` (3× `querySelectorAll`) es lo caro de la
+ * cadena, no el armado del string: coalescer la escritura basta para bajar las
+ * reconstrucciones del panel a ≤10 por segundo sin tocar los módulos. La
+ * primera llamada escribe de inmediato (leading) y el resto se fusionan y se
+ * vuelcan al final de la ventana (trailing), de modo que el valor mostrado
+ * siempre es el más reciente.
+ *
+ * @param {function(string): void} fn
+ * @param {number} minMs
+ */
+function throttleSetData(fn, minMs = READOUT_MIN_MS) {
+  let pending = null;
+  let timer = null;
+  let lastFlush = 0;
+  const flush = () => {
+    timer = null;
+    lastFlush = performance.now();
+    if (pending == null) return;
+    const html = pending;
+    pending = null;
+    fn(html);
+  };
+  const call = (html) => {
+    pending = String(html);
+    if (timer) return;
+    const now = performance.now();
+    if (now - lastFlush >= minMs) {
+      flush();
+      return;
+    }
+    const wait = minMs - (now - lastFlush);
+    timer = setTimeout(() => {
+      const t = performance.now();
+      if (t - lastFlush >= minMs) flush();
+      else timer = setTimeout(flush, minMs - (t - lastFlush));
+    }, wait);
+  };
+  /** Descarta la escritura pendiente (cambio de módulo). */
+  call.clear = () => {
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    pending = null;
+  };
+  /** Vuelca la pendiente de inmediato (p. ej. antes de leer un valor). */
+  call.flush = flush;
+  return call;
+}
 
 const ui = {
   setParams(html) {
@@ -321,6 +377,15 @@ const ui = {
     }
   }
 };
+
+/**
+ * UI que reciben LOS MÓDULOS LEGACY. La diferencia con `ui` es `setData`
+ * throttleado (§3.1): escriben HTML desde `update()` a 60–300 Hz y el coste
+ * real está en el `innerHTML` + typeset de KaTeX, no en el string. Los módulos
+ * migrados (`SimModule`) usan `readout()` y el anfitrión escribe ~10 Hz, con
+ * `ui.setData` directo.
+ */
+const legacyUi = { ...ui, setData: throttleSetData(ui.setData) };
 
 /** Tras init del módulo: retos solo en modo examen con pack del docente. */
 async function setupChallengesForEngine(engineKey) {
@@ -688,6 +753,9 @@ async function openCatalogModule(catalogId, opts = {}) {
 
 async function destroyCurrentEngine() {
   const key = state.currentModule;
+  // Un módulo legacy pudo dejar una escritura de datos pendiente en el throttle
+  // de §3.1: descartarla para que no salpique el panel del módulo siguiente.
+  legacyUi.setData.clear?.();
   if (comparison) {
     comparison.destroy();
     comparison = null;
@@ -762,7 +830,8 @@ async function loadEngineModule(engineKey, catalogEntry = null) {
         mountDeclarativeParams(mod, instance);
       } else {
         // Módulo legacy: el adaptador reenvía a las functions sueltas originales.
-        instance.init(engine, renderer, ui, meta);
+        // La UI lleva `setData` throttleado (§3.1): escriben HTML a 60–300 Hz.
+        instance.init(engine, renderer, legacyUi, meta);
       }
     } catch (err) {
       console.error(`Error en init de ${resolvedKey}:`, err);
@@ -823,12 +892,13 @@ function mountDeclarativeParams(mod, instance) {
  * puede restar dos lecturas en lugar de comparar cadenas.
  */
 function pumpReadout(instance) {
-  // Regla: el anfitrión se hace cargo del panel Datos **sólo** en módulos del
-  // contrato completo (`draw` + `readout`). Un módulo a medio migrar como
-  // `kinematics` tiene `readout()` pero sigue escribiendo su propio HTML con
-  // `ui.setData()` desde `update()`; si el anfitrión escribiera también, los
-  // dos formatos parpadearían en el mismo panel.
-  if (!implementsMethod(instance, 'readout') || !implementsMethod(instance, 'draw')) return;
+  // Regla (§3.1): el anfitrión se hace cargo del panel Datos **cuando el módulo
+  // sobreescribe `readout()`**. Ese es el pacto: si el módulo devuelve números,
+  // él ya no escribe HTML y el host presenta; los módulos legacy que aún llaman
+  // `ui.setData` se quedan con su propio panel (throttleado). No hace falta
+  // exigir `draw(scene)`: `kinematics` es `SimModule` con `render(ctx)` y
+  // `readout()` numérico, y el host lo presenta igual.
+  if (!implementsMethod(instance, 'readout')) return;
   const now = performance.now();
   if (now - _lastReadoutAt < READOUT_MIN_MS) return;
   _lastReadoutAt = now;
@@ -1176,9 +1246,72 @@ document.getElementById('fullscreenBtn')?.addEventListener('click', () => {
 });
 
 document.getElementById('settingsBtn')?.addEventListener('click', () => {
-  ui.showTab('info');
-  ui.setInfo('Configuración global próximamente. Usa el catálogo para cambiar de módulo.');
+  toggleSettingsPanel();
 });
+
+/* ============================================
+   Ajustes de rendimiento (§3.3)
+   ============================================ */
+
+const SETTINGS_KEY = 'fisicahn_settings';
+
+function loadSettings() {
+  try {
+    return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function saveSettings(patch) {
+  const cur = loadSettings();
+  const next = { ...cur, ...patch };
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+  } catch {
+    /* ignore */
+  }
+}
+
+function applySettingsToEngine() {
+  const s = loadSettings();
+  engine?.setBatterySave?.(s.batterySave !== false);
+  engine?.setFpsLimit?.(s.fps30 === true ? 30 : 60);
+}
+
+function toggleSettingsPanel() {
+  let panel = document.getElementById('perfSettingsDock');
+  if (panel) {
+    panel.remove();
+    return;
+  }
+  const s = loadSettings();
+  panel = document.createElement('div');
+  panel.id = 'perfSettingsDock';
+  panel.className = 'stopwatch-dock';
+  panel.innerHTML = `
+    <strong>Rendimiento y energía</strong>
+    <label class="settings-check">
+      <input type="checkbox" id="setBattery" ${s.batterySave !== false ? 'checked' : ''}>
+      Ahorro de batería (pausar si el lienzo sale de pantalla)
+    </label>
+    <label class="settings-check">
+      <input type="checkbox" id="setFps30" ${s.fps30 === true ? 'checked' : ''}>
+      Modo 30 FPS (equipos de gama baja)
+    </label>
+    <p class="settings-note">Ambos se guardan en este equipo y se aplican en la próxima simulación abierta.</p>
+  `;
+  document.querySelector('.right-panel')?.prepend(panel);
+  const apply = () => applySettingsToEngine();
+  panel.querySelector('#setBattery')?.addEventListener('change', (e) => {
+    saveSettings({ batterySave: e.target.checked });
+    apply();
+  });
+  panel.querySelector('#setFps30')?.addEventListener('change', (e) => {
+    saveSettings({ fps30: e.target.checked });
+    apply();
+  });
+}
 
 catalogBackBtn?.addEventListener('click', () => {
   goToCatalog();

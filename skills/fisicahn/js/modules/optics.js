@@ -215,6 +215,23 @@ function drawArrow(ctx, from, to, color, width = 2.5) {
   ctx.fill();
 }
 
+/** Etiqueta tipo píldora. Fuera de `render` para no re-crear la clausura
+ *  cada frame (§3.2). */
+function drawChip(ctx, text, x, y, fill) {
+  const padX = 10;
+  const tw = ctx.measureText(text).width;
+  ctx.fillStyle = 'rgba(12, 15, 20, 0.55)';
+  ctx.beginPath();
+  if (ctx.roundRect) {
+    ctx.roundRect(x, y - 12, tw + padX * 2, 24, 8);
+    ctx.fill();
+  } else {
+    ctx.fillRect(x, y - 12, tw + padX * 2, 24);
+  }
+  ctx.fillStyle = fill;
+  ctx.fillText(text, x + padX, y);
+}
+
 function drawAngleArc(ctx, cx, cy, radius, fromA, toA, color, label) {
   ctx.save();
   ctx.strokeStyle = color;
@@ -275,22 +292,8 @@ export function render(ctx) {
   ctx.font = '600 13px system-ui, sans-serif';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  const chip = (text, x, y, fill) => {
-    const padX = 10;
-    const tw = ctx.measureText(text).width;
-    ctx.fillStyle = 'rgba(12, 15, 20, 0.55)';
-    ctx.beginPath();
-    if (ctx.roundRect) {
-      ctx.roundRect(x, y - 12, tw + padX * 2, 24, 8);
-      ctx.fill();
-    } else {
-      ctx.fillRect(x, y - 12, tw + padX * 2, 24);
-    }
-    ctx.fillStyle = fill;
-    ctx.fillText(text, x + padX, y);
-  };
-  chip(`Medio 1 · ${o.m1.label} · n₁ = ${roundTo(o.n1, 2)}`, 16, Math.max(28, interfaceY * 0.35), '#81d4fa');
-  chip(`Medio 2 · ${o.m2.label} · n₂ = ${roundTo(o.n2, 2)}`, 16, Math.min(h - 28, interfaceY + (h - interfaceY) * 0.55), '#a5d6a7');
+  drawChip(ctx, `Medio 1 · ${o.m1.label} · n₁ = ${roundTo(o.n1, 2)}`, 16, Math.max(28, interfaceY * 0.35), '#81d4fa');
+  drawChip(ctx, `Medio 2 · ${o.m2.label} · n₂ = ${roundTo(o.n2, 2)}`, 16, Math.min(h - 28, interfaceY + (h - interfaceY) * 0.55), '#a5d6a7');
 
   const pHit = r.worldToCanvas(o.hit.x, o.hit.y);
   const pInc = r.worldToCanvas(o.incidentStart.x, o.incidentStart.y);

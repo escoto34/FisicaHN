@@ -54,6 +54,11 @@ export class TrailBuffer {
     return this._buf[(this.head + this.size - 1) % this.capacity];
   }
 
+  /** Punto i-ésimo en orden cronológico (0 = el más antiguo). */
+  get(i) {
+    return this._buf[(this.head + i) % this.capacity];
+  }
+
   /** @returns {boolean} true si no hay puntos. */
   isEmpty() {
     return this.size === 0;

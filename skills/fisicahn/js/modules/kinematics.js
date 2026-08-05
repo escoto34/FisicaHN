@@ -17,6 +17,9 @@ import {
   clearChallenges
 } from '../module-ui.js';
 
+/** Punto de trabajo para worldToCanvas (no allocar en bucles, §3.2). */
+const _to = { x: 0, y: 0 };
+
 export default class Kinematics extends SimModule {
   constructor(ctx) {
     super(ctx);
@@ -145,9 +148,10 @@ export default class Kinematics extends SimModule {
 
   update(dt) {
     if (!this.isRunning) return;
-    this.vel = this.vel.add(this.accel.scale(dt));
-    this.pos = this.pos.add(this.vel.scale(dt));
-    this.trail.push(this.pos.clone());
+    // Mutables en el hot path (§3.2): `addScaled` evita 4 Vector2D por tick.
+    this.vel.addScaled(this.accel, dt);
+    this.pos.addScaled(this.vel, dt);
+    this.trail.push({ x: this.pos.x, y: this.pos.y });
     this.tSamples.push({
       t: this.engine?._elapsed ?? this.tSamples.length * dt,
       x: this.pos.x,
@@ -176,7 +180,6 @@ export default class Kinematics extends SimModule {
     } else if (this.renderer) {
       this.renderer.follow(this.pos.x, this.pos.y);
     }
-    this.publishData();
   }
 
   render(ctx, alpha, elapsed) {
@@ -189,7 +192,7 @@ export default class Kinematics extends SimModule {
       ctx.setLineDash([4, 4]);
       ctx.beginPath();
       this.trail.forEach((p, i) => {
-        const s = r.worldToCanvas(p.x, p.y);
+        const s = r.worldToCanvas(p.x, p.y, _to);
         if (i === 0) ctx.moveTo(s.x, s.y);
         else ctx.lineTo(s.x, s.y);
       });
@@ -216,33 +219,18 @@ export default class Kinematics extends SimModule {
     }
   }
 
-  /** Datos numericos separados de la presentacion (contrato readout). */
+  /** Datos numericos separados de la presentacion (contrato readout, §3.1). */
   readout() {
     return {
-      x: { value: this.pos.x, unit: 'm' },
-      y: { value: this.pos.y, unit: 'm' },
-      vx: { value: this.vel.x, unit: 'm/s' },
-      vy: { value: this.vel.y, unit: 'm/s' },
-      v: { value: this.vel.magnitude(), unit: 'm/s' },
-      ax: { value: this.accel.x, unit: 'm/s²' },
-      ay: { value: this.accel.y, unit: 'm/s²' }
+      x: { value: roundTo(this.pos.x, 2), unit: 'm' },
+      y: { value: roundTo(this.pos.y, 2), unit: 'm' },
+      vx: { value: roundTo(this.vel.x, 2), unit: 'm/s' },
+      vy: { value: roundTo(this.vel.y, 2), unit: 'm/s' },
+      v: { value: roundTo(this.vel.magnitude(), 2), unit: 'm/s' },
+      ax: { value: roundTo(this.accel.x, 2), unit: 'm/s²' },
+      ay: { value: roundTo(this.accel.y, 2), unit: 'm/s²' },
+      modo: { value: this.unbounded ? 'Espacio infinito ON' : 'Con paredes', unit: '' }
     };
-  }
-
-  publishData() {
-    if (!this.ui) return;
-    this.ui.setData(`
-      <div class="data-grid">
-        <div>x = <strong>${roundTo(this.pos.x, 2)}</strong> m</div>
-        <div>y = <strong>${roundTo(this.pos.y, 2)}</strong> m</div>
-        <div>v<sub>x</sub> = <strong>${roundTo(this.vel.x, 2)}</strong> m/s</div>
-        <div>v<sub>y</sub> = <strong>${roundTo(this.vel.y, 2)}</strong> m/s</div>
-        <div>|v| = <strong>${roundTo(this.vel.magnitude(), 2)}</strong> m/s</div>
-        <div>a<sub>x</sub> = <strong>${roundTo(this.accel.x, 2)}</strong> m/s²</div>
-        <div>a<sub>y</sub> = <strong>${roundTo(this.accel.y, 2)}</strong> m/s²</div>
-        <div>${this.unbounded ? 'Espacio infinito ON' : 'Con paredes'}</div>
-      </div>
-    `);
   }
 
   getCharts() {

@@ -3,6 +3,7 @@
  */
 
 import { Vector2D } from '../utils/vector2d.js';
+import { TrailBuffer } from '../core/trail-buffer.js';
 import { roundTo } from '../utils/math-helpers.js';
 import {
   setModuleInfo,
@@ -17,8 +18,11 @@ let vel = new Vector2D(0, 0);
 let accel = new Vector2D(0, 0);
 let force = new Vector2D(0, 0);
 
-let trail = [];
 const MAX_TRAIL = 120;
+/** Estela en anillo: el `push`+`shift()` era O(n) por frame (§3.2). */
+const trail = new TrailBuffer(MAX_TRAIL);
+/** Punto de trabajo para worldToCanvas (bucle de estela, §3.2). */
+const _to = { x: 0, y: 0 };
 let isRunning = false;
 let unbounded = false;
 let _engine = null;
@@ -40,7 +44,7 @@ export function init(engine, renderer, ui, meta = null) {
   vel = new Vector2D(0, 0);
   isRunning = true;
   unbounded = false;
-  trail = [];
+  trail.clear();
   renderer.resetCamera();
   applyForce();
 
@@ -79,7 +83,7 @@ export function destroy() {
 export function reset(engine, renderer, ui) {
   pos = new Vector2D(-6, 0);
   vel = new Vector2D(0, 0);
-  trail = [];
+  trail.clear();
   applyForce();
   if (renderer) {
     if (unbounded) renderer.follow(pos.x, pos.y);
@@ -114,7 +118,7 @@ export function setState(s) {
   if (s.pos) pos = new Vector2D(s.pos.x, s.pos.y);
   if (s.vel) vel = new Vector2D(s.vel.x, s.vel.y);
   if (typeof s.unbounded === 'boolean') setUnbounded(s.unbounded);
-  trail = [];
+  trail.clear();
   renderParams();
   updateData();
 }
@@ -135,18 +139,18 @@ export function setUnbounded(on) {
 
 function applyForce() {
   const m = params.mass;
-  force = new Vector2D(params.fx, params.fy);
-  accel = new Vector2D(force.x / m, force.y / m);
+  // Mutables: antes se creaban 2 Vector2D por llamada (§3.2).
+  force.set(params.fx, params.fy);
+  accel.set(force.x / m, force.y / m);
 }
 
 export function update(dt) {
   if (!isRunning) return;
   applyForce();
-  vel = vel.add(accel.scale(dt));
-  pos = pos.add(vel.scale(dt));
+  vel.addScaled(accel, dt);
+  pos.addScaled(vel, dt);
 
-  trail.push(pos.clone());
-  if (trail.length > MAX_TRAIL) trail.shift();
+  trail.push({ x: pos.x, y: pos.y });
 
   if (!unbounded) {
     if (pos.x > 9.5) {
@@ -183,7 +187,7 @@ export function render(ctx, alpha, elapsed) {
     ctx.setLineDash([4, 4]);
     ctx.beginPath();
     for (let i = 0; i < trail.length; i++) {
-      const p = r.worldToCanvas(trail[i].x, trail[i].y);
+      const p = r.worldToCanvas(trail.get(i).x, trail.get(i).y, _to);
       if (i === 0) ctx.moveTo(p.x, p.y);
       else ctx.lineTo(p.x, p.y);
     }

@@ -27,6 +27,21 @@ const params = {
   Vac: 10
 };
 
+/** Trazo de cable entre dos nodos. Fuera de `render` para no re-crear la
+ *  clausura cada frame (§3.2). */
+function drawWire(ctx, r, x0, y0, x1, y1, style) {
+  const p0 = r.worldToCanvas(x0, y0);
+  const p1 = r.worldToCanvas(x1, y1);
+  ctx.save();
+  ctx.strokeStyle = style?.color || 'rgba(255,255,255,0.55)';
+  ctx.lineWidth = style?.width || 2;
+  ctx.beginPath();
+  ctx.moveTo(p0.x, p0.y);
+  ctx.lineTo(p1.x, p1.y);
+  ctx.stroke();
+  ctx.restore();
+}
+
 export function init(engine, renderer, ui, meta = null) {
   _engine = engine;
   _renderer = renderer;
@@ -227,24 +242,11 @@ export function render(ctx) {
   const r = _renderer;
 
   // simple schematic
-  const drawWire = (x0, y0, x1, y1, style) => {
-    const p0 = r.worldToCanvas(x0, y0);
-    const p1 = r.worldToCanvas(x1, y1);
-    ctx.save();
-    ctx.strokeStyle = style?.color || 'rgba(255,255,255,0.55)';
-    ctx.lineWidth = style?.width || 2;
-    ctx.beginPath();
-    ctx.moveTo(p0.x, p0.y);
-    ctx.lineTo(p1.x, p1.y);
-    ctx.stroke();
-    ctx.restore();
-  };
-
   if (params.mode === 'rlc') {
-    drawWire(-4, 2, 4, 2);
-    drawWire(4, 2, 4, -2);
-    drawWire(4, -2, -4, -2);
-    drawWire(-4, -2, -4, 2);
+    drawWire(ctx, r, -4, 2, 4, 2);
+    drawWire(ctx, r, 4, 2, 4, -2);
+    drawWire(ctx, r, 4, -2, -4, -2);
+    drawWire(ctx, r, -4, -2, -4, 2);
     r.drawObject(-2, 2, { shape: 'rect', size: 0.5, color: '#ef5350', label: 'R' });
     r.drawObject(0, 2, { shape: 'rect', size: 0.5, color: '#4fc3f7', label: 'L' });
     r.drawObject(2, 2, { shape: 'rect', size: 0.5, color: '#ffb74d', label: 'C' });
@@ -280,10 +282,10 @@ export function render(ctx) {
     const I = res.I;
 
     // Esquema base
-    drawWire(-3, 2, 3, 2);
-    drawWire(3, 2, 3, -2);
-    drawWire(3, -2, -3, -2);
-    drawWire(-3, -2, -3, 2);
+    drawWire(ctx, r, -3, 2, 3, 2);
+    drawWire(ctx, r, 3, 2, 3, -2);
+    drawWire(ctx, r, 3, -2, -3, -2);
+    drawWire(ctx, r, -3, -2, -3, 2);
     r.drawObject(-3, 0, {
       shape: 'rect',
       size: 0.55,
@@ -307,8 +309,8 @@ export function render(ctx) {
       r.drawLabel(0, -0.55, `(misma en serie)`, { color: 'rgba(255,238,88,0.75)', fontSize: 11 });
     } else {
       // Paralelo: ramas R1 (izq) y R2 (der)
-      drawWire(-0.8, 2, -0.8, -2);
-      drawWire(0.8, 2, 0.8, -2);
+      drawWire(ctx, r, -0.8, 2, -0.8, -2);
+      drawWire(ctx, r, 0.8, 2, 0.8, -2);
       r.drawObject(-0.8, 0, { shape: 'rect', size: 0.45, color: '#ef5350', label: 'R1' });
       r.drawObject(0.8, 0, { shape: 'rect', size: 0.45, color: '#ffb74d', label: 'R2' });
 

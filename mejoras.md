@@ -16,7 +16,7 @@
 - [WAVE 0 — Higiene del repositorio](#wave-0--higiene-del-repositorio) ✅
 - [WAVE 1 — Contrato de módulo y núcleo compartido](#wave-1--contrato-de-módulo-y-núcleo-compartido) ✅
 - [WAVE 2 — Rediseño del canvas ★](#wave-2--rediseño-del-canvas-) ✅ — [balance](#210-lo-que-quedó-hecho)
-- [WAVE 3 — Rendimiento y uso de recursos](#wave-3--rendimiento-y-uso-de-recursos)
+- [WAVE 3 — Rendimiento y uso de recursos](#wave-3--rendimiento-y-uso-de-recursos) ✅ — [balance](#310-lo-que-quedó-hecho)
 - [WAVE 4 — Catálogo por categorías y navegación](#wave-4--catálogo-por-categorías-y-navegación)
 - [WAVE 5 — Nuevos módulos de física](#wave-5--nuevos-módulos-de-física)
 - [WAVE 6 — Base de datos y backend](#wave-6--base-de-datos-y-backend)
@@ -82,7 +82,7 @@ migraciones completo; WAVE 5 llega a **46 módulos**.
 | 0 — Higiene del repositorio | ✅ Hecha | `01a456e` |
 | 1 — Contrato de módulo | ✅ Hecha | `4f34fb3` |
 | 2 — Rediseño del canvas ★ | ✅ Hecha | `ae7d80a` |
-| 3 — Rendimiento | Pendiente | — |
+| 3 — Rendimiento | ✅ Hecha | — |
 | 4 — Catálogo y buscador | Pendiente | — |
 | 5 — Nuevos módulos | Pendiente | — |
 | 6 — Base de datos | Pendiente | — |
@@ -91,13 +91,15 @@ migraciones completo; WAVE 5 llega a **46 módulos**.
 | 9 — Funciones docentes | Pendiente | — |
 
 Tres de los cinco problemas dominantes están cerrados: el **#1** (archivos generados
-versionados) en la WAVE 0, el **#4** (sin contrato de módulo) en la WAVE 1 y el **#3**
+ versionados) en la WAVE 0, el **#4** (sin contrato de módulo) en la WAVE 1 y el **#3**
 (90 % del dibujo con `ctx` crudo) en la WAVE 2 — con la salvedad de que la WAVE 2
 construye la escena declarativa y migra dos módulos, pero **los 26 restantes siguen
 dibujando con `ctx` crudo** a través del adaptador. Ver [§2.10](#210-lo-que-quedó-hecho).
 
-Siguen abiertos el **#2** (`ui.setData()` a 60–300 Hz, WAVE 3 — aunque el mecanismo de
-sustitución, `readout()` a 10 Hz, ya existe) y el **#5** (`schema.sql`, WAVE 6).
+El **#2** (`ui.setData()` a 60–300 Hz) quedó cerrado en la WAVE 3 mediante throttle del
+host a 10 Hz (§3.1) — con el matiz de que 21 módulos siguen generando su propio HTML y la
+migración total a `readout()` es trabajo por módulo. Sigue abierto el **#5** (`schema.sql`,
+WAVE 6). Ver [§3.10](#310-lo-que-quedó-hecho).
 
 ---
 
@@ -964,6 +966,91 @@ de fuentes usado realmente, `font-display: swap`, y confirmar que la carga perez
 
 ---
 
+## 3.10 Lo que quedó hecho
+
+> ✅ **Hecha**. Balance de lo entregado, las desviaciones sobre el plan y lo que sigue
+> abierto. Verificación: `node --check` sobre los 17 archivos tocados, sin tests
+> automatizados en el árbol (ver abajo).
+
+### Entregado
+
+**§3.1 — Panel de datos a ~10 Hz (híbrido).** El plan preveía migrar los 22 módulos que
+llaman `updateData()`/`setData` desde `update()`. Se decidió un híbrido por riesgo:
+- **Host:** `ui.setData` queda envuelta en `throttleSetData()` (leading + trailing con
+  corte a `READOUT_MIN_MS = 100` ms). El 100 % de los módulos legacy sigue escribiendo
+  su HTML, pero como máximo a 10 Hz y siempre con el valor más reciente. El panel se
+  descarta (`clear()`) al destruir el motor para no pintar stale HTML al cambiar de módulo.
+- **`kinematics` como referencia:** es `SimModule` con `readout()` numérico (igual que
+  `momentum`), y el host lo presenta con `pumpReadout()`. `pumpReadout` ya **no exige**
+  `draw(scene)`: `kinematics` tiene `render(ctx)` y se presenta igual. Los 21 módulos
+  restantes no se migran en esta WAVE (trabajo por módulo, se amortiza cuando llegue la
+  migración declarativa del plan WAVE 2).
+
+**§3.2 — Allocaciones del bucle caliente.** Toda la tabla está atendida:
+- **`worldToCanvas` con `out`**: `renderer` soporta el parámetro `out`; los bucles de
+  estela/guía/rejilla de `kinematics`, `gravity`, `dynamics`, `force-kinetic`,
+  `magnetic`, `kepler`, `particles` y `electricity` reusan puntos de trabajo
+  (`_to`, `_bw`, `_tp`, `_pe`, `_tc`, `_e1/_e2`). El caso `particles.js:158` pasa de
+  ~960 objetos/frame a 1 objeto reaprovechado.
+- **`Vector2D` mutable**: `set`, `addScaled`, `scaleMut`, `addMut` en `vector2d.js`;
+  aplicados en `kinematics`, `gravity`, `dynamics`, `force-kinetic`, `magnetic`,
+  `kepler`, `particles` y `collisions-2d` (el hot path de empuje/restitución pasa de 4
+  `Vector2D` por par a cero).
+- **`filter()` → compactación in situ** en `photoelectric` (fotones y electrones),
+  `tunneling` (paquetes) y `particles`.
+- **Closures fuera de `render`**: `optics` (`chip`→`drawChip`) y `circuits`
+  (`drawWire`, ya parametrizada con `ctx`/`r`). `magnetic` y `lenses` ya tenían `chip`
+  como función de módulo.
+- **`computeOptics()`** se reusa vía `lastOptics` (ya cacheado en `init`/cambios de
+  parámetros); `render` sólo cae a recomputar si no hay caché.
+- **`getComputedStyle` en `drawLabel`/`drawTooltip`** ya estaba cacheado desde la WAVE 2.
+
+**§3.3 — Bucle y energía.**
+- `_maxSubsteps` pasa de 5 fijo a `MAX_SUBSTEPS = ceil((MAX_FRAME_TIME·MAX_SPEED)/DEFAULT_DT)`
+  **= 30**, derivado de los límites reales. Con la cota derivada nunca se descarta tiempo
+  legítimo en régimen; el descarte final queda como red ante un pico imposible.
+- **Ahorro de batería**: `IntersectionObserver` sobre el canvas + `visibilitychange`; el
+  RAF se pausa si la pestaña está oculta o el lienzo sale de pantalla (opción de ajuste).
+- **Modo 30 fps** para gama baja: el frame se descarta y la física recupera el tiempo con
+  el frame siguiente (la simulación no se ralentiza, sólo se pinta menos).
+- **Ajustes persistentes** (`localStorage`, clave `fisicahn_settings`) desde el botón de
+  configuración: *Ahorro de batería* (por defecto ON) y *30 FPS* (OFF). Se aplican en
+  `loadEngineModule`.
+- **`alpha` se mantiene nominal** por decisión: no se retira del contrato ni se
+  implementa la interpolación ahora; los módulos usan el último estado (comportamiento
+  «más nuevo siempre gana») que ya es aceptable visualmente.
+
+**§3.4 — Peso de descarga.** `font-display:swap` inyectado en los 20 `@font-face` de
+`assets/katex/katex.min.css`; la carga perezosa de KaTeX (`module-ui.js:18`) ya no se
+dispara si no hay `\\(...\\)` visible, y no hay referencia a KaTeX en `index.html`. No se
+subsetearon fuentes (decisión: rendimiento de primer pintado sin romper la fórmula
+cuando despliega).
+
+### Consecuencias visibles hoy
+
+El panel Datos de la mayoría de los módulos se actualiza a **10 Hz** en vez de 60–300 Hz,
+y el de `kinematics`/`momentum` lo monta el host a partir de números. En modo 30 fps + PIN
+o pestaña de fondo, el proceso cae a ~0 % CPU cuando el lienzo no es visible. Los
+parámetros no cambian de comportamiento.
+
+### Desviaciones sobre el plan
+
+- Los **21 módulos legacy** siguen generando su HTML y lo mandan por `setData` (ahora
+  throttleado). La WAVE 3 no los migra a `readout()`.
+- `particles` conserva un `shift()` de la **lista** de partículas al spawnear (a ~1.6 s, no
+  por frame); los **puntos** de estela ya son `TrailBuffer`.
+- No se tocó el `string` CSS de fuentes ni se añadió subconjunto.
+
+### Sin cobertura automatizada
+
+La verificación fue `node --check` sobre `app.js`, `physics-engine.js`, `vector2d.js`,
+`trail-buffer.js` y los 13 módulos editados, más revisión de los bucles alojados. Como en
+la WAVE 2, falta la suite de Vitest de §7.2 y el **presupuesto de rendimiento** (§7.6):
+medir allocaciones y FPS antes/después de esta WAVE (y fijarlo en CI) es lo que evita que
+las regresiones de §3.2 vuelvan en silencio.
+
+---
+
 # WAVE 4 — Catálogo por categorías y navegación
 
 **Depende de:** WAVE 1. **Habilita:** WAVE 5.
@@ -1603,12 +1690,14 @@ que viven dentro de un modo siguen teniendo su propia ruta de entrada.
 
 Este documento es **diagnóstico y plan**, no un compromiso de ejecutar las nueve WAVEs
 seguidas. Las WAVEs 0, 1, 2 y 3 forman un bloque coherente que puede acometerse solo y
-deja el proyecto en mejor estado aunque no se continúe. **Las tres primeras ya están
-hechas**; la WAVE 3 cierra el bloque y es la continuación natural, porque el mecanismo
-que necesita —`readout()` a 10 Hz en vez de `ui.setData()` a 60–300 Hz— ya existe desde
-la WAVE 2 y sólo le falta llegar a los módulos. La WAVE 6 (base de datos) es
+deja el proyecto en mejor estado aunque no se continúe. **Las cuatro primeras están
+hechas**; la WAVE 3 cerró el bloque con el throttle del panel de datos a 10 Hz, el bucle
+de simulación honesto y el ahorro de energía. La WAVE 6 (base de datos) es
 independiente y puede hacerse en cualquier momento. La WAVE 5 (temas nuevos) es la que
 más valor visible aporta al usuario final, y por eso mismo la que más conviene no
 empezar antes de tiempo.
 
 Ninguna WAVE se ha implementado: el estado del repositorio no ha cambiado.
+
+> _Nota de ejecución: este párrafo quedó obsoleto. Las WAVEs 0–3 se implementaron en sus
+> commits correspondientes y el estado de cada una está en la tabla de la introducción._

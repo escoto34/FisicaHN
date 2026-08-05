@@ -8,6 +8,7 @@
  */
 
 import { Vector2D } from '../utils/vector2d.js';
+import { TrailBuffer } from '../core/trail-buffer.js';
 import {
   setModuleInfo,
   setModuleFormulas,
@@ -17,9 +18,13 @@ import { roundTo } from '../utils/math-helpers.js';
 
 let _engine, _renderer, _ui;
 let pos, vel;
-let trail = [];
+/** Estela en anillo: el `push`+`shift()` era O(n) por frame (§3.2). */
+const trail = new TrailBuffer(400);
 /** Cámara fija en el centro de órbita (recomendado en clase). */
 let unbounded = false;
+/** Puntos de trabajo para worldToCanvas en bucles (§3.2). */
+const _bw = { x: 0, y: 0 }; // rejilla B
+const _tp = { x: 0, y: 0 }; // estela
 
 const params = {
   q: 1,
@@ -114,7 +119,7 @@ function resetState() {
   const sense = params.q * params.B >= 0 ? -1 : 1;
   pos = new Vector2D(R, 0);
   vel = new Vector2D(0, sense * speed);
-  trail = [];
+  trail.clear();
   if (_renderer) {
     _renderer.resetCamera?.();
     // Encuadrar el círculo (radio + margen)
@@ -175,15 +180,15 @@ export function update(dt) {
   const k = (params.q * params.B) / params.m;
   const ax = k * vel.y;
   const ay = -k * vel.x;
-  vel = vel.add(new Vector2D(ax, ay).scale(dt));
+  // Mutables: antes se creaban 4 Vector2D por tick (§3.2).
+  vel.set(vel.x + ax * dt, vel.y + ay * dt);
   // Renorm suave: |v| debe ser constante (F magnética no hace trabajo)
   const speed = vel.magnitude();
   if (speed > 1e-6) {
-    vel = vel.scale(params.v0 / speed);
+    vel.scaleMut(params.v0 / speed);
   }
-  pos = pos.add(vel.scale(dt));
-  trail.push(pos.clone());
-  if (trail.length > 400) trail.shift();
+  pos.addScaled(vel, dt);
+  trail.push({ x: pos.x, y: pos.y });
 
   if (unbounded && _renderer) _renderer.follow(pos.x, pos.y);
 
@@ -201,7 +206,7 @@ function drawBField(ctx, r, w, h) {
   ctx.save();
   for (let x = x0; x <= camX + 12; x += step) {
     for (let y = y0; y <= camY + 9; y += step) {
-      const p = r.worldToCanvas(x, y);
+      const p = r.worldToCanvas(x, y, _bw);
       if (p.x < -20 || p.y < -20 || p.x > w + 20 || p.y > h + 20) continue;
       // círculo con punto = B hacia nosotros
       ctx.strokeStyle = 'rgba(129, 212, 250, 0.35)';
@@ -326,7 +331,7 @@ export function render(ctx) {
     ctx.lineJoin = 'round';
     ctx.beginPath();
     for (let i = 0; i < trail.length; i++) {
-      const p = r.worldToCanvas(trail[i].x, trail[i].y);
+      const p = r.worldToCanvas(trail.get(i).x, trail.get(i).y, _tp);
       if (i === 0) ctx.moveTo(p.x, p.y);
       else ctx.lineTo(p.x, p.y);
     }
@@ -452,7 +457,7 @@ export function setState(s) {
   if (typeof s.unbounded === 'boolean') setUnbounded(s.unbounded);
   // Si no hay estado de posición válido, re-centrar órbita
   if (!s.pos || !s.vel) resetState();
-  trail = [];
+  trail.clear();
   renderParams();
   updateData();
 }

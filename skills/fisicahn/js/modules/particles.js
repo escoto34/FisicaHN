@@ -4,6 +4,7 @@
  */
 
 import { Vector2D } from '../utils/vector2d.js';
+import { TrailBuffer } from '../core/trail-buffer.js';
 import { roundTo } from '../utils/math-helpers.js';
 import {
   setModuleInfo,
@@ -25,9 +26,11 @@ const params = {
   autoFire: true
 };
 
-/** @type {Array<{pos: Vector2D, vel: Vector2D, q: number, m: number, color: string, trail: Vector2D[], life: number}>} */
+/** @type {Array<{pos: Vector2D, vel: Vector2D, q: number, m: number, color: string, trail: TrailBuffer, life: number}>} */
 let particles = [];
 let fireCooldown = 0;
+/** Punto de trabajo para worldToCanvas en bucles (§3.2). */
+const _tc = { x: 0, y: 0 };
 
 const SPECIES = [
   { name: 'e⁻', q: -1, m: 0.3, color: '#4fc3f7' },
@@ -47,7 +50,7 @@ function spawn(kindIndex) {
     q,
     m,
     color: sp.color,
-    trail: [],
+    trail: new TrailBuffer(80),
     life: 12
   });
   while (particles.length > 12) particles.shift();
@@ -115,15 +118,22 @@ export function update(dt) {
     const k = (p.q * B) / p.m;
     const ax = k * p.vel.y;
     const ay = -k * p.vel.x;
-    p.vel = new Vector2D(p.vel.x + ax * dt, p.vel.y + ay * dt);
-    p.pos = new Vector2D(p.pos.x + p.vel.x * dt, p.pos.y + p.vel.y * dt);
-    p.trail.push(p.pos.clone());
-    if (p.trail.length > 80) p.trail.shift();
+    // Mutables: antes se creaban 3 Vector2D por partícula y por tick (§3.2).
+    p.vel.set(p.vel.x + ax * dt, p.vel.y + ay * dt);
+    p.pos.addScaled(p.vel, dt);
+    p.trail.push({ x: p.pos.x, y: p.pos.y });
     p.life -= dt;
   }
-  particles = particles.filter(
-    (p) => p.life > 0 && Math.abs(p.pos.x) < 14 && Math.abs(p.pos.y) < 12
-  );
+  // Compactación in situ: el `filter()` creaba un array nuevo por frame (§3.2).
+  let write = 0;
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i];
+    if (p.life > 0 && Math.abs(p.pos.x) < 14 && Math.abs(p.pos.y) < 12) {
+      if (write !== i) particles[write] = p;
+      write++;
+    }
+  }
+  particles.length = write;
 
   updateData();
 }
@@ -155,7 +165,7 @@ export function render(ctx) {
       ctx.lineWidth = 2;
       ctx.beginPath();
       for (let i = 0; i < p.trail.length; i++) {
-        const c = r.worldToCanvas(p.trail[i].x, p.trail[i].y);
+        const c = r.worldToCanvas(p.trail.get(i).x, p.trail.get(i).y, _tc);
         if (i === 0) ctx.moveTo(c.x, c.y);
         else ctx.lineTo(c.x, c.y);
       }

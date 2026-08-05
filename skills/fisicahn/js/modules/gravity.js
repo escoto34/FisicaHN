@@ -3,6 +3,7 @@
  */
 
 import { Vector2D } from '../utils/vector2d.js';
+import { TrailBuffer } from '../core/trail-buffer.js';
 import {
   setModuleInfo,
   setModuleFormulas,
@@ -14,8 +15,11 @@ import { roundTo } from '../utils/math-helpers.js';
 
 let _engine, _renderer, _ui;
 let pos, vel;
-let trail = [];
+const trail = new TrailBuffer(400);
 let unbounded = true;
+
+/** Punto de trabajo para worldToCanvas (bucle de estela, §3.2). */
+const _to = { x: 0, y: 0 };
 
 const params = {
   GM: 40, // G*M central
@@ -42,7 +46,7 @@ export function init(engine, renderer, ui) {
 function resetState() {
   pos = new Vector2D(params.r0, 0);
   vel = new Vector2D(0, params.v0);
-  trail = [];
+  trail.clear();
 }
 
 export function destroy() {
@@ -75,8 +79,9 @@ export function update(dt) {
   const aMag = params.GM / (r * r);
   const ax = (-aMag * pos.x) / r;
   const ay = (-aMag * pos.y) / r;
-  vel = vel.add(new Vector2D(ax, ay).scale(dt));
-  pos = pos.add(vel.scale(dt));
+  // Mutables: `set` evita 4 Vector2D por tick (§3.2).
+  vel.set(vel.x + ax * dt, vel.y + ay * dt);
+  pos.set(pos.x + vel.x * dt, pos.y + vel.y * dt);
 
   // soft bound if not unbounded
   if (!unbounded) {
@@ -87,8 +92,7 @@ export function update(dt) {
     _renderer.follow(pos.x * 0.35, pos.y * 0.35); // partial follow keeps star in view
   }
 
-  trail.push(pos.clone());
-  if (trail.length > 400) trail.shift();
+  trail.push({ x: pos.x, y: pos.y });
 
   const speed = vel.magnitude();
   const E = 0.5 * speed * speed - params.GM / r;
@@ -113,7 +117,7 @@ export function render(ctx) {
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     for (let i = 0; i < trail.length; i++) {
-      const p = r.worldToCanvas(trail[i].x, trail[i].y);
+      const p = r.worldToCanvas(trail.get(i).x, trail.get(i).y, _to);
       if (i === 0) ctx.moveTo(p.x, p.y);
       else ctx.lineTo(p.x, p.y);
     }
@@ -173,6 +177,6 @@ export function setState(s) {
   if (s.pos) pos = new Vector2D(s.pos.x, s.pos.y);
   if (s.vel) vel = new Vector2D(s.vel.x, s.vel.y);
   if (typeof s.unbounded === 'boolean') unbounded = s.unbounded;
-  trail = [];
+  trail.clear();
   renderParams();
 }

@@ -171,7 +171,16 @@ export function update(dt) {
       }
     }
   }
-  photons = photons.filter((p) => p.life > 0 && p.x < 8);
+  // Compactación in situ: el `filter()` creaba un array nuevo por frame (§3.2).
+  let pw = 0;
+  for (let i = 0; i < photons.length; i++) {
+    const p = photons[i];
+    if (p.life > 0 && p.x < 8) {
+      if (pw !== i) photons[pw] = p;
+      pw++;
+    }
+  }
+  photons.length = pw;
 
   for (const e of electrons) {
     e.x += e.vx * dt;
@@ -183,9 +192,16 @@ export function update(dt) {
       e.vx = Math.abs(e.vx);
     }
   }
-  electrons = electrons.filter(
-    (e) => e.life > 0 && e.x < 8 && e.y < 5 && e.y > -5
-  );
+  // Compactación in situ (§3.2).
+  let ew = 0;
+  for (let i = 0; i < electrons.length; i++) {
+    const e = electrons[i];
+    if (e.life > 0 && e.x < 8 && e.y < 5 && e.y > -5) {
+      if (ew !== i) electrons[ew] = e;
+      ew++;
+    }
+  }
+  electrons.length = ew;
   updateData();
 }
 
