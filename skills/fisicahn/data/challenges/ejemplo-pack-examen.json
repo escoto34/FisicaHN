@@ -1,390 +1,558 @@
 {
-  "schema": 1,
-  "type": "fisicahn-challenge-pack",
-  "title": "Ejemplo de retos para importar en el examen",
-  "modules": {
-    "dynamics": [
-      {
-        "id": "ex-din-1",
-        "type": "numeric",
-        "question": "Una fuerza de 20 N actúa sobre 4 kg. ¿Cuál es la aceleración?",
-        "answer": 5,
-        "unit": "m/s²",
-        "hint": "a = F / m",
-        "points": 10
-      },
-      {
-        "id": "ex-din-2",
-        "type": "multiple",
-        "question": "La segunda ley de Newton se escribe como…",
-        "options": [
-          "F = m / a",
-          "F = m · a",
-          "F = a / m",
-          "F = m + a"
-        ],
-        "answer": 1,
-        "hint": "Fuerza neta = masa × aceleración",
-        "points": 10
-      }
+ "schema": 1,
+ "type": "fisicahn-challenge-pack",
+ "title": "Ejemplo de retos para importar en el examen",
+ "modules": {
+  "dynamics": [
+   {
+    "id": "ex-din-1",
+    "type": "numeric",
+    "question": "Una fuerza de 20 N actúa sobre 4 kg. ¿Cuál es la aceleración?",
+    "answer": 5,
+    "unit": "m/s²",
+    "hint": "a = F / m",
+    "points": 10
+   },
+   {
+    "id": "ex-din-2",
+    "type": "multiple",
+    "question": "La segunda ley de Newton se escribe como…",
+    "options": [
+     "F = m / a",
+     "F = m · a",
+     "F = a / m",
+     "F = m + a"
     ],
-    "kinematics": [
-      {
-        "id": "ex-cin-1",
-        "type": "numeric",
-        "question": "Un móvil va a 10 m/s durante 3 s. ¿Qué distancia recorre (MRU)?",
-        "answer": 30,
-        "unit": "m",
-        "hint": "x = v · t",
-        "points": 10
-      }
+    "answer": 1,
+    "hint": "Fuerza neta = masa × aceleración",
+    "points": 10
+   }
+  ],
+  "kinematics": [
+   {
+    "id": "ex-cin-1",
+    "type": "numeric",
+    "question": "Un móvil va a 10 m/s durante 3 s. ¿Qué distancia recorre (MRU)?",
+    "answer": 30,
+    "unit": "m",
+    "hint": "x = v · t",
+    "points": 10
+   }
+  ],
+  "electricity": [
+   {
+    "id": "ex-ele-1",
+    "type": "numeric",
+    "question": "Con V = 12 V y R = 4 Ω, ¿cuánta corriente circula?",
+    "answer": 3,
+    "unit": "A",
+    "hint": "I = V / R",
+    "points": 10
+   }
+  ],
+  "optics": [
+   {
+    "id": "ex-opt-1",
+    "type": "select",
+    "question": "La reflexión total interna puede ocurrir cuando la luz pasa…",
+    "options": [
+     "De aire a agua",
+     "De un medio más denso a uno menos denso",
+     "Solo en el vacío",
+     "Siempre al 45°"
     ],
-    "electricity": [
-      {
-        "id": "ex-ele-1",
-        "type": "numeric",
-        "question": "Con V = 12 V y R = 4 Ω, ¿cuánta corriente circula?",
-        "answer": 3,
-        "unit": "A",
-        "hint": "I = V / R",
-        "points": 10
-      }
+    "answer": 1,
+    "hint": "De mayor a menor índice de refracción",
+    "points": 10
+   }
+  ],
+  "units-error": [
+   {
+    "id": "ue-1",
+    "type": "numeric",
+    "question": "Convierte 3.5 km a metros.",
+    "answer": 3500,
+    "unit": "m",
+    "hint": "1 km = 1000 m",
+    "points": 10
+   },
+   {
+    "id": "ue-2",
+    "type": "numeric",
+    "question": "Un objeto tarda 2 h en recorrer una ruta. ¿Cuántos segundos son?",
+    "answer": 7200,
+    "unit": "s",
+    "hint": "1 h = 3600 s",
+    "points": 10
+   },
+   {
+    "id": "ue-3",
+    "type": "numeric",
+    "question": "Convierte 72 km/h a m/s.",
+    "answer": 20,
+    "unit": "m/s",
+    "hint": "Divide entre 3.6 (1000 m / 3600 s)",
+    "points": 15
+   },
+   {
+    "id": "ue-4",
+    "type": "multiple",
+    "question": "Una medida de 12.0 g tiene…",
+    "options": [
+     "2 cifras significativas",
+     "3 cifras significativas",
+     "1 cifra significativa",
+     "4 cifras significativas"
     ],
-    "optics": [
-      {
-        "id": "ex-opt-1",
-        "type": "select",
-        "question": "La reflexión total interna puede ocurrir cuando la luz pasa…",
-        "options": [
-          "De aire a agua",
-          "De un medio más denso a uno menos denso",
-          "Solo en el vacío",
-          "Siempre al 45°"
-        ],
-        "answer": 1,
-        "hint": "De mayor a menor índice de refracción",
-        "points": 10
-      }
+    "answer": 1,
+    "hint": "Los ceros entre el 2 y el 0 cuentan; el 0 final tras el punto también",
+    "points": 10
+   },
+   {
+    "id": "ue-5",
+    "type": "numeric",
+    "question": "Un error relativo del 5 % sobre una medida de 200 m, ¿qué error absoluto da?",
+    "answer": 10,
+    "unit": "m",
+    "hint": "Δ = ε · x = 0.05 · 200",
+    "points": 15
+   },
+   {
+    "id": "ue-6",
+    "type": "numeric",
+    "question": "Convierte 0.25 kg a gramos.",
+    "answer": 250,
+    "unit": "g",
+    "hint": "1 kg = 1000 g",
+    "points": 10
+   }
+  ],
+  "vectors": [
+   {
+    "id": "vec-1",
+    "type": "numeric",
+    "question": "|v| de un vector con componentes (3, 4): ¿cuál es su magnitud?",
+    "answer": 5,
+    "unit": "u",
+    "hint": "√(3² + 4²) = √25",
+    "points": 10
+   },
+   {
+    "id": "vec-2",
+    "type": "multiple",
+    "question": "La suma de A = (4, 0) y B = (0, 3) tiene magnitud…",
+    "options": [
+     "7",
+     "5",
+     "1",
+     "12"
     ],
-    "units-error": [
-      {
-        "id": "ue-1",
-        "type": "numeric",
-        "question": "Convierte 3.5 km a metros.",
-        "answer": 3500,
-        "unit": "m",
-        "hint": "1 km = 1000 m",
-        "points": 10
-      },
-      {
-        "id": "ue-2",
-        "type": "numeric",
-        "question": "Un objeto tarda 2 h en recorrer una ruta. ¿Cuántos segundos son?",
-        "answer": 7200,
-        "unit": "s",
-        "hint": "1 h = 3600 s",
-        "points": 10
-      },
-      {
-        "id": "ue-3",
-        "type": "numeric",
-        "question": "Convierte 72 km/h a m/s.",
-        "answer": 20,
-        "unit": "m/s",
-        "hint": "Divide entre 3.6 (1000 m / 3600 s)",
-        "points": 15
-      },
-      {
-        "id": "ue-4",
-        "type": "multiple",
-        "question": "Una medida de 12.0 g tiene…",
-        "options": [
-          "2 cifras significativas",
-          "3 cifras significativas",
-          "1 cifra significativa",
-          "4 cifras significativas"
-        ],
-        "answer": 1,
-        "hint": "Los ceros entre el 2 y el 0 cuentan; el 0 final tras el punto también",
-        "points": 10
-      },
-      {
-        "id": "ue-5",
-        "type": "numeric",
-        "question": "Un error relativo del 5 % sobre una medida de 200 m, ¿qué error absoluto da?",
-        "answer": 10,
-        "unit": "m",
-        "hint": "Δ = ε · x = 0.05 · 200",
-        "points": 15
-      },
-      {
-        "id": "ue-6",
-        "type": "numeric",
-        "question": "Convierte 0.25 kg a gramos.",
-        "answer": 250,
-        "unit": "g",
-        "hint": "1 kg = 1000 g",
-        "points": 10
-      }
+    "answer": 1,
+    "hint": "R = (4, 3); |R| = 5",
+    "points": 10
+   },
+   {
+    "id": "vec-3",
+    "type": "numeric",
+    "question": "Un vector de magnitud 10 y ángulo 60° (respecto al eje x), ¿cuánto vale su componente x? (cos 60° = 0.5)",
+    "answer": 5,
+    "unit": "u",
+    "hint": "vx = |v|·cos θ = 10 · 0.5",
+    "points": 15
+   },
+   {
+    "id": "vec-4",
+    "type": "numeric",
+    "question": "Componente y de un vector de 10 u a 60° (sin 60° ≈ 0.866).",
+    "answer": 8.66,
+    "unit": "u",
+    "hint": "vy = |v|·sin θ ≈ 8.66",
+    "points": 15
+   },
+   {
+    "id": "vec-5",
+    "type": "multiple",
+    "question": "Suma de componentes: A = (2, -1), B = (-2, 4). ¿Cuál es A + B?",
+    "options": [
+     "(0, 3)",
+     "(4, -5)",
+     "(0, -3)",
+     "(-4, 5)"
     ],
-    "vectors": [
-      {
-        "id": "vec-1",
-        "type": "numeric",
-        "question": "|v| de un vector con componentes (3, 4): ¿cuál es su magnitud?",
-        "answer": 5,
-        "unit": "u",
-        "hint": "√(3² + 4²) = √25",
-        "points": 10
-      },
-      {
-        "id": "vec-2",
-        "type": "multiple",
-        "question": "La suma de A = (4, 0) y B = (0, 3) tiene magnitud…",
-        "options": [
-          "7",
-          "5",
-          "1",
-          "12"
-        ],
-        "answer": 1,
-        "hint": "R = (4, 3); |R| = 5",
-        "points": 10
-      },
-      {
-        "id": "vec-3",
-        "type": "numeric",
-        "question": "Un vector de magnitud 10 y ángulo 60° (respecto al eje x), ¿cuánto vale su componente x? (cos 60° = 0.5)",
-        "answer": 5,
-        "unit": "u",
-        "hint": "vx = |v|·cos θ = 10 · 0.5",
-        "points": 15
-      },
-      {
-        "id": "vec-4",
-        "type": "numeric",
-        "question": "Componente y de un vector de 10 u a 60° (sin 60° ≈ 0.866).",
-        "answer": 8.66,
-        "unit": "u",
-        "hint": "vy = |v|·sin θ ≈ 8.66",
-        "points": 15
-      },
-      {
-        "id": "vec-5",
-        "type": "multiple",
-        "question": "Suma de componentes: A = (2, -1), B = (-2, 4). ¿Cuál es A + B?",
-        "options": [
-          "(0, 3)",
-          "(4, -5)",
-          "(0, -3)",
-          "(-4, 5)"
-        ],
-        "answer": 0,
-        "hint": "Suma componente a componente: (2-2, -1+4)",
-        "points": 10
-      },
-      {
-        "id": "vec-6",
-        "type": "numeric",
-        "question": "Dos fuerzas de 3 N y 4 N perpendiculares actúan sobre un punto. Magnitud de la resultante.",
-        "answer": 5,
-        "unit": "N",
-        "hint": "Pitágoras: √(3² + 4²)",
-        "points": 10
-      }
+    "answer": 0,
+    "hint": "Suma componente a componente: (2-2, -1+4)",
+    "points": 10
+   },
+   {
+    "id": "vec-6",
+    "type": "numeric",
+    "question": "Dos fuerzas de 3 N y 4 N perpendiculares actúan sobre un punto. Magnitud de la resultante.",
+    "answer": 5,
+    "unit": "N",
+    "hint": "Pitágoras: √(3² + 4²)",
+    "points": 10
+   }
+  ],
+  "projectile": [
+   {
+    "id": "proj-1",
+    "type": "numeric",
+    "question": "Proyectil lanzado a 20 m/s con 90°: ¿altura máxima? (g = 9.8, h = v²/2g)",
+    "answer": 20.41,
+    "unit": "m",
+    "hint": "h = 400 / (2·9.8) ≈ 20.41",
+    "points": 15
+   },
+   {
+    "id": "proj-2",
+    "type": "multiple",
+    "question": "El ángulo de alcance máximo (sin resistencia del aire) es…",
+    "options": [
+     "30°",
+     "45°",
+     "60°",
+     "90°"
     ],
-    "projectile": [
-      {
-        "id": "proj-1",
-        "type": "numeric",
-        "question": "Proyectil lanzado a 20 m/s con 90°: ¿altura máxima? (g = 9.8, h = v²/2g)",
-        "answer": 20.41,
-        "unit": "m",
-        "hint": "h = 400 / (2·9.8) ≈ 20.41",
-        "points": 15
-      },
-      {
-        "id": "proj-2",
-        "type": "multiple",
-        "question": "El ángulo de alcance máximo (sin resistencia del aire) es…",
-        "options": [
-          "30°",
-          "45°",
-          "60°",
-          "90°"
-        ],
-        "answer": 1,
-        "hint": "R = v²·sin 2θ / g: máximo cuando sin 2θ = 1 → θ = 45°",
-        "points": 10
-      },
-      {
-        "id": "proj-3",
-        "type": "numeric",
-        "question": "Tiempo de vuelo de un proyectil con v0y = 20 m/s (desde el suelo, g = 9.8).",
-        "answer": 4.08,
-        "unit": "s",
-        "hint": "t = 2·v0y / g = 40 / 9.8 ≈ 4.08",
-        "points": 15
-      },
-      {
-        "id": "proj-4",
-        "type": "numeric",
-        "question": "Componente horizontal de v0 = 10 m/s a 60° (cos 60° = 0.5).",
-        "answer": 5,
-        "unit": "m/s",
-        "hint": "v0x = 10 · 0.5",
-        "points": 10
-      },
-      {
-        "id": "proj-5",
-        "type": "multiple",
-        "question": "En el punto más alto de la trayectoria…",
-        "options": [
-          "vy = 0",
-          "vx = 0",
-          "la velocidad total es 0",
-          "la aceleración es 0"
-        ],
-        "answer": 0,
-        "hint": "La componente vertical se anula; la horizontal sigue constante",
-        "points": 10
-      },
-      {
-        "id": "proj-6",
-        "type": "numeric",
-        "question": "Alcance con v0 = 20 m/s a 45° (g = 9.8, sin 90° = 1).",
-        "answer": 40.82,
-        "unit": "m",
-        "hint": "R = v² / g = 400 / 9.8 ≈ 40.82",
-        "points": 15
-      }
+    "answer": 1,
+    "hint": "R = v²·sin 2θ / g: máximo cuando sin 2θ = 1 → θ = 45°",
+    "points": 10
+   },
+   {
+    "id": "proj-3",
+    "type": "numeric",
+    "question": "Tiempo de vuelo de un proyectil con v0y = 20 m/s (desde el suelo, g = 9.8).",
+    "answer": 4.08,
+    "unit": "s",
+    "hint": "t = 2·v0y / g = 40 / 9.8 ≈ 4.08",
+    "points": 15
+   },
+   {
+    "id": "proj-4",
+    "type": "numeric",
+    "question": "Componente horizontal de v0 = 10 m/s a 60° (cos 60° = 0.5).",
+    "answer": 5,
+    "unit": "m/s",
+    "hint": "v0x = 10 · 0.5",
+    "points": 10
+   },
+   {
+    "id": "proj-5",
+    "type": "multiple",
+    "question": "En el punto más alto de la trayectoria…",
+    "options": [
+     "vy = 0",
+     "vx = 0",
+     "la velocidad total es 0",
+     "la aceleración es 0"
     ],
-    "mass-weight": [
-      {
-        "id": "mw-1",
-        "type": "numeric",
-        "question": "Peso en la Tierra de una masa de 10 kg (g = 9.8 m/s²).",
-        "answer": 98,
-        "unit": "N",
-        "hint": "W = m·g",
-        "points": 10
-      },
-      {
-        "id": "mw-2",
-        "type": "numeric",
-        "question": "Peso de 10 kg en la Luna (g = 1.62 m/s²).",
-        "answer": 16.2,
-        "unit": "N",
-        "hint": "W = 10 · 1.62",
-        "points": 10
-      },
-      {
-        "id": "mw-3",
-        "type": "multiple",
-        "question": "La masa de un cuerpo…",
-        "options": [
-          "cambia con la gravedad",
-          "no cambia de astro en astro",
-          "es una fuerza",
-          "se mide en newtons"
-        ],
-        "answer": 1,
-        "hint": "La masa es cantidad de materia; el peso es la fuerza",
-        "points": 10
-      },
-      {
-        "id": "mw-4",
-        "type": "numeric",
-        "question": "¿Cuántas veces pesa más un cuerpo en Júpiter (24.79) que en la Luna (1.62)?",
-        "answer": 15.3,
-        "unit": "×",
-        "hint": "24.79 / 1.62 ≈ 15.3",
-        "points": 15
-      },
-      {
-        "id": "mw-5",
-        "type": "numeric",
-        "question": "Masa cuyo peso en la Tierra es 490 N (g = 9.8).",
-        "answer": 50,
-        "unit": "kg",
-        "hint": "m = W / g",
-        "points": 10
-      },
-      {
-        "id": "mw-6",
-        "type": "multiple",
-        "question": "¿Qué instrumento NO cambia su lectura con la gravedad?",
-        "options": [
-          "Dinamómetro",
-          "Báscula de muelle",
-          "Balanza de platillos",
-          "Báscula digital"
-        ],
-        "answer": 2,
-        "hint": "La balanza de platillos compara masas; la muelle mide peso",
-        "points": 15
-      }
+    "answer": 0,
+    "hint": "La componente vertical se anula; la horizontal sigue constante",
+    "points": 10
+   },
+   {
+    "id": "proj-6",
+    "type": "numeric",
+    "question": "Alcance con v0 = 20 m/s a 45° (g = 9.8, sin 90° = 1).",
+    "answer": 40.82,
+    "unit": "m",
+    "hint": "R = v² / g = 400 / 9.8 ≈ 40.82",
+    "points": 15
+   }
+  ],
+  "mass-weight": [
+   {
+    "id": "mw-1",
+    "type": "numeric",
+    "question": "Peso en la Tierra de una masa de 10 kg (g = 9.8 m/s²).",
+    "answer": 98,
+    "unit": "N",
+    "hint": "W = m·g",
+    "points": 10
+   },
+   {
+    "id": "mw-2",
+    "type": "numeric",
+    "question": "Peso de 10 kg en la Luna (g = 1.62 m/s²).",
+    "answer": 16.2,
+    "unit": "N",
+    "hint": "W = 10 · 1.62",
+    "points": 10
+   },
+   {
+    "id": "mw-3",
+    "type": "multiple",
+    "question": "La masa de un cuerpo…",
+    "options": [
+     "cambia con la gravedad",
+     "no cambia de astro en astro",
+     "es una fuerza",
+     "se mide en newtons"
     ],
-    "inclined-plane": [
-      {
-        "id": "ip-1",
-        "type": "numeric",
-        "question": "Aceleración de un bloque sin rozamiento en un plano de 30° (g = 9.8).",
-        "answer": 4.9,
-        "unit": "m/s²",
-        "hint": "a = g·sin 30° = 9.8 · 0.5",
-        "points": 15
-      },
-      {
-        "id": "ip-2",
-        "type": "numeric",
-        "question": "Componente del peso paralela al plano: m = 10 kg, θ = 30°.",
-        "answer": 49,
-        "unit": "N",
-        "hint": "W∥ = m·g·sin θ = 98 · 0.5",
-        "points": 15
-      },
-      {
-        "id": "ip-3",
-        "type": "numeric",
-        "question": "Normal de un bloque de 10 kg en un plano de 30° (cos 30° ≈ 0.866).",
-        "answer": 84.87,
-        "unit": "N",
-        "hint": "N = m·g·cos θ = 98 · 0.866",
-        "points": 15
-      },
-      {
-        "id": "ip-4",
-        "type": "multiple",
-        "question": "Si sin θ = μ·cos θ, el bloque…",
-        "options": [
-          "acelera",
-          "está en equilibrio estático",
-          "cae con g",
-          "sube solo"
-        ],
-        "answer": 1,
-        "hint": "La fuerza motriz se equilibra exactamente con el rozamiento",
-        "points": 10
-      },
-      {
-        "id": "ip-5",
-        "type": "numeric",
-        "question": "Fricción máxima con μ = 0.2, N = 84.87 N.",
-        "answer": 16.97,
-        "unit": "N",
-        "hint": "F_r = μ·N",
-        "points": 10
-      },
-      {
-        "id": "ip-6",
-        "type": "numeric",
-        "question": "En un plano sin fricción de 45°, ¿cuánto vale la aceleración (sin 45° ≈ 0.707)?",
-        "answer": 6.93,
-        "unit": "m/s²",
-        "hint": "a = 9.8 · 0.707 ≈ 6.93",
-        "points": 15
-      }
-    ]
-  }
+    "answer": 1,
+    "hint": "La masa es cantidad de materia; el peso es la fuerza",
+    "points": 10
+   },
+   {
+    "id": "mw-4",
+    "type": "numeric",
+    "question": "¿Cuántas veces pesa más un cuerpo en Júpiter (24.79) que en la Luna (1.62)?",
+    "answer": 15.3,
+    "unit": "×",
+    "hint": "24.79 / 1.62 ≈ 15.3",
+    "points": 15
+   },
+   {
+    "id": "mw-5",
+    "type": "numeric",
+    "question": "Masa cuyo peso en la Tierra es 490 N (g = 9.8).",
+    "answer": 50,
+    "unit": "kg",
+    "hint": "m = W / g",
+    "points": 10
+   },
+   {
+    "id": "mw-6",
+    "type": "multiple",
+    "question": "¿Qué instrumento NO cambia su lectura con la gravedad?",
+    "options": [
+     "Dinamómetro",
+     "Báscula de muelle",
+     "Balanza de platillos",
+     "Báscula digital"
+    ],
+    "answer": 2,
+    "hint": "La balanza de platillos compara masas; la muelle mide peso",
+    "points": 15
+   }
+  ],
+  "inclined-plane": [
+   {
+    "id": "ip-1",
+    "type": "numeric",
+    "question": "Aceleración de un bloque sin rozamiento en un plano de 30° (g = 9.8).",
+    "answer": 4.9,
+    "unit": "m/s²",
+    "hint": "a = g·sin 30° = 9.8 · 0.5",
+    "points": 15
+   },
+   {
+    "id": "ip-2",
+    "type": "numeric",
+    "question": "Componente del peso paralela al plano: m = 10 kg, θ = 30°.",
+    "answer": 49,
+    "unit": "N",
+    "hint": "W∥ = m·g·sin θ = 98 · 0.5",
+    "points": 15
+   },
+   {
+    "id": "ip-3",
+    "type": "numeric",
+    "question": "Normal de un bloque de 10 kg en un plano de 30° (cos 30° ≈ 0.866).",
+    "answer": 84.87,
+    "unit": "N",
+    "hint": "N = m·g·cos θ = 98 · 0.866",
+    "points": 15
+   },
+   {
+    "id": "ip-4",
+    "type": "multiple",
+    "question": "Si sin θ = μ·cos θ, el bloque…",
+    "options": [
+     "acelera",
+     "está en equilibrio estático",
+     "cae con g",
+     "sube solo"
+    ],
+    "answer": 1,
+    "hint": "La fuerza motriz se equilibra exactamente con el rozamiento",
+    "points": 10
+   },
+   {
+    "id": "ip-5",
+    "type": "numeric",
+    "question": "Fricción máxima con μ = 0.2, N = 84.87 N.",
+    "answer": 16.97,
+    "unit": "N",
+    "hint": "F_r = μ·N",
+    "points": 10
+   },
+   {
+    "id": "ip-6",
+    "type": "numeric",
+    "question": "En un plano sin fricción de 45°, ¿cuánto vale la aceleración (sin 45° ≈ 0.707)?",
+    "answer": 6.93,
+    "unit": "m/s²",
+    "hint": "a = 9.8 · 0.707 ≈ 6.93",
+    "points": 15
+   }
+  ],
+  "pendulum": [
+   {
+    "id": "ex-pen-1",
+    "type": "numeric",
+    "question": "Un péndulo de 2.5 m se suelta con ángulo pequeño. ¿Cuál es su periodo aproximado? (g = 9.8 m/s²)",
+    "answer": 3.17,
+    "unit": "s",
+    "hint": "T = 2π√(L/g)",
+    "points": 10
+   },
+   {
+    "id": "ex-pen-2",
+    "type": "numeric",
+    "question": "Si cuadruplicas la longitud de un péndulo (ángulo pequeño), ¿cuántas veces mayor es su periodo?",
+    "answer": 2,
+    "unit": "",
+    "hint": "T ∝ √L",
+    "points": 10
+   },
+   {
+    "id": "ex-pen-3",
+    "type": "numeric",
+    "question": "Un péndulo de 2 m y 1 kg parte de 60°. ¿Cuál es la energía potencial inicial respecto al punto más bajo? (g = 9.8 m/s²)",
+    "answer": 9.8,
+    "unit": "J",
+    "hint": "h = L(1 − cos θ₀); Ep = m·g·h",
+    "points": 10
+   },
+   {
+    "id": "ex-pen-4",
+    "type": "numeric",
+    "question": "En el modo simple con L = 1 m y roce 0, ¿cuál es el periodo? (g = 9.8 m/s²)",
+    "answer": 2.01,
+    "unit": "s",
+    "hint": "T = 2π√(1/9.8)",
+    "points": 10
+   },
+   {
+    "id": "ex-pen-5",
+    "type": "numeric",
+    "question": "Un péndulo de 2.5 m a 60° mide T = 3.42 s. ¿Cuánto supera a 2π√(L/g)?",
+    "answer": 0.25,
+    "unit": "s",
+    "hint": "Resta el periodo de ángulo pequeño",
+    "points": 10
+   },
+   {
+    "id": "ex-pen-6",
+    "type": "numeric",
+    "question": "Doble péndulo con l₁=l₂=2 m, m₁=m₂=1 kg, θ₁=90°, θ₂=−90° desde el reposo: ¿energía total respecto al pivote? (g = 9.8 m/s²)",
+    "answer": 58.8,
+    "unit": "J",
+    "hint": "Ep = (m₁+m₂)g·l₁ + m₂·g·l₂",
+    "points": 10
+   }
+  ],
+  "fluids": [
+   {
+    "id": "ex-fl-1",
+    "type": "numeric",
+    "question": "Un cubo de 800 kg/m³ flota en agua (1000 kg/m³). ¿Qué fracción de su volumen queda sumergida?",
+    "answer": 0.8,
+    "unit": "",
+    "hint": "f = ρb / ρf",
+    "points": 10
+   },
+   {
+    "id": "ex-fl-2",
+    "type": "numeric",
+    "question": "Un cuerpo de 2500 kg/m³ se hunde en agua. ¿Con qué aceleración? (g = 9.8 m/s²)",
+    "answer": 5.88,
+    "unit": "m/s²",
+    "hint": "a = g·(1 − ρf/ρb)",
+    "points": 10
+   },
+   {
+    "id": "ex-fl-3",
+    "type": "numeric",
+    "question": "Un objeto de 0.5 m³ sumergido por completo en agua (1000 kg/m³). ¿Cuál es el empuje? (g = 9.8 m/s²)",
+    "answer": 4900,
+    "unit": "N",
+    "hint": "E = ρf·g·V",
+    "points": 10
+   },
+   {
+    "id": "ex-fl-4",
+    "type": "numeric",
+    "question": "Venturi: A₁=20 cm², A₂=8 cm², v₁=2 m/s. ¿Cuál es v₂?",
+    "answer": 5,
+    "unit": "m/s",
+    "hint": "A₁v₁ = A₂v₂",
+    "points": 10
+   },
+   {
+    "id": "ex-fl-5",
+    "type": "numeric",
+    "question": "Tubo de 20 cm² (0.002 m²) con v = 2 m/s. ¿Cuál es el caudal Q?",
+    "answer": 0.004,
+    "unit": "m³/s",
+    "hint": "Q = A·v",
+    "points": 10
+   },
+   {
+    "id": "ex-fl-6",
+    "type": "numeric",
+    "question": "En el Venturi del simulador (ρ=1000 kg/m³, v₁=2, v₂=5 m/s), ¿cuánto cae la presión (magnitud)?",
+    "answer": 10500,
+    "unit": "Pa",
+    "hint": "ΔP = ½ρ(v₁² − v₂²)",
+    "points": 10
+   }
+  ],
+  "elasticity": [
+   {
+    "id": "ex-el-1",
+    "type": "numeric",
+    "question": "Acero (E=200 GPa) con σ=100 MPa. ¿Cuál es la deformación ε en el régimen elástico?",
+    "answer": 0.0005,
+    "unit": "",
+    "hint": "ε = σ/E",
+    "points": 10
+   },
+   {
+    "id": "ex-el-2",
+    "type": "numeric",
+    "question": "Acero a σ=250 MPa con sección A=4 cm². ¿Qué fuerza soporta?",
+    "answer": 100000,
+    "unit": "N",
+    "hint": "F = σ·A (4 cm² = 4·10⁻⁴ m²)",
+    "points": 10
+   },
+   {
+    "id": "ex-el-3",
+    "type": "numeric",
+    "question": "Probeta de 1.5 m con ε=0.0005. ¿Cuánto se alarga?",
+    "answer": 0.00075,
+    "unit": "m",
+    "hint": "ΔL = ε·L₀",
+    "points": 10
+   },
+   {
+    "id": "ex-el-4",
+    "type": "numeric",
+    "question": "¿Hasta qué tensión (MPa) el acero del simulador se comporta de forma elástica?",
+    "answer": 250,
+    "unit": "MPa",
+    "hint": "Límite elástico σy",
+    "points": 10
+   },
+   {
+    "id": "ex-el-5",
+    "type": "numeric",
+    "question": "Acero (σy=250 MPa, E=200 GPa): ¿resiliencia en MJ/m³?",
+    "answer": 0.156,
+    "unit": "MJ/m³",
+    "hint": "u = σy²/(2E)",
+    "points": 10
+   },
+   {
+    "id": "ex-el-6",
+    "type": "numeric",
+    "question": "A la misma tensión pequeña, el caucho (E=5 MPa) se deforma ¿cuántas veces más que el acero (E=200 GPa)?",
+    "answer": 40000,
+    "unit": "",
+    "hint": "ε ∝ 1/E",
+    "points": 10
+   }
+  ]
+ }
 }

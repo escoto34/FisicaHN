@@ -1260,6 +1260,11 @@ después. Con el nuevo contrato, cada módulo nuevo nace ya en su forma final.
 
 > **Estado (tanda 5.1 — Fundamentos): ✅ entregada.** `units-error`, `vectors`,
 > `projectile`, `mass-weight` e `inclined-plane` (ver balance en [§5.7](#57-balance-de-la-tanda-51)).
+>
+> **Estado (tanda 5.2 — Mecánica ampliada): ✅ entregada.** `pendulum` (con doble
+> péndulo), `fluids` (Arquímedes + Bernoulli), `elasticity`, modo Impulso con
+> área F–t en `momentum`, Hooke (spring) en `oscillatory` y Momento angular en
+> `rotational` (ver balance en [§5.8](#58-balance-de-la-tanda-52)).
 
 Las tandas están ordenadas por **valor curricular** (cobertura del currículo hondureño
 de secundaria primero) y por **reutilización de primitivas** de WAVE 2. Cada tanda es
@@ -1366,8 +1371,53 @@ W = 490 N, a = 1.6 m/s² con el contrapeso por defecto).
 
 **Pendiente:** en el rango visual de la escena no se llegó a dibujar el vector de
 la tensión en la cuerda del plano inclinado (la tensión se aproxima por W₂ en el
-readout); el resto de la tanda 5.2 (péndulo, fluidos, elasticidad y modos
-nuevos) queda para la siguiente entrega.
+readout); el contraste lado a lado entre materiales de `elasticity` (Acero frente
+a Caucho) es el caso de uso natural de la comparación §2.9.
+
+### 5.8 Balance de la tanda 5.2 (Mecánica ampliada)
+
+> ✅ **Entregada.** La tanda añade tres módulos nuevos (`pendulum`, `fluids`,
+> `elasticity`) y los dos modos pendientes de motores existentes: Impulso con
+> área bajo F–t en `momentum`, y las migraciones de `oscillatory` y `rotational`
+> al contrato nuevo con sus modos Hooke/amortiguado y Momento angular.
+
+**Novedades en la escena (§2.4) para esta tanda:**
+
+| Primitiva | Para qué |
+|---|---|
+| `scene.fill(x, y, w, h)` | Relleno de líquido con superficie horizontal ondulada (modo Arquímedes) |
+| `plot` con `series[].fill` | Área bajo la curva: impulso J = ∫F·dt y resiliencia (área elástica de σ–ε) |
+| `scene.spring(a, b)` | Muelle real entre la pared y la masa en `oscillatory` |
+
+**Contraste pedagógico que cierra cada módulo:**
+
+| Módulo | Contraste que se ve sin leer nada |
+|---|---|
+| `pendulum` | Fantasma de la solución lineal superpuesto: a 10° coincide con la estela real, a 60° se separa (T medido 3.42 s vs 3.17 s) |
+| `pendulum` doble | ε en μrad: dos estelas idénticas que divergen hasta 672° en 40 s (exponente de Lyapunov) |
+| `fluids` | Cubo que flota con su línea de flotación frente a uno que se hunde con a = g(1−ρf/ρb) |
+| `elasticity` | Punto vivo sobre la curva σ–ε: el área elástica resaltada es la resiliencia |
+| `oscillatory` | Envolvente e^{−γt} visible en la estela; Em cae de 750 J a 0.03 J en 10 s con γ = 0.5 |
+| `rotational` momentum | «Patinador»: al encoger el brazo r, ω sube al instante con L constante (E sube de 36 a 144 J) |
+
+**Criterio de aceptación (§5.6):** los tres módulos nuevos traen
+`category`+`glyph`+`blurb`+`topic`, `serves[]`, `modes[]` con enlace profundo
+(`pendulum#simple|#doble`, `fluids#arquimedes|#bernoulli`), `readout()` numérico,
+`getState()`/`setState()`, fórmulas LaTeX y 6 retos cada uno en
+`ejemplo-pack-examen.json`. `oscillatory` y `rotational` migrados reciben
+también `modes[]` (`#mhs`, `#amortiguado`, `#torque`, `#circular`, `#momentum`,
+`#precession`) y dejan de ser motores legacy — bajan los 27 originales a 17.
+
+**Verificación:** `node --check` en los 6 archivos tocados + app/catalog/scene;
+humo de dibujo (fake scene) sobre los 12 módulos migrados sin excepciones;
+humo del buscador: «venturi» → `fluids#bernoulli`, «caos» → `pendulum#doble`,
+«precesion» → `rotational#precession`, «resiliencia» → `elasticity`.
+
+**Pendiente:** el modo Bernoulli dibuja la columna del manómetro con escala
+visual fija (no proporcional a la columna real de kPa); `circuits` y `kepler`
+siguen con `modes[]` declarados en catálogo sin motor migrado (enlace profundo
+inactivo) — arrastrado desde WAVE 4. El resto de la tanda 5.3 (térmica y ondas)
+queda para la siguiente entrega.
 
 ---
 

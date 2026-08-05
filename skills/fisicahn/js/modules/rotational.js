@@ -1,257 +1,426 @@
 /**
- * Movimiento circular y rotacional: torque, I, α, ω; precesión simple de peonza.
- * Distinto de “carga en B” (Lorentz): aquí hay cuerpo rígido / cinemática angular.
+ * @fileoverview Circular y rotacional — torque (τ = Iα), movimiento circular
+ * uniforme, precesión simple de peonza y momento angular (L = Iω), tanda 5.2.
+ *
+ * Migrado al contrato `SimModule`. El modo **momento angular** es la novedad de
+ * la tanda: dos masas en una varilla rígida de longitud 2·r giran sin fricción
+ * y el momento angular se conserva. Al mover el deslizador de r, la varilla
+ * recluta (I = 2m r² cambia) y ω se ajusta a L/I al instante: L permanece
+ * constante mientras la energía rotacional E = L²/2I cambia — la figura del
+ * patinador que encoge los brazos. `reset()` distingue qué parámetro cambió
+ * para preservar L sólo ante cambios de `r`.
  */
 
+import { SimModule } from '../core/sim-module.js';
+import { TrailBuffer } from '../core/trail-buffer.js';
 import { roundTo } from '../utils/math-helpers.js';
-import {
-  setModuleInfo,
-  setModuleFormulas,
-  clearChallenges
-} from '../module-ui.js';
+import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
-let _engine, _renderer, _ui;
-let t = 0;
-let theta = 0;
-let omega = 0;
-let precess = 0;
+const DEG = Math.PI / 180;
 
-const params = {
-  mode: 'torque', // torque | circular | precession
-  I: 2,
-  tau: 1.5,
-  R: 2,
-  m: 1,
-  v: 3,
-  spin: 8,
-  Ltilt: 25
-};
+export default class Rotational extends SimModule {
+  static viewport = { width: 22, height: 14 };
 
-export function init(engine, renderer, ui, meta = null) {
-  _engine = engine;
-  _renderer = renderer;
-  _ui = ui;
-  resetState();
-  renderer?.resetCamera?.();
-  setModuleInfo(ui, {
-    title: meta?.title || 'Circular y rotacional',
-    blurb:
-      meta?.blurb ||
-      'Torque τ = Iα, momento de inercia y precesión simple. No es órbita de carga en B.',
-    story:
-      'La rotación de cuerpos rígidos se describe con momento de inercia I y torque τ. La precesión de una peonza es τ = Ω × L.',
-    cases: [
-      'Volante de inercia y arranque de motor.',
-      'Puerta que gira al empujar lejos del eje (más torque).',
-      'Peonza que no cae mientras gira (precesión).'
-    ]
-  });
-  setModuleFormulas(ui, {
-    items: [
-      { name: 'Segunda ley rotacional', formula: 'τ = I · α', note: 'Análogo a F = m·a.' },
-      { name: 'Momento de inercia (disco)', formula: 'I = ½ m R²' },
-      { name: 'Aceleración centrípeta', formula: 'a<sub>c</sub> = v² / R = ω² R' },
-      { name: 'Precesión (aprox.)', formula: 'Ω = τ / (Iω)', note: 'Peonza con L ≈ Iω vertical inclinado.' }
-    ]
-  });
-  clearChallenges(ui);
-  renderParams();
-}
+  static params = [
+    {
+      id: 'modo',
+      type: 'select',
+      label: 'Modo',
+      value: 'torque',
+      options: [
+        { value: 'torque', label: 'Torque y momento de inercia' },
+        { value: 'circular', label: 'Movimiento circular uniforme' },
+        { value: 'momentum', label: 'Momento angular (L se conserva)' },
+        { value: 'precession', label: 'Precesión (peonza)' }
+      ]
+    },
+    { id: 'I', label: 'Momento de inercia', latex: 'I', unit: 'kg·m²', min: 0.5, max: 8, step: 0.1, value: 2 },
+    { id: 'tau', label: 'Torque aplicado', latex: '\\tau', unit: 'N·m', min: 0, max: 5, step: 0.1, value: 1.5 },
+    { id: 'R', label: 'Radio (circular)', latex: 'R', unit: 'm', min: 0.8, max: 5, step: 0.1, value: 2 },
+    { id: 'v', label: 'Velocidad (circular)', latex: 'v', unit: 'm/s', min: 0.5, max: 8, step: 0.1, value: 3 },
+    { id: 'm', label: 'Masa de cada masa', latex: 'm', unit: 'kg', min: 0.2, max: 3, step: 0.2, value: 1 },
+    { id: 'r', label: 'Brazo (mitad de la varilla)', latex: 'r', unit: 'm', min: 0.4, max: 5, step: 0.2, value: 2 },
+    { id: 'omega0', label: 'ω inicial', latex: '\\omega_0', unit: 'rad/s', min: 0.5, max: 10, step: 0.5, value: 3 },
+    { id: 'spin', label: 'Spin de la peonza', latex: '\\omega', unit: 'rad/s', min: 2, max: 20, step: 0.5, value: 10 },
+    { id: 'Ltilt', label: 'Inclinación de la peonza', latex: '\\alpha', unit: '°', min: 5, max: 60, step: 1, value: 25 }
+  ];
 
-function resetState() {
-  t = 0;
-  theta = 0;
-  omega = params.mode === 'circular' ? params.v / Math.max(params.R, 0.1) : 0;
-  precess = 0;
-}
-
-export function destroy() {
-  _engine = _renderer = _ui = null;
-}
-export function reset(engine) {
-  resetState();
-  engine?.reset?.();
-}
-export function setTool() {}
-
-export function update(dt) {
-  t += dt;
-  if (params.mode === 'torque') {
-    const alpha = params.tau / Math.max(params.I, 1e-6);
-    omega += alpha * dt;
-    theta += omega * dt;
-  } else if (params.mode === 'circular') {
-    omega = params.v / Math.max(params.R, 0.1);
-    theta += omega * dt;
-  } else {
-    // precession: spin fast, slow azimuthal precession
-    omega = params.spin;
-    theta += omega * dt;
-    const L = params.I * Math.abs(params.spin);
-    const tauG = params.m * 9.81 * 0.4 * Math.sin((params.Ltilt * Math.PI) / 180);
-    const Omega = L > 1e-6 ? tauG / L : 0;
-    precess += Omega * dt;
+  constructor(ctx) {
+    super(ctx);
+    this.params = {
+      modo: 'torque',
+      I: 2,
+      tau: 1.5,
+      R: 2,
+      v: 3,
+      m: 1,
+      r: 2,
+      omega0: 3,
+      spin: 10,
+      Ltilt: 25
+    };
+    this.t = 0;
+    this.theta = 0;
+    this.omega = 0;
+    this.precess = 0;
+    /** Momento angular conservado (modo momentum). */
+    this.L = 0;
+    /** Snapshot de parámetros del último reset (para detectar qué cambió). */
+    this._prevParams = null;
+    this.orbit1 = new TrailBuffer(900);
+    this.orbit2 = new TrailBuffer(900);
+    this.useCharts = false;
   }
-  updateData();
-}
 
-function updateData() {
-  const alpha = params.mode === 'torque' ? params.tau / Math.max(params.I, 1e-6) : 0;
-  const ac = (omega * omega) * params.R;
-  _ui?.setData(`
-    <div style="font-family:var(--font-mono);font-size:0.82rem;line-height:1.7">
-      <div>modo = ${params.mode}</div>
-      <div>θ = ${roundTo(theta, 2)} rad · ω = ${roundTo(omega, 3)} rad/s</div>
-      <div>α = ${roundTo(alpha, 3)} rad/s² · I = ${params.I}</div>
-      ${params.mode === 'circular' ? `<div>a<sub>c</sub> = ${roundTo(ac, 2)} m/s²</div>` : ''}
-      ${params.mode === 'precession' ? `<div>φ precesión = ${roundTo(precess, 2)} rad</div>` : ''}
-    </div>
-  `);
-}
+  init(meta = null) {
+    this.reset();
+    setModuleInfo(this.ui, {
+      title: 'Circular y rotacional',
+      blurb: 'Torque τ = Iα, movimiento circular, momento angular L = Iω y precesión.',
+      story:
+        'La rotación se describe con la misma intención que la traslación: el torque es la fuerza angular (τ = Iα), y el momento angular L = Iω se conserva cuando no hay torques externos, igual que el momento lineal. Por eso un patinador encoge los brazos y gira más rápido: L no cambia, I baja, y ω sube. La peonza que no cae es la misma ley aplicada en tres dimensiones: el torque de la gravedad cambia la dirección de L, no su módulo, y el eje precesa en lugar de caer.',
+      cases: [
+        'Disco: τ = Iα → ω y θ crecen con el tiempo.',
+        'MCU: v = ωR y a_c = v²/R apunta al centro.',
+        'Momento angular: encoger el brazo sube ω con L constante.',
+        'Peonza: Ω = τ/(Iω), más rapidez de giro = menos precesión.'
+      ]
+    });
+    setModuleFormulas(this.ui, {
+      title: 'Rotacional',
+      items: [
+        { name: 'Segunda ley rotacional', formula: '\\tau = I \\cdot \\alpha', note: 'Análoga a F = m·a.' },
+        { name: 'Momento de inercia (varilla + 2 masas)', formula: 'I_{varilla} = 2 m r^2' },
+        { name: 'Momento angular', formula: 'L = I \\cdot \\omega', note: 'Se conserva si τ_ext = 0.' },
+        { name: 'Energía rotacional', formula: 'E = \\tfrac{1}{2} I \\omega^2 = L^2 / (2I)', note: 'No se conserva al cambiar I.' },
+        { name: 'Aceleración centrípeta', formula: 'a_c = v^2 / R = \\omega^2 R' },
+        { name: 'Precesión (aprox.)', formula: '\\Omega = \\tau / (I\\omega)', note: 'Peonza con L ≈ Iω.' }
+      ]
+    });
+    clearChallenges(this.ui);
+  }
 
-export function render(ctx) {
-  if (!_renderer) return;
-  const r = _renderer;
-  const cx = 0;
-  const cy = 0;
+  /** Momento de inercia de la varilla + dos masas (modo momentum). */
+  Ivarilla() {
+    return 2 * this.params.m * this.params.r * this.params.r;
+  }
 
-  if (params.mode === 'circular') {
-    // path circle
-    const steps = 64;
-    ctx.save();
-    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    for (let i = 0; i <= steps; i++) {
-      const a = (i / steps) * Math.PI * 2;
-      const p = r.worldToCanvas(params.R * Math.cos(a), params.R * Math.sin(a));
-      if (i === 0) ctx.moveTo(p.x, p.y);
-      else ctx.lineTo(p.x, p.y);
+  reset() {
+    const prev = this._prevParams ? { ...this._prevParams } : null;
+    this._prevParams = { ...this.params };
+    this.t = 0;
+    this.precess = 0;
+    this.orbit1.clear();
+    this.orbit2.clear();
+
+    const mode = this.params.modo;
+    if (mode === 'momentum') {
+      this._resetMomentum(prev);
+    } else if (mode === 'circular') {
+      this.theta = 0;
+      this.omega = this.params.v / Math.max(this.params.R, 0.1);
+    } else if (mode === 'precession') {
+      this.theta = 0;
+      this.omega = this.params.spin;
+    } else {
+      this.theta = 0;
+      this.omega = 0;
     }
-    ctx.stroke();
-    ctx.restore();
-    const x = params.R * Math.cos(theta);
-    const y = params.R * Math.sin(theta);
-    r.drawObject(x, y, { shape: 'circle', size: 0.35, color: '#4fc3f7', label: 'm' });
-    // centripetal accel toward center
-    r.drawVector(x, y, -x * 0.4, -y * 0.4, { color: '#ef5350', label: 'a_c' });
-    r.drawVector(x, y, -y * 0.25, x * 0.25, { color: '#66bb6a', label: 'v' });
-  } else if (params.mode === 'torque') {
-    // rotating disk
+    this.engine?.reset?.();
+  }
+
+  /** Conserva L ante cambios de `r`; re-siembra con ω₀ si cambió m/ω₀. */
+  _resetMomentum(prev) {
+    const hadPrev = !!prev && prev.modo === 'momentum';
+    const spinReinit = hadPrev && (prev.m !== this.params.m || prev.omega0 !== this.params.omega0);
+    const radiusChanged = hadPrev && prev.r !== this.params.r;
+    if (!hadPrev) {
+      this.L = this.Ivarilla() * this.params.omega0;
+      this.omega = this.params.omega0;
+    } else if (radiusChanged) {
+      // El patinador encoje/estira los brazos: L se conserva.
+      this.omega = this.L / this.Ivarilla();
+    } else if (spinReinit) {
+      this.L = this.Ivarilla() * this.params.omega0;
+      this.omega = this.params.omega0;
+    }
+    // Fallback por si cambió el modo recién o params extraños.
+    if (!hadPrev) return;
+    this.theta = 0;
+  }
+
+  update(dt) {
+    this.t += dt;
+    const mode = this.params.modo;
+    if (mode === 'torque') {
+      const alpha = this.params.tau / Math.max(this.params.I, 1e-6);
+      this.omega += alpha * dt;
+      this.theta += this.omega * dt;
+    } else if (mode === 'circular') {
+      this.omega = this.params.v / Math.max(this.params.R, 0.1);
+      this.theta += this.omega * dt;
+    } else if (mode === 'momentum') {
+      this.omega = this.L / Math.max(this.Ivarilla(), 1e-9);
+      this.theta += this.omega * dt;
+      // Estelas de las dos masas para leer la velocidad angular.
+      const r = this.params.r;
+      this.orbit1.push({ x: r * Math.cos(this.theta), y: r * Math.sin(this.theta) });
+      this.orbit2.push({ x: -r * Math.cos(this.theta), y: -r * Math.sin(this.theta) });
+    } else {
+      this.omega = this.params.spin;
+      this.theta += this.omega * dt;
+      const tilt = this.params.Ltilt * DEG;
+      const tauG = this.params.m * 9.8 * 0.4 * Math.sin(tilt);
+      const Lmag = Math.max(this.Ivarilla() * this.params.spin, this.params.I * this.params.spin, 1e-9);
+      const Omega = tauG / Lmag;
+      this.precess += Omega * dt;
+    }
+  }
+
+  alpha() {
+    return this.params.modo === 'torque' ? this.params.tau / Math.max(this.params.I, 1e-6) : 0;
+  }
+
+  momentL() {
+    if (this.params.modo === 'momentum') return this.L;
+    if (this.params.modo === 'precession') return this.Ivarilla() * this.params.spin;
+    return this.params.I * this.omega;
+  }
+
+  /** Energía rotacional actual (modo momentum: usa L e I en vivo). */
+  ERot() {
+    if (this.params.modo === 'momentum') return (this.L * this.L) / (2 * Math.max(this.Ivarilla(), 1e-9));
+    if (this.params.modo === 'torque') return 0.5 * this.params.I * this.omega * this.omega;
+    return 0;
+  }
+
+  /* ---------- dibujo declarativo (§2.4) ---------- */
+
+  draw(scene) {
+    switch (this.params.modo) {
+      case 'circular':
+        this._drawCircular(scene);
+        break;
+      case 'momentum':
+        this._drawMomentum(scene);
+        break;
+      case 'precession':
+        this._drawPrecession(scene);
+        break;
+      default:
+        this._drawTorque(scene);
+    }
+  }
+
+  _drawTorque(scene) {
+    const { I, tau } = this.params;
+    const cx = 0;
+    const cy = 0;
+    const R = 2.4;
+    const hud = scene.hud;
+
+    // Disco con sus radios para ver girar.
+    scene.circle(cx, cy, R, { color: 'mass', stroke: true });
     const n = 8;
     for (let i = 0; i < n; i++) {
-      const a = theta + (i * Math.PI * 2) / n;
-      const x = 2.2 * Math.cos(a);
-      const y = 2.2 * Math.sin(a);
-      const p0 = r.worldToCanvas(0, 0);
-      const p1 = r.worldToCanvas(x, y);
-      ctx.save();
-      ctx.strokeStyle = i === 0 ? '#ffb74d' : 'rgba(255,255,255,0.25)';
-      ctx.lineWidth = i === 0 ? 3 : 1.5;
-      ctx.beginPath();
-      ctx.moveTo(p0.x, p0.y);
-      ctx.lineTo(p1.x, p1.y);
-      ctx.stroke();
-      ctx.restore();
+      const a = this.theta + (i * Math.PI * 2) / n;
+      const x = R * Math.cos(a);
+      const y = R * Math.sin(a);
+      scene.line(cx, cy, x, y, { color: i === 0 ? 'mass2' : 'textDim', width: i === 0 ? 3 : 1.5 });
     }
-    r.drawObject(0, 0, { shape: 'circle', size: 2.2, color: 'rgba(79,195,247,0.15)', label: 'I' });
-    // torque arrow tangent
-    const tx = -Math.sin(theta) * 1.2;
-    const ty = Math.cos(theta) * 1.2;
-    r.drawVector(2.2 * Math.cos(theta), 2.2 * Math.sin(theta), tx, ty, {
-      color: '#ce93d8',
-      label: 'τ'
+    scene.body(cx, cy, { shape: 'circle', r: 0.25, color: 'textDim', label: `I = ${I} kg·m²`, labelColor: 'textDim' });
+
+    // Torque tangencial en la periferia.
+    const tx = -Math.sin(this.theta) * 1.1;
+    const ty = Math.cos(this.theta) * 1.1;
+    scene.vector(R * Math.cos(this.theta), R * Math.sin(this.theta), tx, ty, {
+      color: 'accel',
+      label: `τ = ${tau} N·m`
     });
-  } else {
-    // precessing top: axis tip traces circle
-    const tilt = (params.Ltilt * Math.PI) / 180;
-    const ax = Math.sin(tilt) * Math.cos(precess) * 2.5;
-    const ay = Math.sin(tilt) * Math.sin(precess) * 2.5;
-    const az = Math.cos(tilt) * 2.5; // visual only as length scale
-    const p0 = r.worldToCanvas(0, -1.5);
-    const p1 = r.worldToCanvas(ax, -1.5 + ay * 0.3 + az * 0.5);
-    ctx.save();
-    ctx.strokeStyle = '#ffb74d';
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(p0.x, p0.y);
-    ctx.lineTo(p1.x, p1.y);
-    ctx.stroke();
-    ctx.restore();
-    r.drawObject(0, -1.5, { shape: 'circle', size: 0.25, color: '#fff', label: 'base' });
-    r.drawObject(ax, -1.5 + ay * 0.3 + az * 0.5, {
-      shape: 'circle',
-      size: 0.35,
-      color: '#ef5350',
-      label: 'L'
-    });
-    // spin mark
-    const spinA = theta;
-    const sx = ax + 0.4 * Math.cos(spinA);
-    const sy = -1.5 + ay * 0.3 + az * 0.5 + 0.4 * Math.sin(spinA);
-    r.drawObject(sx, sy, { shape: 'circle', size: 0.12, color: '#4fc3f7', label: '' });
+
+    hud.chip(this.alpha() > 0 ? 'τ = Iα: ω crece linealmente' : 'Sin torque: ω constante', 'top-left');
+    hud.readout(
+      [
+        { label: 'θ', value: roundTo(this.theta, 2), unit: 'rad' },
+        { label: 'ω', value: roundTo(this.omega, 3), unit: 'rad/s' },
+        { label: 'α', value: roundTo(this.alpha(), 3), unit: 'rad/s²' },
+        { label: 'L', value: roundTo(this.momentL(), 2), unit: 'kg·m²/s' },
+        { label: 'E_rot', value: roundTo(this.ERot(), 2), unit: 'J' }
+      ],
+      'bottom-left'
+    );
   }
-}
 
-function renderParams() {
-  _ui.setParams(`
-    <div class="control-group">
-      <label class="control-label">Modo</label>
-      <select id="rot_mode" class="custom-select" style="width:100%;padding:8px;background:var(--bg-tertiary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:6px">
-        <option value="torque" ${params.mode === 'torque' ? 'selected' : ''}>Torque e I (disco)</option>
-        <option value="circular" ${params.mode === 'circular' ? 'selected' : ''}>Mov. circular uniforme</option>
-        <option value="precession" ${params.mode === 'precession' ? 'selected' : ''}>Precesión (peonza)</option>
-      </select>
-    </div>
-    <div class="control-group"><label class="control-label">$I$ (kg·m²)</label>
-      <div class="slider-row"><input type="range" id="rot_I" class="custom-slider" min="0.5" max="8" step="0.1" value="${params.I}"><span id="rot_Id">${params.I}</span></div></div>
-    <div class="control-group"><label class="control-label">$\tau$ (N·m)</label>
-      <div class="slider-row"><input type="range" id="rot_tau" class="custom-slider" min="0" max="5" step="0.1" value="${params.tau}"><span id="rot_taud">${params.tau}</span></div></div>
-    <div class="control-group"><label class="control-label">$R$ (m) circular</label>
-      <div class="slider-row"><input type="range" id="rot_R" class="custom-slider" min="0.8" max="5" step="0.1" value="${params.R}"><span id="rot_Rd">${params.R}</span></div></div>
-    <div class="control-group"><label class="control-label">$v$ (m/s) circular</label>
-      <div class="slider-row"><input type="range" id="rot_v" class="custom-slider" min="0.5" max="8" step="0.1" value="${params.v}"><span id="rot_vd">${params.v}</span></div></div>
-    <div class="control-group"><label class="control-label">$\omega$ spin peonza</label>
-      <div class="slider-row"><input type="range" id="rot_spin" class="custom-slider" min="2" max="20" step="0.5" value="${params.spin}"><span id="rot_spind">${params.spin}</span></div></div>
-    <div class="control-group"><label class="control-label">Inclinación (°)</label>
-      <div class="slider-row"><input type="range" id="rot_tilt" class="custom-slider" min="5" max="60" step="1" value="${params.Ltilt}"><span id="rot_tiltd">${params.Ltilt}</span></div></div>
-  `);
-  setTimeout(() => {
-    const re = () => {
-      resetState();
-      _engine?.reset?.();
-    };
-    document.getElementById('rot_mode')?.addEventListener('change', (e) => {
-      params.mode = e.target.value;
-      re();
+  _drawCircular(scene) {
+    const { R, v, m } = this.params;
+    const cx = 0;
+    const cy = 0.5;
+    const hud = scene.hud;
+    const axc = R * Math.cos(this.theta);
+    const ayc = R * Math.sin(this.theta);
+
+    scene.circle(cx, cy, R, { color: 'textDim', stroke: true, width: 2, dash: [4, 4] });
+    scene.body(cx + axc, cy + ayc, { shape: 'circle', r: 0.35, color: 'mass2', label: 'm' });
+    // Velocidad tangencial y aceleración centrípeta.
+    scene.vector(cx + axc, cy + ayc, -ayc * 0.3, axc * 0.3, { color: 'velocity', label: 'v' });
+    scene.vector(cx + axc, cy + ayc, -axc * 0.45, -ayc * 0.45, { color: 'force', label: 'a_c', labelSide: -1 });
+
+    hud.chip('MCU: v = ωR, a_c = v²/R hacia el centro', 'top-left');
+    const ac = (this.omega * this.omega) * R;
+    hud.readout(
+      [
+        { label: 'ω', value: roundTo(this.omega, 3), unit: 'rad/s' },
+        { label: 'v', value: roundTo(R * this.omega, 3), unit: 'm/s' },
+        { label: 'a_c', value: roundTo(ac, 3), unit: 'm/s²' },
+        { label: 'F_c', value: roundTo(m * ac, 2), unit: 'N' },
+        { label: 'T', value: roundTo((2 * Math.PI) / this.omega, 3), unit: 's' }
+      ],
+      'bottom-left'
+    );
+  }
+
+  _drawMomentum(scene) {
+    const { m, r, omega0 } = this.params;
+    const I = this.Ivarilla();
+    const L = this.momentL();
+    const E = this.ERot();
+    const hud = scene.hud;
+    const cx = 0;
+    const cy = 0;
+
+    // Estelas de las dos masas.
+    scene.trail(this.orbit1, { color: 'mass', width: 2 });
+    scene.trail(this.orbit2, { color: 'mass2', width: 2 });
+
+    // Varilla rígida con las dos masas.
+    const x1 = r * Math.cos(this.theta);
+    const y1 = r * Math.sin(this.theta);
+    const x2 = -x1;
+    const y2 = -y1;
+    scene.line(cx, cy, x1, y1, { color: 'spring', width: 3 });
+    scene.line(cx, cy, x2, y2, { color: 'spring', width: 3 });
+    scene.body(cx, cy, { shape: 'circle', r: 0.22, color: 'textDim' });
+    scene.body(x1, y1, { shape: 'circle', r: 0.22 + m * 0.12, color: 'mass', label: 'm' });
+    scene.body(x2, y2, { shape: 'circle', r: 0.22 + m * 0.12, color: 'mass2', label: 'm' });
+    // Círculos de órbita de las masas.
+    scene.circle(cx, cy, r, { color: 'textDim', stroke: true, dash: [3, 4], alpha: 0.5 });
+
+    // Flecha de ω arqueada y vector L a lo largo del eje.
+    scene.angleArc(cx, cy, Math.atan2(y1, x1) - 0.5, Math.atan2(y1, x1) + 0.5, r * 0.7, { color: 'velocity' });
+    scene.vector(cx, cy, 0, 2.6, { color: 'energy', label: `L = ${roundTo(L, 2)} kg·m²/s`, labelSide: 1, width: 3 });
+
+    hud.chip('Momento angular conservado: encoge el brazo (r) y ω sube', 'top-left');
+    hud.readout(
+      [
+        { label: 'I = 2mr²', value: roundTo(I, 2), unit: 'kg·m²' },
+        { label: 'ω', value: roundTo(this.omega % (2 * Math.PI), 4), unit: 'rad/s' },
+        { label: 'L', value: roundTo(L, 3), unit: 'kg·m²/s' },
+        { label: 'E_rot', value: roundTo(E, 2), unit: 'J' },
+        { label: 'ω₀ (re-siembra)', value: roundTo(omega0, 2), unit: 'rad/s' }
+      ],
+      'bottom-left'
+    );
+  }
+
+  _drawPrecession(scene) {
+    const { Ltilt, spin, m } = this.params;
+    const tilt = Ltilt * DEG;
+    const Lmag = this.Ivarilla() * spin;
+    const tauG = m * 9.8 * 0.4 * Math.sin(tilt);
+    const Omega = tauG / Lmag;
+    const hud = scene.hud;
+    const topX = 0;
+    const topY = -1.5;
+
+    // Cono de precesión: el eje del top traza un círculo proyectado.
+    const probeR = Math.sin(tilt) * 2.5;
+    scene.circle(topX, topY + 0.2, probeR, { color: 'textDim', stroke: true, dash: [3, 4], alpha: 0.5 });
+    const px = probeR * Math.cos(this.precess);
+    const py = probeR * Math.sin(this.precess);
+    const pz = Math.cos(tilt) * 2.5;
+
+    // Eje inclinado: base → punta (proyección 2.5D).
+    const tipX = topX + px;
+    const tipY = topY + pz * 0.5 + py * 0.3;
+    scene.line(topX, topY, tipX, tipY, { color: 'mass2', width: 4 });
+    scene.body(topX, topY, { shape: 'circle', r: 0.3, color: 'mass2' });
+    scene.body(tipX, tipY, { shape: 'circle', r: 0.35, color: 'energy', label: 'L' });
+
+    // Marca de spin en la punta.
+    const spinMark = this.theta;
+    scene.body(tipX + 0.35 * Math.cos(spinMark), tipY + 0.35 * Math.sin(spinMark), {
+      shape: 'circle',
+      r: 0.1,
+      color: 'velocity'
     });
-    const bind = (id, key, d) => {
-      const el = document.getElementById(id);
-      el?.addEventListener('input', () => {
-        params[key] = parseFloat(el.value);
-        const disp = document.getElementById(d);
-        if (disp) disp.textContent = String(params[key]);
-        re();
-      });
-    };
-    bind('rot_I', 'I', 'rot_Id');
-    bind('rot_tau', 'tau', 'rot_taud');
-    bind('rot_R', 'R', 'rot_Rd');
-    bind('rot_v', 'v', 'rot_vd');
-    bind('rot_spin', 'spin', 'rot_spind');
-    bind('rot_tilt', 'Ltilt', 'rot_tiltd');
-  }, 0);
-}
 
-export function getState() {
-  return { t, theta, omega, precess, params: { ...params } };
-}
-export function setState(s) {
-  if (!s || typeof s !== 'object') return;
-  if (s.params) Object.assign(params, s.params);
-  if (s.t != null) t = s.t;
-  if (s.theta != null) theta = s.theta;
-  if (s.omega != null) omega = s.omega;
-  if (s.precess != null) precess = s.precess;
-  renderParams();
+    hud.chip(`Ω = τ/(Iω) = ${roundTo(Omega, 3)} rad/s (precesión)`, 'top-left');
+    hud.readout(
+      [
+        { label: 'ω spin', value: roundTo(spin, 2), unit: 'rad/s' },
+        { label: 'L', value: roundTo(Lmag, 2), unit: 'kg·m²/s' },
+        { label: 'τ_g', value: roundTo(tauG, 2), unit: 'N·m' },
+        { label: 'Ω precesión', value: roundTo(Omega, 4), unit: 'rad/s' },
+        { label: 'φ precesión', value: roundTo(this.precess, 2), unit: 'rad' }
+      ],
+      'bottom-left'
+    );
+  }
+
+  /* ---------- datos numéricos (§3.1) ---------- */
+
+  readout() {
+    const mode = this.params.modo;
+    const out = {
+      'ω': { value: roundTo(this.omega, 3), unit: 'rad/s' },
+      'θ': { value: roundTo(this.theta, 2), unit: 'rad' }
+    };
+    if (mode === 'torque') {
+      out['α'] = { value: roundTo(this.alpha(), 3), unit: 'rad/s²' };
+      out['L'] = { value: roundTo(this.momentL(), 2), unit: 'kg·m²/s' };
+      out['E_rot'] = { value: roundTo(this.ERot(), 2), unit: 'J' };
+    } else if (mode === 'circular') {
+      out['v'] = { value: roundTo(this.params.R * this.omega, 3), unit: 'm/s' };
+      out['a_c'] = { value: roundTo(this.omega * this.omega * this.params.R, 3), unit: 'm/s²' };
+    } else if (mode === 'momentum') {
+      out['I'] = { value: roundTo(this.Ivarilla(), 3), unit: 'kg·m²' };
+      out['L (cons.)'] = { value: roundTo(this.L, 3), unit: 'kg·m²/s' };
+      out['E_rot'] = { value: roundTo(this.ERot(), 2), unit: 'J' };
+    } else {
+      const Lmag = this.Ivarilla() * this.params.spin;
+      const tauG = this.params.m * 9.8 * 0.4 * Math.sin(this.params.Ltilt * DEG);
+      out['L'] = { value: roundTo(Lmag, 2), unit: 'kg·m²/s' };
+      out['Ω precesión'] = { value: roundTo(tauG / Lmag, 4), unit: 'rad/s' };
+    }
+    return out;
+  }
+
+  getState() {
+    return {
+      t: this.t,
+      theta: this.theta,
+      omega: this.omega,
+      precess: this.precess,
+      L: this.L,
+      params: { ...this.params }
+    };
+  }
+
+  setState(s) {
+    if (!s || typeof s !== 'object') return;
+    if (s.params) Object.assign(this.params, s.params);
+    if (Number.isFinite(s.t)) this.t = s.t;
+    if (Number.isFinite(s.theta)) this.theta = s.theta;
+    if (Number.isFinite(s.omega)) this.omega = s.omega;
+    if (Number.isFinite(s.precess)) this.precess = s.precess;
+    if (Number.isFinite(s.L)) this.L = s.L;
+    this._prevParams = { ...this.params };
+    this.orbit1.clear();
+    this.orbit2.clear();
+  }
+
+  destroy() {
+    this.orbit1.clear();
+    this.orbit2.clear();
+  }
 }

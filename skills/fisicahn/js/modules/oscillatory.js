@@ -1,152 +1,223 @@
 /**
- * Movimiento armónico simple — resorte.
+ * @fileoverview Oscilaciones — resorte (Hooke) y MHS, libre y amortiguado
+ * (tanda 5.2, «Modo Hooke en oscillatory»). Ejercita la primitiva `spring`.
+ *
+ * Migrado al contrato `SimModule` de la WAVE 2. La posición sigue la solución
+ * exacta: x = A·cos(ωt) en el MHS ideal, y x = A·e^{−γt}·cos(ω′t) con
+ * ω′ = √(ω₀² − γ²) al encender el roce. El módulo dibuja el muelle real entre
+ * la pared y la masa, la energía en el HUD y la historia x(t). En el modo
+ * amortiguado la década de la amplitud (−γt) se lee directamente de la estela.
  */
 
+import { SimModule } from '../core/sim-module.js';
+import { TrailBuffer } from '../core/trail-buffer.js';
 import { roundTo } from '../utils/math-helpers.js';
-import {
-  setModuleInfo,
-  setModuleFormulas,
-  paramControl,
-  bindParamControls,
-  clearChallenges
-} from '../module-ui.js';
+import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
-let _engine, _renderer, _ui;
-let t = 0;
-const params = {
-  A: 4,
-  omega: 1.2,
-  phi: 0,
-  m: 1
-};
+export default class Oscillatory extends SimModule {
+  static viewport = { width: 24, height: 10 };
 
-export function init(engine, renderer, ui, meta = null) {
-  _engine = engine;
-  _renderer = renderer;
-  _ui = ui;
-  t = 0;
-  renderer.resetCamera();
-  setModuleInfo(ui, {
-    title: meta?.title || 'Oscilaciones y energía',
-    blurb:
-      meta?.blurb ||
-      'MHS en un resorte: posición, periodo y conservación Ec + Ep = Em.',
-    story:
-      'En un resorte ideal sin fricción, la energía mecánica se intercambia entre cinética y potencial elástica pero Em se conserva. Unifica “movimiento oscilatorio” y “conservación de la energía” en un solo laboratorio.',
-    cases: [
-      'En los extremos: v = 0, Ep máxima, Ec = 0.',
-      'En el equilibrio: |v| máxima, Ep = 0, Ec máxima.',
-      'Em = ½ k A² constante si no hay disipación.'
-    ]
-  });
-  setModuleFormulas(ui, { items: [
-    { name: 'Ley de Hooke', formula: 'F = −k · x' },
-    { name: 'Pulsación angular', formula: 'ω = √(k/m)', note: 'T = 2π/ω' },
-    { name: 'Posición', formula: 'x = A · cos(ωt + φ)' },
-    { name: 'Energía', formula: 'E<sub>m</sub> = E<sub>c</sub> + E<sub>p</sub> = ½ k A²', note: 'Se conserva en el MHS ideal.' }
-  ]});
+  static params = [
+    {
+      id: 'modo',
+      type: 'select',
+      label: 'Modo',
+      value: 'mhs',
+      options: [
+        { value: 'mhs', label: 'MHS sin roce (Em se conserva)' },
+        { value: 'amortiguado', label: 'Amortiguado (x = A·e⁻ᵞᵗ·cos ω′t)' }
+      ]
+    },
+    { id: 'A', label: 'Amplitud', latex: 'A', unit: 'm', min: 0.5, max: 7, step: 0.1, value: 5 },
+    { id: 'k', label: 'Constante del muelle', latex: 'k', unit: 'N/m', min: 5, max: 200, step: 5, value: 60 },
+    { id: 'm', label: 'Masa', latex: 'm', unit: 'kg', min: 0.2, max: 5, step: 0.2, value: 1 },
+    { id: 'g', label: 'Coef. de amortiguación', latex: '\\gamma', unit: '1/s', min: 0, max: 0.8, step: 0.05, value: 0.15 }
+  ];
 
-  clearChallenges(ui);
-  renderParams();
-}
-
-export function destroy() {
-  _engine = _renderer = _ui = null;
-}
-export function reset(engine) {
-  t = 0;
-  engine.reset();
-}
-export function setTool() {}
-
-export function update(dt) {
-  t += dt;
-  const x = params.A * Math.cos(params.omega * t + params.phi);
-  const v = -params.A * params.omega * Math.sin(params.omega * t + params.phi);
-  const k = params.m * params.omega * params.omega;
-  const Ec = 0.5 * params.m * v * v;
-  const Ep = 0.5 * k * x * x;
-  _ui?.setData(`
-    <div style="font-family:var(--font-mono);font-size:0.82rem;line-height:1.7">
-      <div>x = ${roundTo(x, 3)} m</div>
-      <div>v = ${roundTo(v, 3)} m/s</div>
-      <div>Ec = ${roundTo(Ec, 3)} J · Ep = ${roundTo(Ep, 3)} J</div>
-      <div>Em = ${roundTo(Ec + Ep, 3)} J</div>
-      <div>T = ${roundTo((2 * Math.PI) / params.omega, 3)} s</div>
-    </div>
-  `);
-}
-
-export function render(ctx) {
-  if (!_renderer) return;
-  const r = _renderer;
-  const x = params.A * Math.cos(params.omega * t + params.phi);
-  const wall = -8;
-  // resorte
-  const a = r.worldToCanvas(wall, 0);
-  const b = r.worldToCanvas(x - 0.5, 0);
-  ctx.save();
-  ctx.strokeStyle = '#9aa8b8';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  const coils = 12;
-  for (let i = 0; i <= coils; i++) {
-    const u = i / coils;
-    const px = a.x + (b.x - a.x) * u;
-    const py = a.y + (i % 2 === 0 ? -10 : 10);
-    if (i === 0) ctx.moveTo(px, a.y);
-    else ctx.lineTo(px, py);
+  constructor(ctx) {
+    super(ctx);
+    this.params = { modo: 'mhs', A: 5, k: 60, m: 1, g: 0.15 };
+    this.t = 0;
+    this.history = new TrailBuffer(480);
+    this.useCharts = false;
   }
-  ctx.lineTo(b.x, b.y);
-  ctx.stroke();
-  ctx.restore();
 
-  r.drawObject(wall, 0, { shape: 'rect', size: 0.4, color: '#555' });
-  r.drawObject(x, 0, { shape: 'circle', size: 0.55, color: '#4fc3f7', label: 'm' });
-  // equilibrio
-  const eq = r.worldToCanvas(0, 0);
-  ctx.save();
-  ctx.strokeStyle = 'rgba(255,183,77,0.4)';
-  ctx.setLineDash([4, 4]);
-  ctx.beginPath();
-  ctx.moveTo(eq.x, 0);
-  ctx.lineTo(eq.x, r.viewport().h);
-  ctx.stroke();
-  ctx.restore();
-}
+  init(meta = null) {
+    this.reset();
+    setModuleInfo(this.ui, {
+      title: 'Oscilaciones y energía',
+      blurb: 'MHS en un resorte: la ley de Hooke, el periodo y Em = Ec + Ep.',
+      story:
+        'En un resorte ideal sin fricción la energía mecánica se intercambia entre cinética y potencial elástica, pero Em se conserva: v es máxima en el equilibrio y nula en los extremos, mientras que Ep hace lo contrario. Encender el roce añade el factor e^{−γt}: la amplitud y la energía decaen con el tiempo, y en vez de oscilar para siempre la masa termina en reposo. Un mismo objeto —el muelle— explica el pendulero de un reloj y el amortiguador de un coche.',
+      cases: [
+        'En los extremos: v = 0, Ep máxima, Ec = 0.',
+        'En el equilibrio: |v| máxima, Ep = 0.',
+        'Em = ½ k A² constante si γ = 0.',
+        'Con roce: la envolvente A·e^{−γt} envuelve la estela.'
+      ]
+    });
+    setModuleFormulas(this.ui, {
+      title: 'Oscilaciones',
+      items: [
+        { name: 'Ley de Hooke', formula: 'F = −k·x' },
+        { name: 'Pulsación angular', formula: '\\omega_0 = \\sqrt{k/m}', note: 'T = 2π/ω₀' },
+        { name: 'Posición de equilibrio', formula: 'x = A·cos(ω₀ t)' },
+        {
+          name: 'Amortiguado',
+          formula: 'x = A\\,e^{-\\gamma t}\\cos(\\omega\' t),\\quad \\omega\' = \\sqrt{\\omega_0^2 - \\gamma^2}',
+          note: 'Valida para γ < ω₀ (subamortiguado).'
+        },
+        { name: 'Energía mecánica', formula: 'E_m = \\tfrac{1}{2} k A^2', note: 'Se conserva solo si γ = 0.' }
+      ]
+    });
+    clearChallenges(this.ui);
+  }
 
-function renderParams() {
-  _ui.setParams(`
-    <div class="control-group"><label class="control-label">Amplitud $A$ (m)</label>
-      <div class="slider-row"><input type="range" id="o_A" class="custom-slider" min="0.5" max="7" step="0.1" value="${params.A}"><span id="od_A">${params.A}</span></div></div>
-    <div class="control-group"><label class="control-label">$\omega$ (rad/s)</label>
-      <div class="slider-row"><input type="range" id="o_w" class="custom-slider" min="0.3" max="4" step="0.1" value="${params.omega}"><span id="od_w">${params.omega}</span></div></div>
-    <div class="control-group"><label class="control-label">$\varphi$ (rad)</label>
-      <div class="slider-row"><input type="range" id="o_p" class="custom-slider" min="0" max="6.28" step="0.1" value="${params.phi}"><span id="od_p">${params.phi}</span></div></div>
-  `);
-  setTimeout(() => {
-    const bind = (id, key, d) => {
-      const el = document.getElementById(id);
-      el?.addEventListener('input', () => {
-        params[key] = parseFloat(el.value);
-        const disp = document.getElementById(d);
-        if (disp) disp.textContent = String(params[key]);
-        t = 0;
-        _engine?.reset();
-      });
+  reset() {
+    this.t = 0;
+    this.history.clear();
+    this.engine?.reset?.();
+  }
+
+  omega0() {
+    return Math.sqrt(this.params.k / this.params.m);
+  }
+
+  /** Posición actual según el modo. */
+  x() {
+    const { modo, A, g } = this.params;
+    const w0 = this.omega0();
+    if (modo === 'mhs') return A * Math.cos(w0 * this.t);
+    const w = Math.sqrt(Math.max(w0 * w0 - g * g, 1e-9));
+    return A * Math.exp(-g * this.t) * Math.cos(w * this.t);
+  }
+
+  v() {
+    const { modo, A, g } = this.params;
+    const w0 = this.omega0();
+    if (modo === 'mhs') return -A * w0 * Math.sin(w0 * this.t);
+    const w = Math.sqrt(Math.max(w0 * w0 - g * g, 1e-9));
+    return A * Math.exp(-g * this.t) * (-g * Math.cos(w * this.t) - w * Math.sin(w * this.t));
+  }
+
+  a() {
+    const { modo, A, g } = this.params;
+    const w0 = this.omega0();
+    const x = this.x();
+    const v = this.v();
+    if (modo === 'mhs') return -w0 * w0 * x;
+    // a = −ω₀²·x − 2γ·v (oscilador amortiguado con fuerza −kx − 2mγv).
+    return -w0 * w0 * x - 2 * g * v;
+  }
+
+  Ep() {
+    return 0.5 * this.params.k * this.x() ** 2;
+  }
+
+  Ec() {
+    return 0.5 * this.params.m * this.v() ** 2;
+  }
+
+  Em() {
+    return this.Ep() + this.Ec();
+  }
+
+  period() {
+    const { modo, g } = this.params;
+    const w0 = this.omega0();
+    if (modo === 'mhs') return (2 * Math.PI) / w0;
+    return (2 * Math.PI) / Math.sqrt(Math.max(w0 * w0 - g * g, 1e-9));
+  }
+
+  update(dt) {
+    this.t += dt;
+    this.history.push({ x: this.t, y: this.x() });
+  }
+
+  /* ---------- dibujo declarativo (§2.4) ---------- */
+
+  draw(scene) {
+    const { A, m } = this.params;
+    const x = this.x();
+    const wall = -7.5;
+    const vp = scene.viewport();
+
+    // Piso de apoyo.
+    scene.line(wall - 0.5, -0.9, vp.x + vp.w - 0.8, -0.9, { color: 'textDim', width: 3 });
+    scene.line(-0.5, -0.9, 0.5, -1.4, { color: 'textDim', width: 3 });
+    scene.line(7.0, -0.9, 7.6, -1.4, { color: 'textDim', width: 3 });
+
+    // Muelle real entre la pared y la masa (primitiva spring, tanda 5.2).
+    scene.line(wall, 0.5, wall, -0.5, { color: 'textDim', width: 4 });
+    scene.spring(wall, 0, x - m * 0.35, 0, { color: 'spring', width: 2, coils: 14, amplitude: 0.35 });
+
+    // Equilibrio (x = 0) punteado.
+    scene.line(0, -0.8, 0, 0.8, { color: 'textDim', dash: [3, 4], alpha: 0.6 });
+    scene.label(0.5, 0.75, 'equilibrio x = 0', { color: 'textDim' });
+
+    // Masa con su dirección de movimiento.
+    scene.body(x, 0, { shape: 'rect', r: m * 0.28, color: 'mass', label: `m = ${m} kg`, labelColor: 'mass' });
+    const vEl = this.v();
+    scene.vector(x, 0.6, vEl * 0.25, 0, { color: 'velocity', label: `v = ${roundTo(vEl, 2)} m/s` });
+    const F = -this.params.k * x;
+    scene.vector(x, -0.7, F * 0.03, 0, { color: 'force', label: `F = ${roundTo(F, 1)} N`, labelSide: -1 });
+
+    // HUD: energía y periodo.
+    const hud = scene.hud;
+    const amort = this.params.modo === 'amortiguado';
+    hud.chip(amort ? 'Amortiguado: Em decae con e^{−2γt}' : 'MHS: Em se conserva', 'top-left');
+    hud.readout(
+      [
+        { label: 'x', value: roundTo(x, 3), unit: 'm' },
+        { label: 'Ec', value: roundTo(this.Ec(), 2), unit: 'J' },
+        { label: 'Ep', value: roundTo(this.Ep(), 2), unit: 'J' },
+        { label: 'Em', value: roundTo(this.Em(), 2), unit: 'J' },
+        { label: 'T', value: roundTo(this.period(), 3), unit: 's' }
+      ],
+      'bottom-left'
+    );
+
+    // Historia x(t).
+    if (vp.w > 440 && this.history.length > 1) {
+      const yRange = [-this.params.A * 1.2, this.params.A * 1.2];
+      hud.plot(
+        { x: vp.x + vp.w - 215, y: vp.y + vp.h - 118, w: 200, h: 106 },
+        {
+          title: 'Posición x(t)',
+          series: [{ points: this.history, color: 'mass', label: 'x' }],
+          yRange
+        }
+      );
+    }
+  }
+
+  /* ---------- datos numéricos (§3.1) ---------- */
+
+  readout() {
+    return {
+      'x': { value: roundTo(this.x(), 3), unit: 'm' },
+      'v': { value: roundTo(this.v(), 3), unit: 'm/s' },
+      'a': { value: roundTo(this.a(), 3), unit: 'm/s²' },
+      'Ec': { value: roundTo(this.Ec(), 3), unit: 'J' },
+      'Ep': { value: roundTo(this.Ep(), 3), unit: 'J' },
+      'Em': { value: roundTo(this.Em(), 3), unit: 'J' },
+      'ω₀': { value: roundTo(this.omega0(), 3), unit: 'rad/s' },
+      'T': { value: roundTo(this.period(), 3), unit: 's' }
     };
-    bind('o_A', 'A', 'od_A');
-    bind('o_w', 'omega', 'od_w');
-    bind('o_p', 'phi', 'od_p');
-  }, 0);
-}
+  }
 
-export function getState() {
-  return { t, params: { ...params } };
-}
-export function setState(s) {
-  if (!s || typeof s !== 'object') return;
-  if (s.params) Object.assign(params, s.params);
-  if (s.t != null) t = s.t;
-  renderParams();
+  getState() {
+    return { t: this.t, params: { ...this.params } };
+  }
+
+  setState(s) {
+    if (!s || typeof s !== 'object') return;
+    if (s.params) Object.assign(this.params, s.params);
+    if (Number.isFinite(s.t)) this.t = s.t;
+    this.history.clear();
+  }
+
+  destroy() {
+    this.history.clear();
+  }
 }

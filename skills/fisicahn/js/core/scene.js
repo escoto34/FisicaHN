@@ -343,6 +343,53 @@ export class Surface {
     return this.path(points, { ...opts, close: true });
   }
 
+  /**
+   * Relleno de líquido con superficie horizontal (tanda 5.2, `fluids`).
+   * `(x, y)` es la **esquina superior izquierda** del líquido; la superficie
+   * se dibuja como una línea en `y` y el cuerpo del fluido baja hasta `y + h`.
+   * @param {number} x
+   * @param {number} y
+   * @param {number} w - Ancho en unidades de mundo.
+   * @param {number} h - Altura en unidades de mundo.
+   * @param {object} [opts]
+   * @param {string} [opts.color='field']
+   * @param {number} [opts.alpha=0.35]
+   * @param {boolean} [opts.level=true] - Dibujar la línea de superficie.
+   * @param {boolean} [opts.waves] - Pequeña ondulación en la superficie.
+   */
+  fill(x, y, w, h, opts = {}) {
+    const ctx = this.ctx;
+    if (!ctx) return this;
+    const color = this.color(opts.color, 'field');
+    const p = this.project(x, y, _a);
+    const wp = this.screenSpace ? w : this.px(w);
+    const hp = this.screenSpace ? h : this.px(h);
+    ctx.save();
+    ctx.globalAlpha = opts.alpha ?? 0.35;
+    ctx.fillStyle = color;
+    ctx.fillRect(p.x - wp / 2, p.y, wp, hp);
+    ctx.restore();
+
+    if (opts.level !== false) {
+      const amp = opts.waves ? 1.5 : 0;
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = this.lineWidth(opts.width ?? 1.6);
+      ctx.beginPath();
+      const n = Math.max(3, Math.round(wp / 14));
+      for (let i = 0; i <= n; i++) {
+        const u = i / n;
+        const px0 = p.x - wp / 2 + wp * u;
+        const py0 = p.y + amp * Math.sin(u * Math.PI * 2 + (this.elapsed || 0) * 6);
+        if (i === 0) ctx.moveTo(px0, py0);
+        else ctx.lineTo(px0, py0);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+    return this;
+  }
+
   /* ---------- física ---------- */
 
   /**
@@ -1144,6 +1191,19 @@ export class HudSurface extends Surface {
         const Y = sy(_a.y);
         if (k === 0) ctx.moveTo(X, Y);
         else ctx.lineTo(X, Y);
+      }
+      if (s.fill) {
+        // Área bajo la curva hasta el eje inferior (tanda 5.2): resaltado del
+        // impulso J = ∫F·dt y de la resiliencia (área elástica de σ–ε).
+        const last = list.at(list.length - 1, _b);
+        ctx.lineTo(sx(last.x), py + ph);
+        ctx.lineTo(sx(list.at(0, _a).x), py + ph);
+        ctx.closePath();
+        ctx.fillStyle = this.color(s.fill === true ? s.color : s.fill, 'text') || seriesColor(i);
+        ctx.globalAlpha = 0.22;
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.setLineDash([]);
       }
       ctx.stroke();
     });

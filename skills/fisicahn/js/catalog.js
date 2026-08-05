@@ -354,6 +354,31 @@ export const CATALOG = [
       'Cómo una F neta cambia la velocidad y la Ec. Sin fricción. Complementa “Fuerzas y movimiento” (vectores F) y “Trabajo, energía” (con rozamiento).'
   },
   {
+    id: 'elasticity',
+    title: 'Elasticidad',
+    titleEn: 'Elasticity (stress-strain)',
+    level: 'high',
+    category: 'dinamica-fuerzas',
+    glyph: '🪜',
+    accent: 'red',
+    blurb:
+      'Curva σ–ε: ley de Hooke, límite elástico σy, régimen plástico y rotura.',
+    engineKey: 'elasticity',
+    status: 'ready',
+    serves: [
+      'Elasticidad',
+      'Ley de Hooke',
+      'Tensión y deformación',
+      'Esfuerzo y deformación',
+      'Límite elástico',
+      'Módulo de Young',
+      'Resiliencia',
+      'Resistencia de materiales'
+    ],
+    topic:
+      'Propiedades mecánicas de la materia: la curva σ–ε del material. Se diferencia de “Oscilaciones” (Hooke dinámico con masa) porque aquí no hay movimiento, solo carga estática.'
+  },
+  {
     id: 'friction',
     title: 'Fricción',
     titleEn: 'Friction',
@@ -488,6 +513,36 @@ export const CATALOG = [
       'Fuerza centrípeta',
       'Inercia rotacional'
     ],
+    modes: [
+      {
+        id: 'torque',
+        label: 'Torque e I',
+        param: 'modo',
+        value: 'torque',
+        serves: ['Torque', 'Inercia rotacional', 'τ = Iα']
+      },
+      {
+        id: 'circular',
+        label: 'MCU',
+        param: 'modo',
+        value: 'circular',
+        serves: ['Movimiento circular', 'MCU', 'Fuerza centrípeta']
+      },
+      {
+        id: 'momentum',
+        label: 'Momento angular',
+        param: 'modo',
+        value: 'momentum',
+        serves: ['Momento angular', 'Conservación de L', 'Patín de hielo (I variable)']
+      },
+      {
+        id: 'precession',
+        label: 'Precesión',
+        param: 'modo',
+        value: 'precession',
+        serves: ['Precesión', 'Peonza', 'ω, L y torque gravitatorio']
+      }
+    ],
     topic:
       'Cuerpo rígido / cinemática angular. No confundir con órbita de carga en B (Lorentz).'
   },
@@ -511,8 +566,106 @@ export const CATALOG = [
       'Resortes',
       'Energía en oscilaciones'
     ],
+    modes: [
+      {
+        id: 'mhs',
+        label: 'MHS sin roce',
+        param: 'modo',
+        value: 'mhs',
+        serves: ['Movimiento armónico simple', 'Energía en oscilaciones', 'Em constante']
+      },
+      {
+        id: 'amortiguado',
+        label: 'Amortiguado',
+        param: 'modo',
+        value: 'amortiguado',
+        serves: ['Oscilaciones amortiguadas', 'x = A·e⁻ᵞᵗ·cos ω′t']
+      }
+    ],
     topic:
       'Resorte armónico: Ec, Ep y Em. Para trabajo/potencia con rozamiento usa “Trabajo, energía y potencia”.'
+  },
+  {
+    id: 'pendulum',
+    title: 'Péndulo',
+    titleEn: 'Pendulum',
+    level: 'high',
+    category: 'oscilaciones-ondas',
+    glyph: '🕰️',
+    accent: 'cyan',
+    blurb:
+      'Periodo real frente a T = 2π√(L/g), y doble péndulo con sensibilidad al caos.',
+    engineKey: 'pendulum',
+    status: 'ready',
+    serves: [
+      'Péndulo',
+      'Péndulo simple',
+      'Periodo de un péndulo',
+      'Movimiento periódico',
+      'Ángulo pequeño vs grande',
+      'Doble péndulo',
+      'Caos determinista',
+      'Sensibilidad a condiciones iniciales'
+    ],
+    modes: [
+      {
+        id: 'simple',
+        label: 'Péndulo simple',
+        param: 'modo',
+        value: 'simple',
+        serves: ['Péndulo simple', 'Periodo de un péndulo', 'Ángulo pequeño vs grande']
+      },
+      {
+        id: 'doble',
+        label: 'Doble péndulo',
+        param: 'modo',
+        value: 'doble',
+        serves: ['Doble péndulo', 'Caos determinista', 'Sensibilidad a condiciones iniciales']
+      }
+    ],
+    topic:
+      'Oscilador con integración angular exacta: en ángulo grande T > 2π√(L/g). El doble péndulo es el ejemplo escolar de caos determinista.'
+  },
+  {
+    id: 'fluids',
+    title: 'Fluidos',
+    titleEn: 'Fluids',
+    level: 'high',
+    category: 'fluidos',
+    glyph: '💧',
+    accent: 'teal',
+    blurb: 'Arquímedes (flotación) y Bernoulli (tubo de Venturi) en un mismo laboratorio.',
+    engineKey: 'fluids',
+    status: 'ready',
+    serves: [
+      'Fluidos',
+      'Presión en fluidos',
+      'Principio de Arquímedes',
+      'Flotación',
+      'Empuje',
+      'Ecuación de Bernoulli',
+      'Ecuación de continuidad',
+      'Caudal',
+      'Tubo de Venturi'
+    ],
+    modes: [
+      {
+        id: 'arquimedes',
+        label: 'Arquímedes',
+        param: 'modo',
+        value: 'arquimedes',
+        serves: ['Principio de Arquímedes', 'Flotación', 'Empuje']
+      },
+      {
+        id: 'bernoulli',
+        label: 'Bernoulli',
+        param: 'modo',
+        value: 'bernoulli',
+        serves: ['Ecuación de Bernoulli', 'Ecuación de continuidad', 'Caudal', 'Tubo de Venturi']
+      }
+    ],
+    topic:
+      'Estática y dinámica de líquidos. La presión y la velocidad intercambian valores en el Venturi; flotación por densidad relativa.'
   },
   {
     id: 'thermodynamics',
