@@ -627,6 +627,45 @@ export const CATALOG = [
       'Oscilador con integración angular exacta: en ángulo grande T > 2π√(L/g). El doble péndulo es el ejemplo escolar de caos determinista.'
   },
   {
+    id: 'standing-waves',
+    title: 'Ondas estacionarias',
+    titleEn: 'Standing Waves',
+    level: 'high',
+    category: 'oscilaciones-ondas',
+    glyph: '🎸',
+    accent: 'cyan',
+    blurb: 'Modos normales de una cuerda fija, armónicos y batidos por superposición.',
+    engineKey: 'standing-waves',
+    status: 'ready',
+    serves: [
+      'Ondas estacionarias',
+      'Armónicos',
+      'Nodos y antinodos',
+      'Ondas en cuerdas',
+      'Superposición de ondas',
+      'Batidos',
+      'Frecuencia fundamental'
+    ],
+    modes: [
+      {
+        id: 'cuerda',
+        label: 'Cuerda fija',
+        param: 'modo',
+        value: 'cuerda',
+        serves: ['Ondas estacionarias', 'Armónicos', 'Nodos y antinodos', 'Frecuencia fundamental']
+      },
+      {
+        id: 'batidos',
+        label: 'Batidos',
+        param: 'modo',
+        value: 'batidos',
+        serves: ['Batidos', 'Superposición de ondas', 'Interferencia en el tiempo']
+      }
+    ],
+    topic:
+      'Condición de contorno y superposición. Sonido (Doppler e intensidad) está en “Sonido y ondas”; oscilador MHS en “Oscilaciones y energía”.'
+  },
+  {
     id: 'fluids',
     title: 'Fluidos',
     titleEn: 'Fluids',
@@ -689,6 +728,160 @@ export const CATALOG = [
     topic: 'Leyes térmicas, motores (η de Carnot) y transferencia de calor 1D.'
   },
   {
+    id: 'calorimetry',
+    title: 'Calorimetría',
+    titleEn: 'Calorimetry',
+    level: 'high',
+    category: 'termica',
+    glyph: '🧊',
+    accent: 'amber',
+    blurb: 'Equilibrio térmico de mezclas, calor latente con meseta de fusión y conducción/convección/radiación.',
+    engineKey: 'calorimetry',
+    status: 'ready',
+    serves: [
+      'Calorimetría',
+      'Calor específico',
+      'Cambios de fase',
+      'Calor latente',
+      'Equilibrio térmico',
+      'Conducción',
+      'Convección',
+      'Radiación',
+      'Ley de Stefan-Boltzmann',
+      'Transferencia de calor'
+    ],
+    modes: [
+      {
+        id: 'mezcla',
+        label: 'Mezcla y equilibrio',
+        param: 'modo',
+        value: 'mezcla',
+        serves: ['Calorimetría', 'Equilibrio térmico', 'Calor específico', 'Mezclas']
+      },
+      {
+        id: 'fase',
+        label: 'Cambios de fase',
+        param: 'modo',
+        value: 'fase',
+        serves: ['Cambios de fase', 'Calor latente', 'Fusión', 'Meseta de temperatura']
+      },
+      {
+        id: 'conduccion',
+        label: 'Conducción',
+        param: 'modo',
+        value: 'conduccion',
+        serves: ['Conducción', 'Ley de Fourier', 'Conductividad térmica']
+      },
+      {
+        id: 'conveccion',
+        label: 'Convección',
+        param: 'modo',
+        value: 'conveccion',
+        serves: ['Convección', 'Ley de enfriamiento de Newton']
+      },
+      {
+        id: 'radiacion',
+        label: 'Radiación',
+        param: 'modo',
+        value: 'radiacion',
+        serves: ['Radiación', 'Ley de Stefan-Boltzmann', 'Cuerpo negro']
+      }
+    ],
+    topic:
+      'Transferencia de calor y energía interna. Termodinámica modela gas ideal (P–V); aquí el observable es Q y T.'
+  },
+  {
+    id: 'kinetic-theory',
+    title: 'Teoría cinética',
+    titleEn: 'Kinetic Theory',
+    level: 'advanced',
+    category: 'termica',
+    glyph: '🎈',
+    accent: 'amber',
+    blurb: 'Moléculas en una caja: temperatura como energía cinética media y Maxwell-Boltzmann.',
+    engineKey: 'kinetic-theory',
+    status: 'ready',
+    serves: [
+      'Teoría cinética de gases',
+      'Velocidad eficaz (rms)',
+      'Distribución de Maxwell-Boltzmann',
+      'Temperatura y energía cinética',
+      'Moléculas y gas ideal',
+      'Dos gases a la misma T'
+    ],
+    modes: [
+      {
+        id: 'caja',
+        label: 'Un gas',
+        param: 'modo',
+        value: 'caja',
+        serves: ['Teoría cinética de gases', 'Velocidad eficaz', 'Maxwell-Boltzmann']
+      },
+      {
+        id: 'binaria',
+        label: 'Dos gases',
+        param: 'modo',
+        value: 'binaria',
+        serves: ['Dos gases a la misma T', 'Misma energía, distinta velocidad']
+      }
+    ],
+    topic:
+      'Microscopía de los gases: colisiones, ⟨KE⟩ = k_B·T y la cola de la distribución. El gas ideal macroscópico está en Termodinámica.'
+  },
+  {
+    id: 'thermal-expansion',
+    title: 'Dilatación térmica',
+    titleEn: 'Thermal Expansion',
+    level: 'high',
+    category: 'termica',
+    glyph: '📐',
+    accent: 'amber',
+    blurb: 'ΔL = α·L₀·ΔT lineal, superficial y volumétrica, y la tira bimetálica del termostato.',
+    engineKey: 'thermal-expansion',
+    status: 'ready',
+    serves: [
+      'Dilatación térmica',
+      'Dilatación lineal',
+      'Dilatación superficial',
+      'Dilatación volumétrica',
+      'Coeficiente de expansión',
+      'Tira bimetálica',
+      'Juntas de expansión'
+    ],
+    modes: [
+      {
+        id: 'lineal',
+        label: 'Dilatación lineal',
+        param: 'modo',
+        value: 'lineal',
+        serves: ['Dilatación lineal', 'Dilatación térmica']
+      },
+      {
+        id: 'superficial',
+        label: 'Superficial',
+        param: 'modo',
+        value: 'superficial',
+        serves: ['Dilatación superficial', 'Área vs temperatura']
+      },
+      {
+        id: 'volumetrica',
+        label: 'Volumétrica',
+        param: 'modo',
+        value: 'volumetrica',
+        serves: ['Dilatación volumétrica', 'Volumen vs temperatura']
+      },
+      {
+        id: 'bimetalica',
+        label: 'Tira bimetálica',
+        param: 'modo',
+        value: 'bimetalica',
+        serves: ['Tira bimetálica', 'Termostato', 'Termómetro bimetálico']
+      }
+    ],
+    topic:
+      'Deformación por temperatura con α por material. La transferencia de calor (caloría, fase) está en Calorimetría.'
+  },
+  {
     id: 'sound-waves',
     title: 'Sonido y ondas',
     titleEn: 'Sound & Waves',
@@ -697,7 +890,7 @@ export const CATALOG = [
     glyph: '🔊',
     accent: 'cyan',
     blurb:
-      'Ondas sonoras: frentes, v = f·λ, temperatura y efecto Doppler (fuente móvil).',
+      'Ondas sonoras: frentes, Doppler, e intensidad sonora con escala de decibelios.',
     engineKey: 'sound',
     status: 'ready',
     serves: [
@@ -707,6 +900,22 @@ export const CATALOG = [
       'Efecto Doppler',
       'Intensidad sonora',
       'Escala de decibelios'
+    ],
+    modes: [
+      {
+        id: 'doppler',
+        label: 'Efecto Doppler',
+        param: 'modo',
+        value: 'doppler',
+        serves: ['Efecto Doppler', 'Frentes de onda', 'Sirena de ambulancia']
+      },
+      {
+        id: 'intensidad',
+        label: 'Intensidad y dB',
+        param: 'modo',
+        value: 'intensidad',
+        serves: ['Intensidad sonora', 'Escala de decibelios', 'I ∝ 1/r²', 'Regla de los 6 dB']
+      }
     ],
     topic:
       'Ondas mecánicas/acústicas. Ondas EM y óptica ondulatoria son módulos aparte.'
@@ -776,6 +985,13 @@ export const CATALOG = [
         param: 'mode',
         value: 'rlc',
         serves: ['RLC', 'Resonancia', 'Corriente alterna', 'Impedancia']
+      },
+      {
+        id: 'rc',
+        label: 'RC carga/descarga',
+        param: 'mode',
+        value: 'rc',
+        serves: ['Circuitos RC', 'Capacitores', 'Dieléctricos', 'Carga exponencial']
       }
     ],
     topic: 'Mallas resistivas y RLC forzado. No es el mapa de Coulomb.'
@@ -819,6 +1035,22 @@ export const CATALOG = [
       'Polarización',
       'Ley de Malus',
       'Velocidad de la luz'
+    ],
+    modes: [
+      {
+        id: 'plana',
+        label: 'Onda plana (E·B)',
+        param: 'modo',
+        value: 'plana',
+        serves: ['Ondas electromagnéticas', 'Velocidad de la luz', 'Espectro electromagnético']
+      },
+      {
+        id: 'polarizacion',
+        label: 'Polarización y Malus',
+        param: 'modo',
+        value: 'polarizacion',
+        serves: ['Polarización', 'Ley de Malus']
+      }
     ],
     topic: 'Luz como onda EM (Maxwell). Distinto de sonido y de franjas de Young.'
   },
@@ -923,6 +1155,84 @@ export const CATALOG = [
     topic: 'Formación de imagen con lente convergente/divergente (diagrama de rayos).'
   },
   {
+    id: 'mirrors',
+    title: 'Espejos esféricos',
+    titleEn: 'Spherical Mirrors',
+    level: 'high',
+    category: 'optica',
+    glyph: '🪞',
+    accent: 'green',
+    blurb: 'Imágenes en espejos cóncavos y convexos con rayos y 1/f = 1/d₀ + 1/dᵢ.',
+    engineKey: 'mirrors',
+    status: 'ready',
+    serves: [
+      'Espejos',
+      'Espejos esféricos',
+      'Espejo cóncavo',
+      'Espejo convexo',
+      'Formación de imágenes',
+      'Ecuación del espejo',
+      'Retrovisores'
+    ],
+    modes: [
+      {
+        id: 'concavo',
+        label: 'Cóncavo',
+        param: 'tipo',
+        value: 'concavo',
+        serves: ['Espejo cóncavo', 'Imagen real y virtual', 'Aumento']
+      },
+      {
+        id: 'convexo',
+        label: 'Convexo',
+        param: 'tipo',
+        value: 'convexo',
+        serves: ['Espejo convexo', 'Imagen virtual', 'Campo de visión']
+      }
+    ],
+    topic:
+      'Reflexión en superficie curva (espejo). La lente refracta; aquí es reflexión: la imagen real se forma del lado del objeto.'
+  },
+  {
+    id: 'induction',
+    title: 'Inducción electromagnética',
+    titleEn: 'Electromagnetic Induction',
+    level: 'high',
+    category: 'electricidad-magnetismo',
+    glyph: '🧲',
+    accent: 'pink',
+    blurb: 'Faraday-Lenz: fem por flujo variable, y el transformador.',
+    engineKey: 'induction',
+    status: 'ready',
+    serves: [
+      'Inducción electromagnética',
+      'Ley de Faraday',
+      'Ley de Lenz',
+      'Flujo magnético',
+      'Transformadores',
+      'Relación de espiras',
+      'Inducción mutua'
+    ],
+    modes: [
+      {
+        id: 'faraday',
+        label: 'Faraday: imán y bobina',
+        param: 'modo',
+        value: 'faraday',
+        serves: ['Ley de Faraday', 'Ley de Lenz', 'Flujo magnético']
+      },
+      {
+        id: 'transformador',
+        label: 'Transformador',
+        param: 'modo',
+        value: 'transformador',
+        serves: ['Transformadores', 'Relación de espiras', 'Inducción mutua']
+      }
+    ],
+    topic:
+      'ε = −N·dΦ/dt y la relación de espiras. No es el campo de una carga en movimiento (Lorentz).'
+  },
+  {
     id: 'interference-diffraction',
     title: 'Interferencia y difracción',
     titleEn: 'Interference & Diffraction',
@@ -941,6 +1251,35 @@ export const CATALOG = [
       'Óptica ondulatoria'
     ],
     topic: 'Óptica ondulatoria real (franjas). No es Snell de interfaz plana.'
+  },
+  {
+    id: 'optical-instruments',
+    title: 'Instrumentos ópticos',
+    titleEn: 'Optical Instruments',
+    level: 'high',
+    category: 'optica',
+    glyph: '🔬',
+    accent: 'green',
+    blurb: 'Ojo, lupa, microscopio y telescopio: lentes encadenadas.',
+    engineKey: 'optical-instruments',
+    status: 'ready',
+    serves: [
+      'Instrumentos ópticos',
+      'Ojo y acomodación',
+      'Lupa',
+      'Microscopio',
+      'Telescopio',
+      'Aumento angular',
+      'Punto próximo'
+    ],
+    modes: [
+      { id: 'ojo', label: 'Ojo', param: 'modo', value: 'ojo', serves: ['Ojo y acomodación', 'Punto próximo'] },
+      { id: 'lupa', label: 'Lupa', param: 'modo', value: 'lupa', serves: ['Lupa', 'Aumento angular'] },
+      { id: 'microscopio', label: 'Microscopio', param: 'modo', value: 'microscopio', serves: ['Microscopio'] },
+      { id: 'telescopio', label: 'Telescopio', param: 'modo', value: 'telescopio', serves: ['Telescopio'] }
+    ],
+    topic:
+      'Sistemas de varias lentes encadenadas. Las lentes sueltas (una imagen) están en “Lentes delgadas”.'
   },
   {
     id: 'atomic-physics',

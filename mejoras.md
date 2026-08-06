@@ -1265,6 +1265,12 @@ después. Con el nuevo contrato, cada módulo nuevo nace ya en su forma final.
 > péndulo), `fluids` (Arquímedes + Bernoulli), `elasticity`, modo Impulso con
 > área F–t en `momentum`, Hooke (spring) en `oscillatory` y Momento angular en
 > `rotational` (ver balance en [§5.8](#58-balance-de-la-tanda-52)).
+>
+> **Estado (tanda 5.4 — Óptica y electromagnetismo): ✅ entregada.** `mirrors`
+> (espejos cóncavo/convexo), `induction` (Faraday-Lenz + transformador),
+> `optical-instruments` (ojo, lupa, microscopio, telescopio), migración de
+> `circuits` (modo RC con dieléctricos) y de `em-waves` (modo Polarización con la
+> ley de Malus) al contrato nuevo (ver balance en [§5.10](#510-balance-de-la-tanda-54)).
 
 Las tandas están ordenadas por **valor curricular** (cobertura del currículo hondureño
 de secundaria primero) y por **reutilización de primitivas** de WAVE 2. Cada tanda es
@@ -1418,6 +1424,123 @@ visual fija (no proporcional a la columna real de kPa); `circuits` y `kepler`
 siguen con `modes[]` declarados en catálogo sin motor migrado (enlace profundo
 inactivo) — arrastrado desde WAVE 4. El resto de la tanda 5.3 (térmica y ondas)
 queda para la siguiente entrega.
+
+### 5.9 Balance de la tanda 5.3 (Térmica y ondas)
+
+> ✅ **Entregada.** La tanda añade cuatro módulos nuevos (`calorimetry`,
+> `kinetic-theory`, `thermal-expansion`, `standing-waves`) y el modo
+> Intensidad y dB en `sound` (con su migración al contrato nuevo). Cierra las
+> categorías Térmica y Oscilaciones y ondas del catálogo, menos la deuda
+> heredada de WAVE 4 (`modes[]` declarados sin motor en `circuits` y `kepler`).
+
+**Novedades en la escena (§2.4) para esta tanda:**
+
+| Primitiva | Para qué |
+|---|---|
+| `scene.hud.plot` | Curva T vs Q con la meseta de fusión (calorimetría) y espectro de armónicos fₙ = n·f₁ (ondas estacionarias) |
+| `scene.hud.readout` | Panel de datos numérico en todos los modos (batidos, intensidad dB, mezcla) |
+
+**Contraste pedagógico que cierra cada módulo:**
+
+| Módulo | Contraste que se ve sin leer nada |
+|---|---|
+| `calorimetry` | Meseta plana a 0 °C en T vs Q mientras el hielo se funde; el calor latente no sube la temperatura |
+| `kinetic-theory` | Termostato que converge a T fijada (300 K) y histograma que se acerca a Maxwell–Boltzmann |
+| `thermal-expansion` | Tira bimetálica que se curva con ΔT: el metal de mayor α queda fuera del arco |
+| `standing-waves` | Nodos fijos e inversión de fase entre armónicos; batidos con envolvente que marca T_batido |
+| `sound` | El sonido más fuerte «no viaja más lejos»: a 10 m son −20 dB respecto a 1 m, siempre (β₁ = 99.0 dB → β₁₀ = 79.0 dB con 100 mW) |
+
+**Criterio de aceptación (§5.6):** los cuatro módulos nuevos traen
+`category`+`glyph`+`blurb`+`topic`, `serves[]`, `modes[]` con enlace profundo
+(`calorimetry#mezcla|#fase|#conduccion`, `kinetic-theory#caja|#binaria`,
+`thermal-expansion#lineal|#superficial|#volumetrica|#bimetalica`,
+`standing-waves#cuerda|#batidos`, `sound-waves#doppler|#intensidad`), `readout()`
+numérico, `getState()`/`setState()`, fórmulas LaTeX y retos en
+`ejemplo-pack-examen.json`. `sound` deja de ser legacy (bajan los 27 originales
+a 16).
+
+**Verificación:** `node --check` en los 5 archivos tocados y `catalog.js`; humo
+de dibujo (fake scene) con 240 ticks sin excepciones y `readout()` con unidades
+por módulo; física contrastada con el valor analítico:
+
+| Módulo | Referencia analítica |
+|---|---|
+| `calorimetry` | T_eq = 32.62 °C (mezcla 1 kg agua 20 °C + 1 kg c=450 a 150 °C); P = 8 000 W (conducción k=200, A=0.5, L=1, ΔT=80) |
+| `kinetic-theory` | v_rms = 422.1 m/s (N₂ a 300 K); T medida = 300 K tras 15 s |
+| `thermal-expansion` | ΔL = 2.4 mm (acero, 2 m, ΔT = 100 °C) |
+| `standing-waves` | v = 80 m/s (T=64, μ=0.01); f₃ = 60 Hz; λ = 4/3 m; f_batido = 1 Hz |
+| `sound` | v = 343 m/s (20 °C); f′ = 2.012 Hz (f=2, vₛ=2); β₁₀ = β₁ − 20 dB |
+
+**Tests versionados:** `skills/fisicahn/js/tests/smoke-53.test.mjs` y
+`physics-53.test.mjs` (`node --test` → 10/10 verdes).
+
+**Pendiente:** queda la tanda 5.4 (Óptica y electromagnetismo): `mirrors`,
+`optical-instruments`, `induction` y los modos RC (`circuits-dc-ac`),
+Transformador (`induction`) y Polarización (`em-waves`). La deuda de
+`modes[]` de `circuits`/`kepler` se salda al migrar `circuits-dc-ac` en la 5.4.
+
+---
+
+### 5.10 Balance de la tanda 5.4 (Óptica y electromagnetismo)
+
+> ✅ **Entregada.** La tanda añade tres módulos nuevos (`mirrors`, `induction`,
+> `optical-instruments`) y **saldaba la deuda de WAVE 4**: `circuits-dc-ac` y
+> `em-waves` dejan de ser legacy y migran al contrato `SimModule`, incorporando
+> los modos que el catálogo ya prometía sin motor (RC con dieléctricos en
+> `circuits`, Polarización con Malus en `em-waves`). Cierra las categorías
+> Óptica e Inducción/transformadores del currículo de secundaria.
+
+**Novedades en la escena para esta tanda:**
+
+| Primitiva | Para qué |
+|---|---|
+| `scene.hud.plot` | Historial Φ(t) y ε(t) superpuestos en Faraday; V₁/V₂ de las dos bobinas en el transformador |
+| `scene.vector` con tramo discontinuo | Prolongación virtual de rayos (imagen virtual de lupa, microscopio y telescopio) |
+| `scene.hud.chip` con color condicional | Aviso de presbicia (acomodación agotada) en el ojo; estado carga/descarga en RC |
+
+**Contraste pedagógico que cierra cada módulo:**
+
+| Módulo | Contraste que se ve sin leer nada |
+|---|---|
+| `mirrors` | Objeto entre F y el vértice: pasa de imagen real invertida (del lado del objeto) a virtual derecha y mayor — la ecuación del espejo cambia de signo |
+| `induction` | El imán cruza el centro a máxima velocidad → |ε| máximo; en los extremos Φ es máximo pero ε = 0: **flujo ≠ fem** |
+| `optical-instruments` | El ojo acomoda (f querido) para que la imagen caiga siempre en la retina; la lupa da una imagen virtual derecha y M = 1 + N/f; el telescopio amplifica el ángulo con f_o/f_e |
+| `circuits-dc-ac` | RC: la carga sigue la exponencial V(1−e^(−t/τ)) y el dieléctrico (κ) sube la capacidad hasta la meseta del 63.2 % |
+| `em-waves` | Polarizador a 45°: la luz cae a la mitad (Malus); a 90° se apaga del todo |
+
+**Criterio de aceptación (§5.6):** `mirrors`, `induction` y `optical-instruments`
+traen `category`+`glyph`+`blurb`+`topic`, `serves[]`, `modes[]` con enlace
+profundo (`mirrors#concavo|#convexo`, `induction#faraday|#transformador`,
+`optical-instruments#ojo|#lupa|#microscopio|#telescopio`,
+`em-waves#plana|#polarizacion`, `circuits-dc-ac#series|#parallel|#rlc|#rc`),
+`readout()` numérico, `getState()`/`setState()`, fórmulas LaTeX y retos en
+`ejemplo-pack-examen.json` (mirrors, induction, optical-instruments, em-waves y
+circuits: 6 retos por módulo, 30 nuevos). El catálogo incorpora los tres módulos
+nuevos (`mirrors`, `induction`, `optical-instruments`) y alinea los `modes[]` de
+`circuits-dc-ac[#series|#parallel|#rlc|#rc]` y `em-waves[#plana|#polarizacion]`
+con los valores reales de sus motores migrados, cerrando la deuda de WAVE 4.
+
+**Verificación:** `node --check` en los 5 archivos tocados y `catalog.js`; humo
+de dibujo (fake scene) con 240 ticks sin excepciones y `readout()` con unidades
+por módulo; física contrastada con el valor analítico:
+
+| Módulo | Referencia analítica |
+|---|---|
+| `mirrors` | dᵢ = 2.4 m (cóncavo f=1.5, d₀=4) real invertida; d₀ < f → virtual (−3 m); convexo siempre virtual |
+| `induction` | ε = −N·dΦ/dt numérico ≈ analítico (Lorentziana con imán oscilante, tol 25 % del valor, lejos de centro/giros); transformador V₂ = V₁·(N₂/N₁) |
+| `optical-instruments` | Ojo f = d₀·L/(d₀+L); lupa M = 1+N/f = 6× (f=5); microscopio M = 200× (L=16, f_o=1, f_e=2); telescopio M = 10 (f_o/f_e) |
+| `circuits` (RC/RLC) | τ = R·C = 0.2 s (R=200 Ω, C=1000 µF); V_c(τ) ≈ 63.2 % con Euler explícito; f₀ = 1/(2π√(LC)) = 15.92 Hz; C = κ·C₀ (papel κ=3.5) |
+| `em-waves` | Malus: I₂ = I₁·cos²θ → 100 % (0°), 50 % (45°), 25 % (60°), 0 (90°) |
+
+**Tests versionados:** `skills/fisicahn/js/tests/smoke-54.test.mjs` y
+`physics-54.test.mjs` (`node --test` → 11/11 verdes). Con la tanda 5.3 se
+mantienen los 21 tests verdes (5.3: 10/10, 5.4: 11/11).
+
+**Pendiente de mantenimiento detectado:** la deuda de `kepler` (`modes[]`
+`kepler`/`flyby` declarados sin motor migrado) queda para la tanda 5.5; y la
+primitiva `wavefront` pedida en 5.3 sigue sin existir en la API (standing-waves
+pinta su envolvente con `polyline`). La tanda 5.5 (Física moderna: `de-broglie`,
+`nuclear-energy`, `special-relativity`, `quantum-history`) es la siguiente.
 
 ---
 

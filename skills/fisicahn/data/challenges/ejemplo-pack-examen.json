@@ -1,558 +1,1222 @@
 {
- "schema": 1,
- "type": "fisicahn-challenge-pack",
- "title": "Ejemplo de retos para importar en el examen",
- "modules": {
-  "dynamics": [
-   {
-    "id": "ex-din-1",
-    "type": "numeric",
-    "question": "Una fuerza de 20 N actúa sobre 4 kg. ¿Cuál es la aceleración?",
-    "answer": 5,
-    "unit": "m/s²",
-    "hint": "a = F / m",
-    "points": 10
-   },
-   {
-    "id": "ex-din-2",
-    "type": "multiple",
-    "question": "La segunda ley de Newton se escribe como…",
-    "options": [
-     "F = m / a",
-     "F = m · a",
-     "F = a / m",
-     "F = m + a"
+  "schema": 1,
+  "type": "fisicahn-challenge-pack",
+  "title": "Ejemplo de retos para importar en el examen",
+  "modules": {
+    "dynamics": [
+      {
+        "id": "ex-din-1",
+        "type": "numeric",
+        "question": "Una fuerza de 20 N actúa sobre 4 kg. ¿Cuál es la aceleración?",
+        "answer": 5,
+        "unit": "m/s²",
+        "hint": "a = F / m",
+        "points": 10
+      },
+      {
+        "id": "ex-din-2",
+        "type": "multiple",
+        "question": "La segunda ley de Newton se escribe como…",
+        "options": [
+          "F = m / a",
+          "F = m · a",
+          "F = a / m",
+          "F = m + a"
+        ],
+        "answer": 1,
+        "hint": "Fuerza neta = masa × aceleración",
+        "points": 10
+      }
     ],
-    "answer": 1,
-    "hint": "Fuerza neta = masa × aceleración",
-    "points": 10
-   }
-  ],
-  "kinematics": [
-   {
-    "id": "ex-cin-1",
-    "type": "numeric",
-    "question": "Un móvil va a 10 m/s durante 3 s. ¿Qué distancia recorre (MRU)?",
-    "answer": 30,
-    "unit": "m",
-    "hint": "x = v · t",
-    "points": 10
-   }
-  ],
-  "electricity": [
-   {
-    "id": "ex-ele-1",
-    "type": "numeric",
-    "question": "Con V = 12 V y R = 4 Ω, ¿cuánta corriente circula?",
-    "answer": 3,
-    "unit": "A",
-    "hint": "I = V / R",
-    "points": 10
-   }
-  ],
-  "optics": [
-   {
-    "id": "ex-opt-1",
-    "type": "select",
-    "question": "La reflexión total interna puede ocurrir cuando la luz pasa…",
-    "options": [
-     "De aire a agua",
-     "De un medio más denso a uno menos denso",
-     "Solo en el vacío",
-     "Siempre al 45°"
+    "kinematics": [
+      {
+        "id": "ex-cin-1",
+        "type": "numeric",
+        "question": "Un móvil va a 10 m/s durante 3 s. ¿Qué distancia recorre (MRU)?",
+        "answer": 30,
+        "unit": "m",
+        "hint": "x = v · t",
+        "points": 10
+      }
     ],
-    "answer": 1,
-    "hint": "De mayor a menor índice de refracción",
-    "points": 10
-   }
-  ],
-  "units-error": [
-   {
-    "id": "ue-1",
-    "type": "numeric",
-    "question": "Convierte 3.5 km a metros.",
-    "answer": 3500,
-    "unit": "m",
-    "hint": "1 km = 1000 m",
-    "points": 10
-   },
-   {
-    "id": "ue-2",
-    "type": "numeric",
-    "question": "Un objeto tarda 2 h en recorrer una ruta. ¿Cuántos segundos son?",
-    "answer": 7200,
-    "unit": "s",
-    "hint": "1 h = 3600 s",
-    "points": 10
-   },
-   {
-    "id": "ue-3",
-    "type": "numeric",
-    "question": "Convierte 72 km/h a m/s.",
-    "answer": 20,
-    "unit": "m/s",
-    "hint": "Divide entre 3.6 (1000 m / 3600 s)",
-    "points": 15
-   },
-   {
-    "id": "ue-4",
-    "type": "multiple",
-    "question": "Una medida de 12.0 g tiene…",
-    "options": [
-     "2 cifras significativas",
-     "3 cifras significativas",
-     "1 cifra significativa",
-     "4 cifras significativas"
+    "electricity": [
+      {
+        "id": "ex-ele-1",
+        "type": "numeric",
+        "question": "Con V = 12 V y R = 4 Ω, ¿cuánta corriente circula?",
+        "answer": 3,
+        "unit": "A",
+        "hint": "I = V / R",
+        "points": 10
+      }
     ],
-    "answer": 1,
-    "hint": "Los ceros entre el 2 y el 0 cuentan; el 0 final tras el punto también",
-    "points": 10
-   },
-   {
-    "id": "ue-5",
-    "type": "numeric",
-    "question": "Un error relativo del 5 % sobre una medida de 200 m, ¿qué error absoluto da?",
-    "answer": 10,
-    "unit": "m",
-    "hint": "Δ = ε · x = 0.05 · 200",
-    "points": 15
-   },
-   {
-    "id": "ue-6",
-    "type": "numeric",
-    "question": "Convierte 0.25 kg a gramos.",
-    "answer": 250,
-    "unit": "g",
-    "hint": "1 kg = 1000 g",
-    "points": 10
-   }
-  ],
-  "vectors": [
-   {
-    "id": "vec-1",
-    "type": "numeric",
-    "question": "|v| de un vector con componentes (3, 4): ¿cuál es su magnitud?",
-    "answer": 5,
-    "unit": "u",
-    "hint": "√(3² + 4²) = √25",
-    "points": 10
-   },
-   {
-    "id": "vec-2",
-    "type": "multiple",
-    "question": "La suma de A = (4, 0) y B = (0, 3) tiene magnitud…",
-    "options": [
-     "7",
-     "5",
-     "1",
-     "12"
+    "optics": [
+      {
+        "id": "ex-opt-1",
+        "type": "select",
+        "question": "La reflexión total interna puede ocurrir cuando la luz pasa…",
+        "options": [
+          "De aire a agua",
+          "De un medio más denso a uno menos denso",
+          "Solo en el vacío",
+          "Siempre al 45°"
+        ],
+        "answer": 1,
+        "hint": "De mayor a menor índice de refracción",
+        "points": 10
+      }
     ],
-    "answer": 1,
-    "hint": "R = (4, 3); |R| = 5",
-    "points": 10
-   },
-   {
-    "id": "vec-3",
-    "type": "numeric",
-    "question": "Un vector de magnitud 10 y ángulo 60° (respecto al eje x), ¿cuánto vale su componente x? (cos 60° = 0.5)",
-    "answer": 5,
-    "unit": "u",
-    "hint": "vx = |v|·cos θ = 10 · 0.5",
-    "points": 15
-   },
-   {
-    "id": "vec-4",
-    "type": "numeric",
-    "question": "Componente y de un vector de 10 u a 60° (sin 60° ≈ 0.866).",
-    "answer": 8.66,
-    "unit": "u",
-    "hint": "vy = |v|·sin θ ≈ 8.66",
-    "points": 15
-   },
-   {
-    "id": "vec-5",
-    "type": "multiple",
-    "question": "Suma de componentes: A = (2, -1), B = (-2, 4). ¿Cuál es A + B?",
-    "options": [
-     "(0, 3)",
-     "(4, -5)",
-     "(0, -3)",
-     "(-4, 5)"
+    "units-error": [
+      {
+        "id": "ue-1",
+        "type": "numeric",
+        "question": "Convierte 3.5 km a metros.",
+        "answer": 3500,
+        "unit": "m",
+        "hint": "1 km = 1000 m",
+        "points": 10
+      },
+      {
+        "id": "ue-2",
+        "type": "numeric",
+        "question": "Un objeto tarda 2 h en recorrer una ruta. ¿Cuántos segundos son?",
+        "answer": 7200,
+        "unit": "s",
+        "hint": "1 h = 3600 s",
+        "points": 10
+      },
+      {
+        "id": "ue-3",
+        "type": "numeric",
+        "question": "Convierte 72 km/h a m/s.",
+        "answer": 20,
+        "unit": "m/s",
+        "hint": "Divide entre 3.6 (1000 m / 3600 s)",
+        "points": 15
+      },
+      {
+        "id": "ue-4",
+        "type": "multiple",
+        "question": "Una medida de 12.0 g tiene…",
+        "options": [
+          "2 cifras significativas",
+          "3 cifras significativas",
+          "1 cifra significativa",
+          "4 cifras significativas"
+        ],
+        "answer": 1,
+        "hint": "Los ceros entre el 2 y el 0 cuentan; el 0 final tras el punto también",
+        "points": 10
+      },
+      {
+        "id": "ue-5",
+        "type": "numeric",
+        "question": "Un error relativo del 5 % sobre una medida de 200 m, ¿qué error absoluto da?",
+        "answer": 10,
+        "unit": "m",
+        "hint": "Δ = ε · x = 0.05 · 200",
+        "points": 15
+      },
+      {
+        "id": "ue-6",
+        "type": "numeric",
+        "question": "Convierte 0.25 kg a gramos.",
+        "answer": 250,
+        "unit": "g",
+        "hint": "1 kg = 1000 g",
+        "points": 10
+      }
     ],
-    "answer": 0,
-    "hint": "Suma componente a componente: (2-2, -1+4)",
-    "points": 10
-   },
-   {
-    "id": "vec-6",
-    "type": "numeric",
-    "question": "Dos fuerzas de 3 N y 4 N perpendiculares actúan sobre un punto. Magnitud de la resultante.",
-    "answer": 5,
-    "unit": "N",
-    "hint": "Pitágoras: √(3² + 4²)",
-    "points": 10
-   }
-  ],
-  "projectile": [
-   {
-    "id": "proj-1",
-    "type": "numeric",
-    "question": "Proyectil lanzado a 20 m/s con 90°: ¿altura máxima? (g = 9.8, h = v²/2g)",
-    "answer": 20.41,
-    "unit": "m",
-    "hint": "h = 400 / (2·9.8) ≈ 20.41",
-    "points": 15
-   },
-   {
-    "id": "proj-2",
-    "type": "multiple",
-    "question": "El ángulo de alcance máximo (sin resistencia del aire) es…",
-    "options": [
-     "30°",
-     "45°",
-     "60°",
-     "90°"
+    "vectors": [
+      {
+        "id": "vec-1",
+        "type": "numeric",
+        "question": "|v| de un vector con componentes (3, 4): ¿cuál es su magnitud?",
+        "answer": 5,
+        "unit": "u",
+        "hint": "√(3² + 4²) = √25",
+        "points": 10
+      },
+      {
+        "id": "vec-2",
+        "type": "multiple",
+        "question": "La suma de A = (4, 0) y B = (0, 3) tiene magnitud…",
+        "options": [
+          "7",
+          "5",
+          "1",
+          "12"
+        ],
+        "answer": 1,
+        "hint": "R = (4, 3); |R| = 5",
+        "points": 10
+      },
+      {
+        "id": "vec-3",
+        "type": "numeric",
+        "question": "Un vector de magnitud 10 y ángulo 60° (respecto al eje x), ¿cuánto vale su componente x? (cos 60° = 0.5)",
+        "answer": 5,
+        "unit": "u",
+        "hint": "vx = |v|·cos θ = 10 · 0.5",
+        "points": 15
+      },
+      {
+        "id": "vec-4",
+        "type": "numeric",
+        "question": "Componente y de un vector de 10 u a 60° (sin 60° ≈ 0.866).",
+        "answer": 8.66,
+        "unit": "u",
+        "hint": "vy = |v|·sin θ ≈ 8.66",
+        "points": 15
+      },
+      {
+        "id": "vec-5",
+        "type": "multiple",
+        "question": "Suma de componentes: A = (2, -1), B = (-2, 4). ¿Cuál es A + B?",
+        "options": [
+          "(0, 3)",
+          "(4, -5)",
+          "(0, -3)",
+          "(-4, 5)"
+        ],
+        "answer": 0,
+        "hint": "Suma componente a componente: (2-2, -1+4)",
+        "points": 10
+      },
+      {
+        "id": "vec-6",
+        "type": "numeric",
+        "question": "Dos fuerzas de 3 N y 4 N perpendiculares actúan sobre un punto. Magnitud de la resultante.",
+        "answer": 5,
+        "unit": "N",
+        "hint": "Pitágoras: √(3² + 4²)",
+        "points": 10
+      }
     ],
-    "answer": 1,
-    "hint": "R = v²·sin 2θ / g: máximo cuando sin 2θ = 1 → θ = 45°",
-    "points": 10
-   },
-   {
-    "id": "proj-3",
-    "type": "numeric",
-    "question": "Tiempo de vuelo de un proyectil con v0y = 20 m/s (desde el suelo, g = 9.8).",
-    "answer": 4.08,
-    "unit": "s",
-    "hint": "t = 2·v0y / g = 40 / 9.8 ≈ 4.08",
-    "points": 15
-   },
-   {
-    "id": "proj-4",
-    "type": "numeric",
-    "question": "Componente horizontal de v0 = 10 m/s a 60° (cos 60° = 0.5).",
-    "answer": 5,
-    "unit": "m/s",
-    "hint": "v0x = 10 · 0.5",
-    "points": 10
-   },
-   {
-    "id": "proj-5",
-    "type": "multiple",
-    "question": "En el punto más alto de la trayectoria…",
-    "options": [
-     "vy = 0",
-     "vx = 0",
-     "la velocidad total es 0",
-     "la aceleración es 0"
+    "projectile": [
+      {
+        "id": "proj-1",
+        "type": "numeric",
+        "question": "Proyectil lanzado a 20 m/s con 90°: ¿altura máxima? (g = 9.8, h = v²/2g)",
+        "answer": 20.41,
+        "unit": "m",
+        "hint": "h = 400 / (2·9.8) ≈ 20.41",
+        "points": 15
+      },
+      {
+        "id": "proj-2",
+        "type": "multiple",
+        "question": "El ángulo de alcance máximo (sin resistencia del aire) es…",
+        "options": [
+          "30°",
+          "45°",
+          "60°",
+          "90°"
+        ],
+        "answer": 1,
+        "hint": "R = v²·sin 2θ / g: máximo cuando sin 2θ = 1 → θ = 45°",
+        "points": 10
+      },
+      {
+        "id": "proj-3",
+        "type": "numeric",
+        "question": "Tiempo de vuelo de un proyectil con v0y = 20 m/s (desde el suelo, g = 9.8).",
+        "answer": 4.08,
+        "unit": "s",
+        "hint": "t = 2·v0y / g = 40 / 9.8 ≈ 4.08",
+        "points": 15
+      },
+      {
+        "id": "proj-4",
+        "type": "numeric",
+        "question": "Componente horizontal de v0 = 10 m/s a 60° (cos 60° = 0.5).",
+        "answer": 5,
+        "unit": "m/s",
+        "hint": "v0x = 10 · 0.5",
+        "points": 10
+      },
+      {
+        "id": "proj-5",
+        "type": "multiple",
+        "question": "En el punto más alto de la trayectoria…",
+        "options": [
+          "vy = 0",
+          "vx = 0",
+          "la velocidad total es 0",
+          "la aceleración es 0"
+        ],
+        "answer": 0,
+        "hint": "La componente vertical se anula; la horizontal sigue constante",
+        "points": 10
+      },
+      {
+        "id": "proj-6",
+        "type": "numeric",
+        "question": "Alcance con v0 = 20 m/s a 45° (g = 9.8, sin 90° = 1).",
+        "answer": 40.82,
+        "unit": "m",
+        "hint": "R = v² / g = 400 / 9.8 ≈ 40.82",
+        "points": 15
+      }
     ],
-    "answer": 0,
-    "hint": "La componente vertical se anula; la horizontal sigue constante",
-    "points": 10
-   },
-   {
-    "id": "proj-6",
-    "type": "numeric",
-    "question": "Alcance con v0 = 20 m/s a 45° (g = 9.8, sin 90° = 1).",
-    "answer": 40.82,
-    "unit": "m",
-    "hint": "R = v² / g = 400 / 9.8 ≈ 40.82",
-    "points": 15
-   }
-  ],
-  "mass-weight": [
-   {
-    "id": "mw-1",
-    "type": "numeric",
-    "question": "Peso en la Tierra de una masa de 10 kg (g = 9.8 m/s²).",
-    "answer": 98,
-    "unit": "N",
-    "hint": "W = m·g",
-    "points": 10
-   },
-   {
-    "id": "mw-2",
-    "type": "numeric",
-    "question": "Peso de 10 kg en la Luna (g = 1.62 m/s²).",
-    "answer": 16.2,
-    "unit": "N",
-    "hint": "W = 10 · 1.62",
-    "points": 10
-   },
-   {
-    "id": "mw-3",
-    "type": "multiple",
-    "question": "La masa de un cuerpo…",
-    "options": [
-     "cambia con la gravedad",
-     "no cambia de astro en astro",
-     "es una fuerza",
-     "se mide en newtons"
+    "mass-weight": [
+      {
+        "id": "mw-1",
+        "type": "numeric",
+        "question": "Peso en la Tierra de una masa de 10 kg (g = 9.8 m/s²).",
+        "answer": 98,
+        "unit": "N",
+        "hint": "W = m·g",
+        "points": 10
+      },
+      {
+        "id": "mw-2",
+        "type": "numeric",
+        "question": "Peso de 10 kg en la Luna (g = 1.62 m/s²).",
+        "answer": 16.2,
+        "unit": "N",
+        "hint": "W = 10 · 1.62",
+        "points": 10
+      },
+      {
+        "id": "mw-3",
+        "type": "multiple",
+        "question": "La masa de un cuerpo…",
+        "options": [
+          "cambia con la gravedad",
+          "no cambia de astro en astro",
+          "es una fuerza",
+          "se mide en newtons"
+        ],
+        "answer": 1,
+        "hint": "La masa es cantidad de materia; el peso es la fuerza",
+        "points": 10
+      },
+      {
+        "id": "mw-4",
+        "type": "numeric",
+        "question": "¿Cuántas veces pesa más un cuerpo en Júpiter (24.79) que en la Luna (1.62)?",
+        "answer": 15.3,
+        "unit": "×",
+        "hint": "24.79 / 1.62 ≈ 15.3",
+        "points": 15
+      },
+      {
+        "id": "mw-5",
+        "type": "numeric",
+        "question": "Masa cuyo peso en la Tierra es 490 N (g = 9.8).",
+        "answer": 50,
+        "unit": "kg",
+        "hint": "m = W / g",
+        "points": 10
+      },
+      {
+        "id": "mw-6",
+        "type": "multiple",
+        "question": "¿Qué instrumento NO cambia su lectura con la gravedad?",
+        "options": [
+          "Dinamómetro",
+          "Báscula de muelle",
+          "Balanza de platillos",
+          "Báscula digital"
+        ],
+        "answer": 2,
+        "hint": "La balanza de platillos compara masas; la muelle mide peso",
+        "points": 15
+      }
     ],
-    "answer": 1,
-    "hint": "La masa es cantidad de materia; el peso es la fuerza",
-    "points": 10
-   },
-   {
-    "id": "mw-4",
-    "type": "numeric",
-    "question": "¿Cuántas veces pesa más un cuerpo en Júpiter (24.79) que en la Luna (1.62)?",
-    "answer": 15.3,
-    "unit": "×",
-    "hint": "24.79 / 1.62 ≈ 15.3",
-    "points": 15
-   },
-   {
-    "id": "mw-5",
-    "type": "numeric",
-    "question": "Masa cuyo peso en la Tierra es 490 N (g = 9.8).",
-    "answer": 50,
-    "unit": "kg",
-    "hint": "m = W / g",
-    "points": 10
-   },
-   {
-    "id": "mw-6",
-    "type": "multiple",
-    "question": "¿Qué instrumento NO cambia su lectura con la gravedad?",
-    "options": [
-     "Dinamómetro",
-     "Báscula de muelle",
-     "Balanza de platillos",
-     "Báscula digital"
+    "inclined-plane": [
+      {
+        "id": "ip-1",
+        "type": "numeric",
+        "question": "Aceleración de un bloque sin rozamiento en un plano de 30° (g = 9.8).",
+        "answer": 4.9,
+        "unit": "m/s²",
+        "hint": "a = g·sin 30° = 9.8 · 0.5",
+        "points": 15
+      },
+      {
+        "id": "ip-2",
+        "type": "numeric",
+        "question": "Componente del peso paralela al plano: m = 10 kg, θ = 30°.",
+        "answer": 49,
+        "unit": "N",
+        "hint": "W∥ = m·g·sin θ = 98 · 0.5",
+        "points": 15
+      },
+      {
+        "id": "ip-3",
+        "type": "numeric",
+        "question": "Normal de un bloque de 10 kg en un plano de 30° (cos 30° ≈ 0.866).",
+        "answer": 84.87,
+        "unit": "N",
+        "hint": "N = m·g·cos θ = 98 · 0.866",
+        "points": 15
+      },
+      {
+        "id": "ip-4",
+        "type": "multiple",
+        "question": "Si sin θ = μ·cos θ, el bloque…",
+        "options": [
+          "acelera",
+          "está en equilibrio estático",
+          "cae con g",
+          "sube solo"
+        ],
+        "answer": 1,
+        "hint": "La fuerza motriz se equilibra exactamente con el rozamiento",
+        "points": 10
+      },
+      {
+        "id": "ip-5",
+        "type": "numeric",
+        "question": "Fricción máxima con μ = 0.2, N = 84.87 N.",
+        "answer": 16.97,
+        "unit": "N",
+        "hint": "F_r = μ·N",
+        "points": 10
+      },
+      {
+        "id": "ip-6",
+        "type": "numeric",
+        "question": "En un plano sin fricción de 45°, ¿cuánto vale la aceleración (sin 45° ≈ 0.707)?",
+        "answer": 6.93,
+        "unit": "m/s²",
+        "hint": "a = 9.8 · 0.707 ≈ 6.93",
+        "points": 15
+      }
     ],
-    "answer": 2,
-    "hint": "La balanza de platillos compara masas; la muelle mide peso",
-    "points": 15
-   }
-  ],
-  "inclined-plane": [
-   {
-    "id": "ip-1",
-    "type": "numeric",
-    "question": "Aceleración de un bloque sin rozamiento en un plano de 30° (g = 9.8).",
-    "answer": 4.9,
-    "unit": "m/s²",
-    "hint": "a = g·sin 30° = 9.8 · 0.5",
-    "points": 15
-   },
-   {
-    "id": "ip-2",
-    "type": "numeric",
-    "question": "Componente del peso paralela al plano: m = 10 kg, θ = 30°.",
-    "answer": 49,
-    "unit": "N",
-    "hint": "W∥ = m·g·sin θ = 98 · 0.5",
-    "points": 15
-   },
-   {
-    "id": "ip-3",
-    "type": "numeric",
-    "question": "Normal de un bloque de 10 kg en un plano de 30° (cos 30° ≈ 0.866).",
-    "answer": 84.87,
-    "unit": "N",
-    "hint": "N = m·g·cos θ = 98 · 0.866",
-    "points": 15
-   },
-   {
-    "id": "ip-4",
-    "type": "multiple",
-    "question": "Si sin θ = μ·cos θ, el bloque…",
-    "options": [
-     "acelera",
-     "está en equilibrio estático",
-     "cae con g",
-     "sube solo"
+    "pendulum": [
+      {
+        "id": "ex-pen-1",
+        "type": "numeric",
+        "question": "Un péndulo de 2.5 m se suelta con ángulo pequeño. ¿Cuál es su periodo aproximado? (g = 9.8 m/s²)",
+        "answer": 3.17,
+        "unit": "s",
+        "hint": "T = 2π√(L/g)",
+        "points": 10
+      },
+      {
+        "id": "ex-pen-2",
+        "type": "numeric",
+        "question": "Si cuadruplicas la longitud de un péndulo (ángulo pequeño), ¿cuántas veces mayor es su periodo?",
+        "answer": 2,
+        "unit": "",
+        "hint": "T ∝ √L",
+        "points": 10
+      },
+      {
+        "id": "ex-pen-3",
+        "type": "numeric",
+        "question": "Un péndulo de 2 m y 1 kg parte de 60°. ¿Cuál es la energía potencial inicial respecto al punto más bajo? (g = 9.8 m/s²)",
+        "answer": 9.8,
+        "unit": "J",
+        "hint": "h = L(1 − cos θ₀); Ep = m·g·h",
+        "points": 10
+      },
+      {
+        "id": "ex-pen-4",
+        "type": "numeric",
+        "question": "En el modo simple con L = 1 m y roce 0, ¿cuál es el periodo? (g = 9.8 m/s²)",
+        "answer": 2.01,
+        "unit": "s",
+        "hint": "T = 2π√(1/9.8)",
+        "points": 10
+      },
+      {
+        "id": "ex-pen-5",
+        "type": "numeric",
+        "question": "Un péndulo de 2.5 m a 60° mide T = 3.42 s. ¿Cuánto supera a 2π√(L/g)?",
+        "answer": 0.25,
+        "unit": "s",
+        "hint": "Resta el periodo de ángulo pequeño",
+        "points": 10
+      },
+      {
+        "id": "ex-pen-6",
+        "type": "numeric",
+        "question": "Doble péndulo con l₁=l₂=2 m, m₁=m₂=1 kg, θ₁=90°, θ₂=−90° desde el reposo: ¿energía total respecto al pivote? (g = 9.8 m/s²)",
+        "answer": 58.8,
+        "unit": "J",
+        "hint": "Ep = (m₁+m₂)g·l₁ + m₂·g·l₂",
+        "points": 10
+      }
     ],
-    "answer": 1,
-    "hint": "La fuerza motriz se equilibra exactamente con el rozamiento",
-    "points": 10
-   },
-   {
-    "id": "ip-5",
-    "type": "numeric",
-    "question": "Fricción máxima con μ = 0.2, N = 84.87 N.",
-    "answer": 16.97,
-    "unit": "N",
-    "hint": "F_r = μ·N",
-    "points": 10
-   },
-   {
-    "id": "ip-6",
-    "type": "numeric",
-    "question": "En un plano sin fricción de 45°, ¿cuánto vale la aceleración (sin 45° ≈ 0.707)?",
-    "answer": 6.93,
-    "unit": "m/s²",
-    "hint": "a = 9.8 · 0.707 ≈ 6.93",
-    "points": 15
-   }
-  ],
-  "pendulum": [
-   {
-    "id": "ex-pen-1",
-    "type": "numeric",
-    "question": "Un péndulo de 2.5 m se suelta con ángulo pequeño. ¿Cuál es su periodo aproximado? (g = 9.8 m/s²)",
-    "answer": 3.17,
-    "unit": "s",
-    "hint": "T = 2π√(L/g)",
-    "points": 10
-   },
-   {
-    "id": "ex-pen-2",
-    "type": "numeric",
-    "question": "Si cuadruplicas la longitud de un péndulo (ángulo pequeño), ¿cuántas veces mayor es su periodo?",
-    "answer": 2,
-    "unit": "",
-    "hint": "T ∝ √L",
-    "points": 10
-   },
-   {
-    "id": "ex-pen-3",
-    "type": "numeric",
-    "question": "Un péndulo de 2 m y 1 kg parte de 60°. ¿Cuál es la energía potencial inicial respecto al punto más bajo? (g = 9.8 m/s²)",
-    "answer": 9.8,
-    "unit": "J",
-    "hint": "h = L(1 − cos θ₀); Ep = m·g·h",
-    "points": 10
-   },
-   {
-    "id": "ex-pen-4",
-    "type": "numeric",
-    "question": "En el modo simple con L = 1 m y roce 0, ¿cuál es el periodo? (g = 9.8 m/s²)",
-    "answer": 2.01,
-    "unit": "s",
-    "hint": "T = 2π√(1/9.8)",
-    "points": 10
-   },
-   {
-    "id": "ex-pen-5",
-    "type": "numeric",
-    "question": "Un péndulo de 2.5 m a 60° mide T = 3.42 s. ¿Cuánto supera a 2π√(L/g)?",
-    "answer": 0.25,
-    "unit": "s",
-    "hint": "Resta el periodo de ángulo pequeño",
-    "points": 10
-   },
-   {
-    "id": "ex-pen-6",
-    "type": "numeric",
-    "question": "Doble péndulo con l₁=l₂=2 m, m₁=m₂=1 kg, θ₁=90°, θ₂=−90° desde el reposo: ¿energía total respecto al pivote? (g = 9.8 m/s²)",
-    "answer": 58.8,
-    "unit": "J",
-    "hint": "Ep = (m₁+m₂)g·l₁ + m₂·g·l₂",
-    "points": 10
-   }
-  ],
-  "fluids": [
-   {
-    "id": "ex-fl-1",
-    "type": "numeric",
-    "question": "Un cubo de 800 kg/m³ flota en agua (1000 kg/m³). ¿Qué fracción de su volumen queda sumergida?",
-    "answer": 0.8,
-    "unit": "",
-    "hint": "f = ρb / ρf",
-    "points": 10
-   },
-   {
-    "id": "ex-fl-2",
-    "type": "numeric",
-    "question": "Un cuerpo de 2500 kg/m³ se hunde en agua. ¿Con qué aceleración? (g = 9.8 m/s²)",
-    "answer": 5.88,
-    "unit": "m/s²",
-    "hint": "a = g·(1 − ρf/ρb)",
-    "points": 10
-   },
-   {
-    "id": "ex-fl-3",
-    "type": "numeric",
-    "question": "Un objeto de 0.5 m³ sumergido por completo en agua (1000 kg/m³). ¿Cuál es el empuje? (g = 9.8 m/s²)",
-    "answer": 4900,
-    "unit": "N",
-    "hint": "E = ρf·g·V",
-    "points": 10
-   },
-   {
-    "id": "ex-fl-4",
-    "type": "numeric",
-    "question": "Venturi: A₁=20 cm², A₂=8 cm², v₁=2 m/s. ¿Cuál es v₂?",
-    "answer": 5,
-    "unit": "m/s",
-    "hint": "A₁v₁ = A₂v₂",
-    "points": 10
-   },
-   {
-    "id": "ex-fl-5",
-    "type": "numeric",
-    "question": "Tubo de 20 cm² (0.002 m²) con v = 2 m/s. ¿Cuál es el caudal Q?",
-    "answer": 0.004,
-    "unit": "m³/s",
-    "hint": "Q = A·v",
-    "points": 10
-   },
-   {
-    "id": "ex-fl-6",
-    "type": "numeric",
-    "question": "En el Venturi del simulador (ρ=1000 kg/m³, v₁=2, v₂=5 m/s), ¿cuánto cae la presión (magnitud)?",
-    "answer": 10500,
-    "unit": "Pa",
-    "hint": "ΔP = ½ρ(v₁² − v₂²)",
-    "points": 10
-   }
-  ],
-  "elasticity": [
-   {
-    "id": "ex-el-1",
-    "type": "numeric",
-    "question": "Acero (E=200 GPa) con σ=100 MPa. ¿Cuál es la deformación ε en el régimen elástico?",
-    "answer": 0.0005,
-    "unit": "",
-    "hint": "ε = σ/E",
-    "points": 10
-   },
-   {
-    "id": "ex-el-2",
-    "type": "numeric",
-    "question": "Acero a σ=250 MPa con sección A=4 cm². ¿Qué fuerza soporta?",
-    "answer": 100000,
-    "unit": "N",
-    "hint": "F = σ·A (4 cm² = 4·10⁻⁴ m²)",
-    "points": 10
-   },
-   {
-    "id": "ex-el-3",
-    "type": "numeric",
-    "question": "Probeta de 1.5 m con ε=0.0005. ¿Cuánto se alarga?",
-    "answer": 0.00075,
-    "unit": "m",
-    "hint": "ΔL = ε·L₀",
-    "points": 10
-   },
-   {
-    "id": "ex-el-4",
-    "type": "numeric",
-    "question": "¿Hasta qué tensión (MPa) el acero del simulador se comporta de forma elástica?",
-    "answer": 250,
-    "unit": "MPa",
-    "hint": "Límite elástico σy",
-    "points": 10
-   },
-   {
-    "id": "ex-el-5",
-    "type": "numeric",
-    "question": "Acero (σy=250 MPa, E=200 GPa): ¿resiliencia en MJ/m³?",
-    "answer": 0.156,
-    "unit": "MJ/m³",
-    "hint": "u = σy²/(2E)",
-    "points": 10
-   },
-   {
-    "id": "ex-el-6",
-    "type": "numeric",
-    "question": "A la misma tensión pequeña, el caucho (E=5 MPa) se deforma ¿cuántas veces más que el acero (E=200 GPa)?",
-    "answer": 40000,
-    "unit": "",
-    "hint": "ε ∝ 1/E",
-    "points": 10
-   }
-  ]
- }
+    "fluids": [
+      {
+        "id": "ex-fl-1",
+        "type": "numeric",
+        "question": "Un cubo de 800 kg/m³ flota en agua (1000 kg/m³). ¿Qué fracción de su volumen queda sumergida?",
+        "answer": 0.8,
+        "unit": "",
+        "hint": "f = ρb / ρf",
+        "points": 10
+      },
+      {
+        "id": "ex-fl-2",
+        "type": "numeric",
+        "question": "Un cuerpo de 2500 kg/m³ se hunde en agua. ¿Con qué aceleración? (g = 9.8 m/s²)",
+        "answer": 5.88,
+        "unit": "m/s²",
+        "hint": "a = g·(1 − ρf/ρb)",
+        "points": 10
+      },
+      {
+        "id": "ex-fl-3",
+        "type": "numeric",
+        "question": "Un objeto de 0.5 m³ sumergido por completo en agua (1000 kg/m³). ¿Cuál es el empuje? (g = 9.8 m/s²)",
+        "answer": 4900,
+        "unit": "N",
+        "hint": "E = ρf·g·V",
+        "points": 10
+      },
+      {
+        "id": "ex-fl-4",
+        "type": "numeric",
+        "question": "Venturi: A₁=20 cm², A₂=8 cm², v₁=2 m/s. ¿Cuál es v₂?",
+        "answer": 5,
+        "unit": "m/s",
+        "hint": "A₁v₁ = A₂v₂",
+        "points": 10
+      },
+      {
+        "id": "ex-fl-5",
+        "type": "numeric",
+        "question": "Tubo de 20 cm² (0.002 m²) con v = 2 m/s. ¿Cuál es el caudal Q?",
+        "answer": 0.004,
+        "unit": "m³/s",
+        "hint": "Q = A·v",
+        "points": 10
+      },
+      {
+        "id": "ex-fl-6",
+        "type": "numeric",
+        "question": "En el Venturi del simulador (ρ=1000 kg/m³, v₁=2, v₂=5 m/s), ¿cuánto cae la presión (magnitud)?",
+        "answer": 10500,
+        "unit": "Pa",
+        "hint": "ΔP = ½ρ(v₁² − v₂²)",
+        "points": 10
+      }
+    ],
+    "elasticity": [
+      {
+        "id": "ex-el-1",
+        "type": "numeric",
+        "question": "Acero (E=200 GPa) con σ=100 MPa. ¿Cuál es la deformación ε en el régimen elástico?",
+        "answer": 0.0005,
+        "unit": "",
+        "hint": "ε = σ/E",
+        "points": 10
+      },
+      {
+        "id": "ex-el-2",
+        "type": "numeric",
+        "question": "Acero a σ=250 MPa con sección A=4 cm². ¿Qué fuerza soporta?",
+        "answer": 100000,
+        "unit": "N",
+        "hint": "F = σ·A (4 cm² = 4·10⁻⁴ m²)",
+        "points": 10
+      },
+      {
+        "id": "ex-el-3",
+        "type": "numeric",
+        "question": "Probeta de 1.5 m con ε=0.0005. ¿Cuánto se alarga?",
+        "answer": 0.00075,
+        "unit": "m",
+        "hint": "ΔL = ε·L₀",
+        "points": 10
+      },
+      {
+        "id": "ex-el-4",
+        "type": "numeric",
+        "question": "¿Hasta qué tensión (MPa) el acero del simulador se comporta de forma elástica?",
+        "answer": 250,
+        "unit": "MPa",
+        "hint": "Límite elástico σy",
+        "points": 10
+      },
+      {
+        "id": "ex-el-5",
+        "type": "numeric",
+        "question": "Acero (σy=250 MPa, E=200 GPa): ¿resiliencia en MJ/m³?",
+        "answer": 0.156,
+        "unit": "MJ/m³",
+        "hint": "u = σy²/(2E)",
+        "points": 10
+      },
+      {
+        "id": "ex-el-6",
+        "type": "numeric",
+        "question": "A la misma tensión pequeña, el caucho (E=5 MPa) se deforma ¿cuántas veces más que el acero (E=200 GPa)?",
+        "answer": 40000,
+        "unit": "",
+        "hint": "ε ∝ 1/E",
+        "points": 10
+      }
+    ],
+    "calorimetry": [
+      {
+        "id": "ex-ca-1",
+        "type": "numeric",
+        "question": "¿Qué calor (en J) hay que darle a 1 kg de agua (c = 4186 J/(kg·K)) para subirla de 20 °C a 30 °C?",
+        "answer": 41860,
+        "unit": "J",
+        "hint": "Q = m·c·ΔT",
+        "points": 10
+      },
+      {
+        "id": "ex-ca-2",
+        "type": "numeric",
+        "question": "¿Cuántos kJ hacen falta para fundir 0.5 kg de hielo a 0 °C? (Lf = 334 kJ/kg)",
+        "answer": 167,
+        "unit": "kJ",
+        "hint": "Q = m·Lf",
+        "points": 10
+      },
+      {
+        "id": "ex-ca-3",
+        "type": "numeric",
+        "question": "¿Qué temperatura de equilibrio alcanzan 1 kg de agua a 30 °C al mezclarlos con 1 kg de agua a 10 °C?",
+        "answer": 20,
+        "unit": "°C",
+        "hint": "Simetría: media entre las dos",
+        "points": 10
+      },
+      {
+        "id": "ex-ca-4",
+        "type": "numeric",
+        "question": "Una barra de conductividad k = 200 W/(m·K), sección A = 0.5 m² y longitud 1 m tiene ΔT = 50 K. ¿Qué potencia la atraviesa?",
+        "answer": 5000,
+        "unit": "W",
+        "hint": "P = k·A·ΔT/L",
+        "points": 10
+      },
+      {
+        "id": "ex-ca-5",
+        "type": "numeric",
+        "question": "Un cuerpo emite por radiación a T = 600 K. Si T sube a 1200 K con todo lo demás igual, la potencia se multiplica por…",
+        "answer": 16,
+        "unit": "",
+        "hint": "Stefan-Boltzmann: P ∝ T⁴",
+        "points": 10
+      },
+      {
+        "id": "ex-ca-6",
+        "type": "select",
+        "question": "Durante la fusión, mientras el calor entra al hielo a 0 °C…",
+        "options": [
+          "La temperatura sube y el hielo va fundiendo",
+          "La temperatura se queda en 0 °C hasta fundirse todo",
+          "La temperatura baja para compensar",
+          "El calor se disipa al ambiente"
+        ],
+        "answer": 1,
+        "hint": "El calor latente no cambia la temperatura",
+        "points": 10
+      }
+    ],
+    "kinetic-theory": [
+      {
+        "id": "ex-kt-1",
+        "type": "numeric",
+        "question": "Si la temperatura de un gas se cuadruplica, la velocidad eficaz v_rms se multiplica por…",
+        "answer": 2,
+        "unit": "",
+        "hint": "v_rms ∝ √T",
+        "points": 10
+      },
+      {
+        "id": "ex-kt-2",
+        "type": "select",
+        "question": "A la misma temperatura, ¿qué gas se mueve más rápido?",
+        "options": [
+          "El de mayor masa",
+          "El de menor masa",
+          "Ambos igual",
+          "Depende del volumen"
+        ],
+        "answer": 1,
+        "hint": "v_rms ∝ 1/√m",
+        "points": 10
+      },
+      {
+        "id": "ex-kt-3",
+        "type": "numeric",
+        "question": "v_rms (3D) del nitrógeno (m ≈ 28·1.66e-27 kg) a 300 K. (k = 1.38e-23 J/K) √(3·1.38e-23·300/(28·1.66e-27)) →",
+        "answer": 517,
+        "unit": "m/s",
+        "hint": "v_rms = √(3k_BT/m)",
+        "points": 10
+      },
+      {
+        "id": "ex-kt-4",
+        "type": "numeric",
+        "question": "En la caja 2D, la energía cinética media es ⟨½mv²⟩ = k_B·T. Si duplicas la temperatura, la energía media se multiplica por…",
+        "answer": 2,
+        "unit": "",
+        "hint": "⟨K⟩ ∝ T",
+        "points": 10
+      },
+      {
+        "id": "ex-kt-5",
+        "type": "select",
+        "question": "¿Qué parte de la distribución de Maxwell NO hay ninguna molécula?",
+        "options": [
+          "La velocidad cero",
+          "La velocidad eficaz",
+          "La velocidad más probable",
+          "Ninguna: cada rapidez tiene alguna molécula"
+        ],
+        "answer": 3,
+        "hint": "La curva solo se anula en el infinito",
+        "points": 10
+      },
+      {
+        "id": "ex-kt-6",
+        "type": "select",
+        "question": "La temperatura medida (de ⟨½mv²⟩) sigue a la ajustada en el simulador gracias a…",
+        "options": [
+          "El termostato",
+          "La fuerza de gravedad",
+          "Las paredes de la caja",
+          "El número de barras"
+        ],
+        "answer": 0,
+        "hint": "El termostato escala las rapideces hacia la T pedida",
+        "points": 10
+      }
+    ],
+    "thermal-expansion": [
+      {
+        "id": "ex-te-1",
+        "type": "numeric",
+        "question": "Barra de acero (α = 12e-6/°C) de L₀ = 2 m y ΔT = 100 °C. ¿Cuánto se alarga (en mm)?",
+        "answer": 2.4,
+        "unit": "mm",
+        "hint": "ΔL = α·L₀·ΔT",
+        "points": 10
+      },
+      {
+        "id": "ex-te-2",
+        "type": "numeric",
+        "question": "Si duplicas la longitud inicial de una barra manteniendo material y ΔT, el alargamiento ΔL se multiplica por…",
+        "answer": 2,
+        "unit": "",
+        "hint": "ΔL ∝ L₀",
+        "points": 10
+      },
+      {
+        "id": "ex-te-3",
+        "type": "numeric",
+        "question": "Placa de acero (α = 12e-6) de 1 m × 1 m con ΔT = 50 °C. ¿Cuánto crece el área (en cm²)?",
+        "answer": 1200,
+        "unit": "cm²",
+        "hint": "ΔA = 2α·A₀·ΔT; 1 m² = 10⁴ cm²",
+        "points": 10
+      },
+      {
+        "id": "ex-te-4",
+        "type": "numeric",
+        "question": "Cubo de cobre (α = 17e-6) de arista 1 m y ΔT = 100 °C. ¿Cuánto crece su volumen (en cm³)?",
+        "answer": 5100,
+        "unit": "cm³",
+        "hint": "ΔV ≈ 3α·V₀·ΔT",
+        "points": 10
+      },
+      {
+        "id": "ex-te-5",
+        "type": "select",
+        "question": "La tira bimetálica, al calentarse, se curva hacia…",
+        "options": [
+          "El metal de mayor α",
+          "El metal de menor α",
+          "La lámina más gruesa",
+          "Nunca se curva"
+        ],
+        "answer": 1,
+        "hint": "El de menor α estira menos y queda en el lado cóncavo",
+        "points": 10
+      },
+      {
+        "id": "ex-te-6",
+        "type": "numeric",
+        "question": "Barra de 5 m de acero con ΔT = 100 °C: ΔL en mm (α = 12e-6/°C)",
+        "answer": 6,
+        "unit": "mm",
+        "hint": "ΔL = 12e-6 · 5 · 100",
+        "points": 10
+      }
+    ],
+    "standing-waves": [
+      {
+        "id": "ex-sw-1",
+        "type": "numeric",
+        "question": "cuerda con T = 64 N y μ = 0.01 kg/m. ¿Cuánto vale v?",
+        "answer": 80,
+        "unit": "m/s",
+        "hint": "v = √(T/μ) = √6400",
+        "points": 10
+      },
+      {
+        "id": "ex-sw-2",
+        "type": "numeric",
+        "question": "Con L = 2 m y v = 80 m/s, ¿cuál es la frecuencia del 3.er armónico?",
+        "answer": 60,
+        "unit": "Hz",
+        "hint": "fₙ = n·v/(2L) → 3·80/4",
+        "points": 10
+      },
+      {
+        "id": "ex-sw-3",
+        "type": "numeric",
+        "question": "Una cuerda de L = 2 m vibra en el 2.º armónico. ¿Su longitud de onda (en m)?",
+        "answer": 2,
+        "unit": "m",
+        "hint": "λ = 2L/n → 4/2",
+        "points": 10
+      },
+      {
+        "id": "ex-sw-4",
+        "type": "numeric",
+        "question": "Dos ondas de 6 y 7 Hz se superponen. ¿Qué frecuencia de batido (en Hz) oyes?",
+        "answer": 1,
+        "unit": "Hz",
+        "hint": "f_batido = |f1 − f2|",
+        "points": 10
+      },
+      {
+        "id": "ex-sw-5",
+        "type": "select",
+        "question": "En el modo Cuerda, los que no se mueven nunca son…",
+        "options": [
+          "Los vientres",
+          "Los nodos",
+          "Los armónicos",
+          "La envolvente"
+        ],
+        "answer": 1,
+        "hint": "Los nodos quedan fijos donde la onda se anula",
+        "points": 10
+      },
+      {
+        "id": "ex-sw-6",
+        "type": "numeric",
+        "question": "El 5.º armónico de una cuerda de L = 2 m tiene λ= 2L/n. ¿Cuánto vale λ (en m)?",
+        "answer": 0.8,
+        "unit": "m",
+        "hint": "4/5",
+        "points": 10
+      }
+    ],
+    "sound-waves": [
+      {
+        "id": "ex-snd-1",
+        "type": "numeric",
+        "question": "¿Qué velocidad del sonido en el aire tiene a 20 °C (en m/s)?",
+        "answer": 343,
+        "unit": "m/s",
+        "hint": "v = 331 + 0.6·T°C",
+        "points": 10
+      },
+      {
+        "id": "ex-snd-2",
+        "type": "numeric",
+        "question": "Una fuente emite 100 Hz y se acerca a 171.5 m/s (v sonido = 343). ¿Qué frecuencia f′ (en Hz) percibe un observador en reposo?",
+        "answer": 200,
+        "unit": "Hz",
+        "hint": "f′ = f·v/(v − vₛ) = 100·343/171.5",
+        "points": 10
+      },
+      {
+        "id": "ex-snd-3",
+        "type": "numeric",
+        "question": "Una intensidad de I = 10⁻³ W/m² ¿cuántos dB representa?",
+        "answer": 90,
+        "unit": "dB",
+        "hint": "β = 10·log₁₀(I/I₀) con I₀ = 10⁻¹² W/m²",
+        "points": 10
+      },
+      {
+        "id": "ex-snd-4",
+        "type": "numeric",
+        "question": "Si te alejas de una fuente hasta 4× la distancia, la intensidad se divide entre 16 y el nivel cae en… dB.",
+        "answer": 12,
+        "unit": "dB",
+        "hint": "Δβ = 10·log₁₀(16)",
+        "points": 10
+      },
+      {
+        "id": "ex-snd-5",
+        "type": "select",
+        "question": "Al duplicar la distancia a una fuente puntual, la intensidad I…",
+        "options": [
+          "Se duplica",
+          "Se reduce a la cuarta parte",
+          "Se reduce a la mitad",
+          "No cambia"
+        ],
+        "answer": 1,
+        "hint": "I = P/(4πr²): r → 2r divide I entre 4",
+        "points": 10
+      },
+      {
+        "id": "ex-snd-6",
+        "type": "select",
+        "question": "La sirena se aproxima a 34.3 m/s (v=343) y emite 700 Hz. La frecuencia percibida es…",
+        "options": [
+          "700 Hz",
+          "Mayor que 700 Hz",
+          "Menor que 700 Hz",
+          "Imposible de calcular"
+        ],
+        "answer": 1,
+        "hint": "Al acercarse, los frentes se comprimen: f′ = f·v/(v−vₛ)",
+        "points": 10
+      }
+    ],
+    "mirrors": [
+      {
+        "id": "ex-mir-1",
+        "type": "numeric",
+        "question": "Espejo cóncavo con f = 1.5 m y objeto a d₀ = 4 m. ¿Dónde se forma la imagen dᵢ (m)?",
+        "answer": 2.4,
+        "unit": "m",
+        "hint": "1/f = 1/d₀ + 1/dᵢ → dᵢ = f·d₀/(d₀ − f)",
+        "points": 10
+      },
+      {
+        "id": "ex-mir-2",
+        "type": "numeric",
+        "question": "Con la imagen del caso anterior a dᵢ = 2.4 m y d₀ = 4 m, ¿cuánto vale el aumento M = −dᵢ/d₀?",
+        "answer": -0.6,
+        "hint": "M = −2.4/4 = −0.6: invertida y menor",
+        "points": 10
+      },
+      {
+        "id": "ex-mir-3",
+        "type": "select",
+        "question": "En un espejo convexo (f < 0), la imagen de un objeto real siempre es…",
+        "options": [
+          "Real e invertida",
+          "Virtual, derecha y menor",
+          "Virtual e invertida",
+          "Real y mayor"
+        ],
+        "answer": 1,
+        "hint": "El espejo convexo solo produce imágenes virtuales, derechas y menores",
+        "points": 10
+      },
+      {
+        "id": "ex-mir-4",
+        "type": "select",
+        "question": "Si colocas el objeto exactamente en el foco (d₀ = f) de un espejo cóncavo, la imagen…",
+        "options": [
+          "Se forma en el centro de curvatura",
+          "Es virtual y mayor",
+          "No se forma nunca",
+          "Se forma en el infinito"
+        ],
+        "answer": 3,
+        "hint": "La ecuación diverge: los rayos salen paralelos, la imagen está en el infinito",
+        "points": 10
+      },
+      {
+        "id": "ex-mir-5",
+        "type": "numeric",
+        "question": "Espejo cóncavo, objeto entre foco y vértice: f = 1.5 m, d₀ = 1 m. ¿Cuánto vale dᵢ (m, con signo)?",
+        "answer": -3,
+        "unit": "m",
+        "hint": "dᵢ = 1.5·1/(1−1.5) = −3 m: la imagen virtual está detrás del espejo",
+        "points": 10
+      },
+      {
+        "id": "ex-mir-6",
+        "type": "select",
+        "question": "La imagen real que forma un espejo cóncavo (d₀ > f) está…",
+        "options": [
+          "Delante del espejo e invertida",
+          "Detrás del espejo y derecha",
+          "Sobre el foco",
+          "No existe"
+        ],
+        "answer": 0,
+        "hint": "Los rayos convergen delante del espejo: la imagen es real, del revés (M < 0)",
+        "points": 10
+      }
+    ],
+    "induction": [
+      {
+        "id": "ex-ind-1",
+        "type": "numeric",
+        "question": "Una bobina de N = 20 espiras ve cambiar su flujo en ΔΦ = 0.01 Wb en Δt = 0.2 s. ¿Cuál es la fem inducida (V)?",
+        "answer": 1,
+        "unit": "V",
+        "hint": "ε = N·ΔΦ/Δt = 20·0.01/0.2 = 1 V",
+        "points": 10
+      },
+      {
+        "id": "ex-ind-2",
+        "type": "select",
+        "question": "Según la ley de Lenz, la corriente inducida se opone a…",
+        "options": [
+          "La gravedad",
+          "El campo estático",
+          "Al cambio de flujo que la produce",
+          "A la resistencia del cable"
+        ],
+        "answer": 2,
+        "hint": "La fem de Faraday es −N·dΦ/dt: se opone al cambio de flujo",
+        "points": 10
+      },
+      {
+        "id": "ex-ind-3",
+        "type": "numeric",
+        "question": "Transformador: N₁ = 100, N₂ = 300, V₁ pico = 120 V. ¿Cuál es V₂ pico (V)?",
+        "answer": 360,
+        "unit": "V",
+        "hint": "V₂ = V₁·(N₂/N₁) = 120·3 = 360 V",
+        "points": 10
+      },
+      {
+        "id": "ex-ind-4",
+        "type": "numeric",
+        "question": "Transformador reductor: N₁ = 100, N₂ = 20, V₁ = 120 V. ¿Cuál es V₂ (V)?",
+        "answer": 24,
+        "unit": "V",
+        "hint": "V₂ = 120·(20/100) = 24 V",
+        "points": 10
+      },
+      {
+        "id": "ex-ind-5",
+        "type": "select",
+        "question": "En un transformador ideal, si el voltaje sube 3×, la corriente…",
+        "options": [
+          "También sube 3×",
+          "Baja a la tercera parte",
+          "No cambia",
+          "Se anula"
+        ],
+        "answer": 1,
+        "hint": "La potencia se conserva (P₁ ≈ P₂): sube V → baja I",
+        "points": 10
+      },
+      {
+        "id": "ex-ind-6",
+        "type": "select",
+        "question": "El imán oscila frente a la bobina. La fem |ε| es máxima cuando…",
+        "options": [
+          "En los extremos del vaivén",
+          "Cuando el imán está parado",
+          "Cuando el flujo es máximo",
+          "Cuando el imán cruza el centro a máxima velocidad"
+        ],
+        "answer": 3,
+        "hint": "En el centro la velocidad es máxima: dΦ/dt (y ε = −N·dΦ/dt) alcanza su pico",
+        "points": 10
+      }
+    ],
+    "optical-instruments": [
+      {
+        "id": "ex-oi-1",
+        "type": "numeric",
+        "question": "Lupa con f = 5 cm. ¿Cuál es su aumento M = 1 + N/f con N = 25 cm?",
+        "answer": 6,
+        "unit": "×",
+        "hint": "M = 1 + 25/5 = 6×",
+        "points": 10
+      },
+      {
+        "id": "ex-oi-2",
+        "type": "numeric",
+        "question": "Telescopio: f_o = 50 cm, f_e = 5 cm. ¿Cuál es el aumento M = f_o/f_e?",
+        "answer": 10,
+        "unit": "×",
+        "hint": "M = 50/5 = 10×",
+        "points": 10
+      },
+      {
+        "id": "ex-oi-3",
+        "type": "numeric",
+        "question": "Microscopio: L = 16 cm, f_o = 1 cm, f_e = 2 cm. ¿Cuánto vale M = (L/f_o)·(N/f_e) con N = 25 cm?",
+        "answer": 200,
+        "unit": "×",
+        "hint": "M = (16/1)·(25/2) = 16·12.5 = 200×",
+        "points": 10
+      },
+      {
+        "id": "ex-oi-4",
+        "type": "select",
+        "question": "En el ojo, la acomodación del cristalino sirve para que la imagen…",
+        "options": [
+          "Cambie de tamaño a voluntad",
+          "Sea siempre virtual",
+          "Caiga siempre en la retina",
+          "Sea siempre invertida"
+        ],
+        "answer": 2,
+        "hint": "El cristalino ajusta su focal para que la imagen caiga siempre en la retina (dᵢ = L fijo)",
+        "points": 10
+      },
+      {
+        "id": "ex-oi-5",
+        "type": "numeric",
+        "question": "Ojo: objeto a d₀ = 50 cm y retina a L = 2.5 cm del cristalino. ¿Qué focal f (cm) acomoda?",
+        "answer": 2.38,
+        "unit": "cm",
+        "hint": "f = d₀·L/(d₀+L) = 125/52.5 = 2.381 cm",
+        "points": 10
+      },
+      {
+        "id": "ex-oi-6",
+        "type": "select",
+        "question": "La lupa forma una imagen…",
+        "options": [
+          "Real e invertida",
+          "Real y mayor",
+          "Sobre el foco",
+          "Virtual, derecha y aumentada"
+        ],
+        "answer": 3,
+        "hint": "Objeto entre F y la lente → rayos divergen: imagen virtual, derecha y mayor",
+        "points": 10
+      }
+    ],
+    "em-waves": [
+      {
+        "id": "ex-emw-1",
+        "type": "numeric",
+        "question": "Ley de Malus: I₁ = 100 W/m² incide sobre un polarizador a θ = 45°. ¿Cuál es I₂ (W/m²)?",
+        "answer": 50,
+        "unit": "W/m²",
+        "hint": "I₂ = I₁·cos²45° = 100·0.5 = 50 W/m²",
+        "points": 10
+      },
+      {
+        "id": "ex-emw-2",
+        "type": "numeric",
+        "question": "Malus con I₁ = 100 W/m² y θ = 60°. ¿Cuánto vale I₂ (W/m²)?",
+        "answer": 25,
+        "unit": "W/m²",
+        "hint": "cos²60° = 0.25 → I₂ = 25 W/m²",
+        "points": 10
+      },
+      {
+        "id": "ex-emw-3",
+        "type": "select",
+        "question": "Dos polarizadores cruzados (θ = 90°) dejan pasar…",
+        "options": [
+          "La mitad de la luz",
+          "Toda la luz",
+          "La cuarta parte",
+          "Nada de luz"
+        ],
+        "answer": 3,
+        "hint": "cos²90° = 0: sin luz más allá del segundo polarizador",
+        "points": 10
+      },
+      {
+        "id": "ex-emw-4",
+        "type": "numeric",
+        "question": "Onda electromagnética con λ = 0.6 m. ¿Cuál es su frecuencia f = c/λ (Hz)?",
+        "answer": 500000000,
+        "unit": "Hz",
+        "hint": "f = 3·10⁸/0.6 = 5·10⁸ Hz",
+        "points": 10
+      },
+      {
+        "id": "ex-emw-5",
+        "type": "select",
+        "question": "En una onda electromagnética, el campo E y el campo B son…",
+        "options": [
+          "Paralelos a la propagación",
+          "Perpendiculares entre sí y a la propagación",
+          "Paralelos entre sí",
+          "No existen simultáneamente"
+        ],
+        "answer": 1,
+        "hint": "Transversal: E y B vibran perpendiculares entre sí y a la propagación",
+        "points": 10
+      },
+      {
+        "id": "ex-emw-6",
+        "type": "select",
+        "question": "Si el ángulo entre el eje del polarizador y la luz sube de 0° a 90°, la intensidad…",
+        "options": [
+          "Crece",
+          "Se duplica",
+          "Decrece hasta anularse",
+          "No cambia"
+        ],
+        "answer": 2,
+        "hint": "Malus: I₂ = I₁·cos²θ decrece de 100 % a 0 %",
+        "points": 10
+      }
+    ],
+    "circuits": [
+      {
+        "id": "ex-rc-1",
+        "type": "numeric",
+        "question": "Circuito RC: R = 200 Ω, C = 1000 µF. ¿Cuánto vale τ = R·C (s)?",
+        "answer": 0.2,
+        "unit": "s",
+        "hint": "τ = 200·1000·10⁻⁶ = 0.2 s",
+        "points": 10
+      },
+      {
+        "id": "ex-rc-2",
+        "type": "numeric",
+        "question": "RLC resonancia: L = 0.5 H, C = 200 µF. ¿Cuánto vale f₀ = 1/(2π√(LC)) (Hz)?",
+        "answer": 15.92,
+        "unit": "Hz",
+        "hint": "√(0.5·200·10⁻⁶) = 0.01 → f₀ = 1/(2π·0.01) = 15.92 Hz",
+        "points": 10
+      },
+      {
+        "id": "ex-rc-3",
+        "type": "select",
+        "question": "Meter un dieléctrico de constante κ entre las placas de un condensador…",
+        "options": [
+          "Reduce la capacidad",
+          "No cambia nada",
+          "Multiplica la capacidad por κ",
+          "Convierte el condensador en bobina"
+        ],
+        "answer": 2,
+        "hint": "C = κ·C₀: la capacidad se multiplica por κ y τ = RC crece",
+        "points": 10
+      },
+      {
+        "id": "ex-rc-4",
+        "type": "numeric",
+        "question": "Serie: R₁ = 100 Ω, R₂ = 200 Ω, V = 12 V. ¿Cuál es la corriente (A)?",
+        "answer": 0.04,
+        "unit": "A",
+        "hint": "R_eq = 300 Ω → I = 12/300 = 0.04 A",
+        "points": 10
+      },
+      {
+        "id": "ex-rc-5",
+        "type": "select",
+        "question": "En la resonancia del RLC serie, la impedancia Z…",
+        "options": [
+          "Es máxima",
+          "Es infinita",
+          "Es imaginaria pura",
+          "Es mínima (Z = R)"
+        ],
+        "answer": 3,
+        "hint": "X_L = X_C se cancelan: Z = R es mínima y la corriente es máxima",
+        "points": 10
+      },
+      {
+        "id": "ex-rc-6",
+        "type": "numeric",
+        "question": "Paralelo: R₁ = R₂ = 100 Ω, V = 12 V. ¿Cuál es la corriente total (A)?",
+        "answer": 0.24,
+        "unit": "A",
+        "hint": "R_eq = 50 Ω → I = 12/50 = 0.24 A",
+        "points": 10
+      }
+    ]
+  }
 }
