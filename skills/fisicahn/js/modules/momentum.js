@@ -298,18 +298,33 @@ export default class MomentumModule extends SimModule {
       'bottom-left'
     );
 
-    // Gráfica p(t) dentro del lienzo: conservación visible sin salir a un SVG
-    // externo. Es la primitiva `plot` de §2.4.
-    // Abajo a la derecha: arriba está la barra de controles de vista.
+    // Gráfica dentro del lienzo: p(t) en choques, F–t con el área del impulso
+    // en el modo impulso (tanda 5.2).
     const vp = scene.viewport();
     if (vp.w > 420 && this.history.length > 1) {
       hud.plot(
         { x: vp.x + vp.w - 210, y: vp.y + vp.h - 128, w: 195, h: 116 },
-        {
-          title: 'Momento total p(t)',
-          series: [{ points: this.history, color: 'energy', label: 'p' }],
-          yRange: this._pRange()
-        }
+        impulso
+          ? {
+              title: 'Fuerza aplicada F(t)',
+              series: [
+                {
+                  points: [
+                    { x: 0, y: this.params.F },
+                    { x: Math.min(this.t, this.params.dt), y: this.params.F }
+                  ],
+                  color: 'force',
+                  fill: true
+                }
+              ],
+              yRange: [0, this.params.F * 1.25],
+              xRange: [0, Math.max(this.params.dt, this.t) * 1.1]
+            }
+          : {
+              title: 'Momento total p(t)',
+              series: [{ points: this.history, color: 'energy', label: 'p' }],
+              yRange: this._pRange()
+            }
       );
     }
   }
