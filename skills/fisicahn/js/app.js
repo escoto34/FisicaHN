@@ -56,37 +56,6 @@ const COLLAPSED_KEY = 'fisicahn_catalog_collapsed';
 /** Rutas de motores derivadas del catálogo (§4.5): una sola fuente. */
 const ENGINE_PATHS = buildEnginePaths();
 
-/** Motores de simulación (ruta por convención ./modules/<engineKey>.js) */
-const ENGINE_PATHS = {
-  kinematics: './modules/kinematics.js',
-  dynamics: './modules/dynamics.js',
-  'force-kinetic': './modules/force-kinetic.js',
-  friction: './modules/friction.js',
-  statics: './modules/statics.js',
-  electricity: './modules/electricity.js',
-  optics: './modules/optics.js',
-  whiteboard: './modules/whiteboard.js',
-  momentum: './modules/momentum.js',
-  oscillatory: './modules/oscillatory.js',
-  sound: './modules/sound.js',
-  magnetic: './modules/magnetic.js',
-  gravity: './modules/gravity.js',
-  atomic: './modules/atomic.js',
-  particles: './modules/particles.js',
-  rotational: './modules/rotational.js',
-  thermodynamics: './modules/thermodynamics.js',
-  'work-energy': './modules/work-energy.js',
-  'collisions-2d': './modules/collisions-2d.js',
-  lenses: './modules/lenses.js',
-  'wave-optics': './modules/wave-optics.js',
-  circuits: './modules/circuits.js',
-  'em-waves': './modules/em-waves.js',
-  photoelectric: './modules/photoelectric.js',
-  radioactivity: './modules/radioactivity.js',
-  tunneling: './modules/tunneling.js',
-  kepler: './modules/kepler.js',
-  placeholder: './modules/placeholder.js'
-};
 
 function engineTitle(engineKey, catalogEntry) {
   if (catalogEntry?.title) return catalogEntry.title;
