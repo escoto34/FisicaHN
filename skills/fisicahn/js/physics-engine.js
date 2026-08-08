@@ -461,17 +461,22 @@ export class PhysicsEngine {
 
     this._accumulator += frameTime * this._speed;
 
-    // Subpasos fijos de 1/60: con la cota derivada de MAX_FRAME_TIME×MAX_SPEED
-    // nunca se descarta tiempo legítimo en régimen (§3.3). El descarte final
-    // sigue como red de seguridad ante un pico imposible, no como retardo.
+    // Subpaso variable acotado (§18.1): por debajo de 1× el paso se escala con
+    // la velocidad (min(1, speed)) en vez de escalar solo el acumulador. A 0.1×
+    // sale un subpaso de dt = 1/600 por frame: movimiento continuo a 60 FPS de
+    // render, diez vezes más lento en el tiempo simulado. A 1× el comportamiento
+    // es idéntico al de los subpasos fijos de 1/60, y por encima de 1× nada
+    // cambia (paso 1/60 y crecen los subpasos, como antes). El dt menor a
+    // velocidades bajas solo mejora la precisión de integración.
+    const stepDt = DEFAULT_DT * Math.min(1, this._speed);
     let steps = 0;
-    while (this._accumulator >= DEFAULT_DT && steps < this._maxSubsteps) {
-      if (this.onUpdate) this.onUpdate(DEFAULT_DT);
-      this._accumulator -= DEFAULT_DT;
-      this._elapsed += DEFAULT_DT;
+    while (this._accumulator >= stepDt && steps < this._maxSubsteps) {
+      if (this.onUpdate) this.onUpdate(stepDt);
+      this._accumulator -= stepDt;
+      this._elapsed += stepDt;
       steps++;
     }
-    if (this._accumulator >= DEFAULT_DT) {
+    if (this._accumulator >= stepDt) {
       this._accumulator = 0;
     }
 

@@ -26,6 +26,12 @@
 - [WAVE 10 — Auditoría de encuadre de los motores 5.1/5.2](#wave-10--auditoría-de-encuadre-y-corrección-de-los-motores-5152) ✅
 - [WAVE 11 — Iconos SVG en el catálogo y el tocador](#wave-11--iconos-svg-en-el-catálogo-y-el-tocador) ✅
 - [WAVE 12 — Paleta de la landing y catálogo sin secciones](#wave-12--paleta-de-la-landing-y-catálogo-sin-secciones) ✅
+- [WAVE 13 — Legibilidad visual de 16 módulos](#wave-13--legibilidad-visual-de-16-módulos)
+- [WAVE 14 — Controles funcionales en todos los módulos](#wave-14--controles-funcionales-en-todos-los-módulos)
+- [WAVE 15 — Las gráficas se dibujan en el motor](#wave-15--las-gráficas-se-dibujan-en-el-motor)
+- [WAVE 16 — Panel derecho: orden y estética](#wave-16--panel-derecho-orden-y-estética)
+- [WAVE 17 — Origen centrado, encuadre inicial y espacio infinito](#wave-17--origen-centrado-encuadre-inicial-y-espacio-infinito)
+- [WAVE 18 — Cámara lenta real: velocidad desacoplada de los FPS](#wave-18--cámara-lenta-real-velocidad-desacoplada-de-los-fps)
 - [Anexo A — Métricas de referencia](#anexo-a--métricas-de-referencia)
 - [Anexo B — Decisiones tomadas](#anexo-b--decisiones-tomadas)
 
@@ -2083,3 +2089,314 @@ Modificar la landing exige volver a propagar aquí: `bash mobile/scripts/sync-ww
 entrando solo por `catalog.js` (§4.5); aparece en la cuadrícula plana y en la sidebar
 sin necesidad de código adicional. El catálogo principal no vuelve a tener grupos por
 categoría.
+
+---
+
+# WAVE 13 — Legibilidad visual de 16 módulos
+
+> 🔜 **Pendiente.**
+
+Diagnóstico: la API declarativa (`website/sim/js/core/scene.js`) no tiene motor de
+layout de etiquetas. `Surface.label`/`chip` pintan donde el módulo diga
+(`scene.js:785-812`); lo único anticolisión que existe hoy es `labelSide` en
+`Surface.vector` (`scene.js:480`) y `opts.line` para apilar chips/textos en el HUD
+(`scene.js:976-1005`). Dos anclajes al mismo `anchorPoint` con `line=0` — típicamente
+`hud.chip('top-left')` junto a `hud.readout(...,'top-left')` — se pisan siempre porque
+ambos parten del mismo punto. En los módulos **legacy** el problema es peor: pintan
+con `ctx.fillText` en píxeles de pantalla con constantes mágicas (`statics.js:271-290`)
+o reimplementan su propio `chip()` local (`magnetic.js:226-241`).
+
+## 13.0 Los 16 módulos, con su motor real
+
+Mapeo resuelto por `engineKey` vía `enginePath()` en `catalog.js:1416`:
+
+| Petición | Motor (`website/sim/js/modules/`) | API |
+|---|---|---|
+| Unidades y errores | `units-error.js` | `draw(scene)` |
+| Vectores | `vectors.js` | `draw(scene)` |
+| Masa y peso | `mass-weight.js` | `draw(scene)` |
+| Elasticidad | `elasticity.js` | `draw(scene)` |
+| Estática | `statics.js` | **legacy** (`render(ctx)`) |
+| Péndulo | `pendulum.js` | `draw(scene)` |
+| Ondas estacionarias | `standing-waves.js` | `draw(scene)` |
+| Fluidos | `fluids.js` | `draw(scene)` |
+| Calorimetría | `calorimetry.js` | `draw(scene)` |
+| Teoría cinética | `kinetic-theory.js` | `draw(scene)` |
+| Dilatación térmica | `thermal-expansion.js` | `draw(scene)` |
+| Espejos esféricos | `mirrors.js` | `draw(scene)` |
+| Introducción electromagnética | `induction.js` | mixto |
+| Interferencia y difracción | `wave-optics.js` | **legacy** |
+| Instrumentos ópticos | `optical-instruments.js` | `draw(scene)` |
+| Partículas en campo B | `particles.js` | **legacy** |
+
+Los legacy (`statics`, `wave-optics`, `particles`, y la parte legacy de `induction`) se
+migran primero a `draw(scene)` + `static params` + `static viewport`: sin eso no hay
+forma de garantizar el no solapamiento con el resto de la WAVE.
+
+## 13.1 Layout de etiquetas en `scene.js` (el cambio estructural)
+
+Se añade al núcleo, para no repetir la lógica en 16 módulos:
+
+- Registro de cajas ocupadas por frame + `Surface.label`/`chip` con `opts.avoid: true`,
+  que desplaza la etiqueta al primer candidato libre (arriba → abajo → derecha →
+  izquierda).
+- `HudSurface`: cola automática por ancla, para que `chip` y `readout` sobre el mismo
+  `anchorPoint` se apilen en vez de pisarse (extiende el `opts.line` existente en
+  `scene.js:976` a un contador implícito por ancla).
+- `scene.callout(x, y, texto)`: etiqueta con línea guía para objetos pequeños donde el
+  texto no cabe encima.
+
+## 13.2 Vocabulario visual nuevo
+
+El pedido explícito es «si es necesario, creando nuevos elementos (diferentes formas,
+texturas y colores)». Se añaden primitivas reutilizables en `scene.js` +
+`draw-primitives.js`: hatch/rayado (secciones sólidas, apoyos de estática), degradado
+de temperatura (calorimetría, dilatación térmica), patrón de fluido (ondas en
+superficie, viscosidad), halo de énfasis para objetos interactivos, y cotas con
+`dimension` ya existente (`scene.js:820`).
+
+**Regla nueva — forma y textura, no color semántico:** los colores vectoriales que
+distinguen magnitudes (masa azul, fuerza roja, velocidad verde, aceleración violeta,
+campo cian…) siguen intocables por la regla de la WAVE 12 (§12.1); lo que esta WAVE
+amplía es el vocabulario de **forma y textura** para diferenciar objetos sin depender
+solo del color.
+
+## 13.3 Pasada módulo a módulo
+
+Una entrada corta por módulo con el problema concreto y el arreglo puntual (no
+reescribir el módulo entero). Orden por gravedad: legacy primero
+(`statics`, `wave-optics`, `particles`, `induction`), después los `draw(scene)` con
+paneles dibujados en coordenadas de mundo con constantes mágicas
+(`mass-weight.js:148-173`, `units-error.js:113-138`), y por último el resto de la
+lista de §13.0.
+
+## Criterio de aceptación
+
+Test nuevo `js/tests/legibility.test.mjs`: con el mismo arnés de bbox de
+`js/tests/smoke-55.test.mjs`, captura todas las operaciones de texto (`label`, `chip`,
+`readout`, `callout`) de los 16 motores durante varios frames de simulación y falla si
+dos cajas de texto se intersecan o si alguna sale del viewbox 900×700.
+
+---
+
+# WAVE 14 — Controles funcionales en todos los módulos
+
+> 🔜 **Pendiente.**
+
+Diagnóstico: hay dos rutas de panel — la declarativa (`js/core/params-schema.js:125`
+`renderSchemaHtml` / `:144` `bindSchema`) y la legacy (`js/module-ui.js:518`
+`enhanceParamsPanel`, `:450` `paramControl`, `:481` `bindParamControls`). En la ruta
+legacy cada módulo cablea sus controles a mano vía `renderParams()`/`bindParamControls`
+propios; ahí es donde aparecen los handlers muertos.
+
+## 14.1 Auditoría exhaustiva
+
+Inventario `módulo × control × ¿tiene efecto observable?` sobre **los 44 módulos**, no
+solo los 16 de la WAVE 13. Para cada control (slider, select, botón, checkbox): moverlo
+debe alterar `readout()` o el resultado del `draw` en el frame siguiente. Migrar a
+`static params` todo módulo legacy que se toque de todos modos por la WAVE 13 —
+elimina la clase entera de fallo en vez de parchear el handler suelto.
+
+## 14.2 Bug ya localizado (ejemplo documentado)
+
+`app.js:1677-1682` hace `inst.setUnbounded(!inst.getUnbounded?.())`. `dynamics.js` no
+exporta `getUnbounded`, así que `!undefined === true`: en Dinámica ese botón **solo
+enciende, nunca apaga**. Se corrige junto con §17.3 (misma familia de bug).
+
+## Criterio de aceptación
+
+Test `js/tests/controls.test.mjs`: para cada módulo y cada param del esquema, aplicar
+`min` y `max`, ejecutar N pasos de simulación y exigir que la firma del `draw` (o el
+`readout()`) cambie entre los dos extremos. Un param inerte hace fallar el test para
+ese módulo.
+
+---
+
+# WAVE 15 — Las gráficas se dibujan en el motor
+
+> 🔜 **Pendiente.**
+
+Diagnóstico: hoy la gráfica vive en el panel derecho como un
+`<svg viewBox="0 0 300 180">` (`index.html:201-209`), alimentado por
+`applyModuleCharts()` (`js/app.js:1899`) con escalado manual y paleta hardcodeada
+`['#4fc3f7','#66bb6a','#ffb74d','#ef5350']` (`js/app.js:1931`) — colores que la
+WAVE 12 ya jubiló en el resto de la UI. En paralelo el núcleo ya tiene
+`HudSurface.plot()` (`scene.js:1100`) con ejes y autoescala, usado hoy solo por
+`js/modules/momentum.js` (gráfica F–t con área del impulso).
+
+## 15.1 Migración
+
+Todo `getCharts()` pasa a `scene.hud.plot()` dentro del `draw()` del módulo, con
+colores de `theme.seriesColor` (`js/core/theme.js:326`) y trazo de
+`seriesDash:337`, siguiendo el patrón de `momentum.js`.
+
+## 15.2 Eliminación del panel de Gráficas
+
+Se retira del todo (decisión tomada con el usuario, no queda como fallback oculto):
+`#chartPanel`/`#chartSvg` de `index.html`, `ui.setChart`/`ui.showCharts`
+(`js/app.js:270`, `:277`), `applyModuleCharts` (`js/app.js:1899`), el bombeo del bucle
+principal (`js/app.js:1866-1873`), la bandera `useCharts` (`js/app.js:1193`, `:1155`) y
+las reglas `.chart-panel`/`.chart-svg` de `css/main.css:734-751`.
+
+## 15.3 Ventaja colateral
+
+La gráfica entra gratis en la exportación PNG/SVG (`js/core/scene-export.js`) y en la
+comparación lado a lado (`js/core/compare.js`), cosa que hoy no ocurre por vivir fuera
+del canvas.
+
+**Riesgo a vigilar:** el HUD comparte espacio con `readout` y chips, así que esta WAVE
+depende de que §13.1 (cola automática por ancla) esté implementada antes; de lo
+contrario la gráfica se solapa con el resto del HUD.
+
+---
+
+# WAVE 16 — Panel derecho: orden y estética
+
+> 🔜 **Pendiente.**
+
+## 16.1 Herramientas encima de «Útil para»
+
+Orden actual del DOM: Controles (`index.html:169`) → Parámetros (`:195`) → Gráficas
+(`:201`) → Herramientas (`:206`). «Útil para» **no es una sección propia**:
+`appendCatalogServes()` (`js/app.js:819`, `<summary>` en `:830`) hace
+`paramsPanel.appendChild(wrap)`, así que queda dentro de Parámetros, al pie — por
+encima de Herramientas.
+
+Arreglo: sacar «Útil para» a su propia `.panel-section` al final del `<aside>` y subir
+Herramientas justo debajo de Parámetros. Con la desaparición de Gráficas (WAVE 15) el
+orden final queda:
+
+**Controles → Parámetros → Herramientas → Útil para**
+
+## 16.2 Selects modernos
+
+`params-schema.js:78-90` emite `<select class="custom-select">` y **`.custom-select`
+no tiene ninguna regla CSS** en `css/main.css`, `css/catalog.css` ni
+`css/challenges.css` — se ve con el chrome nativo del navegador, desalineado con el
+resto del panel. Además 5 módulos legacy lo parchean con estilos inline duplicados
+carácter a carácter: `lenses.js:464`, `kepler.js:240`, `wave-optics.js:166`,
+`photoelectric.js:474`, `thermodynamics.js:247`.
+
+Arreglo: una regla `.custom-select` en `css/main.css` con los tokens de la WAVE 12
+(`--bg-tertiary`, `--accent` `#3ecfbf`), `appearance: none`, chevron SVG como
+`background-image` data-URI, `:focus-visible` con anillo de acento y `:hover`. Se
+borran los 5 bloques de estilo inline duplicado. Referencia de estilo ya existente en
+el proyecto: `.challenge-select` (`css/challenges.css:233`).
+
+---
+
+# WAVE 17 — Origen centrado, encuadre inicial y espacio infinito
+
+> 🔜 **Pendiente.**
+
+## 17.1 El punto fijo en el centro del plano
+
+`Camera` arranca y resetea en `x=0, y=0` (`js/core/camera.js:33-34`, `:328-336`) y
+`app.js:1144-1149` aplica `static viewport` + `resetCamera()` al cargar cada módulo. No
+existe «centrar en el contenido»: cada módulo **debe** colocar su punto fijo (pivote
+del péndulo, vértice del espejo, eje de la balanza, centro de la caja de gas) en el
+origen del mundo. Se audita cada uno de los 16 módulos de la WAVE 13 y se reubican los
+que hoy usan un origen desplazado; se extiende el arnés de `smoke-55.test.mjs` para
+exigir que el punto fijo declarado por el módulo caiga a ≤0.5 unidades de mundo de
+(0,0).
+
+## 17.2 «Encuadre inicial» que de verdad encuadra
+
+`#resetViewBtn` (`index.html:136` → handler `js/app.js:1538-1542` → `camera.reset()`)
+es un **no-op práctico** en los módulos con espacio infinito activo: `reset()` limpia
+`_target`, pero en el frame siguiente `update()` vuelve a llamar `renderer.follow(pos)`
+(`kinematics.js:98`, `dynamics.js:89`, y equivalentes en `gravity.js` y `magnetic.js`),
+y la cámara salta de nuevo al objeto.
+
+Arreglo: `camera.reset()` fija una bandera `_userFramed` que suspende el `follow()`
+hasta que el usuario mueva algo o reinicie la simulación. Se repasa además
+`updateViewControlsUI()` (`js/app.js:1330`), que hoy solo actualiza `#zoomLabel` y deja
+sin reflejar el resto de estados de vista (zoom in/out deshabilitado, etc.) — se
+extiende para que cada botón de vista muestre su estado real.
+
+## 17.3 Espacio infinito ON por defecto
+
+Estado real: solo **4 módulos** lo implementan —`kinematics.js:33`, `dynamics.js:27`,
+`gravity.js:19`, `magnetic.js:24`— y los 4 ya tienen default `true`. Quedan dos
+incoherencias por corregir:
+
+- El botón se **pinta OFF** aunque el estado sea ON: `kinematics.js:254-256` y
+  `dynamics.js:259-261` emiten `aria-pressed="false"` y texto «Espacio infinito: OFF»
+  sin la clase `active`. `gravity.js:135` sí lo pinta bien (`active` + «ON») y sirve de
+  patrón para corregir los otros dos.
+- `dynamics.js` no exporta `getUnbounded` (bug ya documentado en §14.2), causa raíz de
+  que su botón nunca se apague.
+
+**Persistencia y trabajos guardados.** El usuario pide que el default ON se respete
+salvo que el archivo se haya guardado con espacio infinito en OFF. El estado no viaja
+por `uiParams` sino por `moduleState`: guardado en `collectModuleSnapshot()`
+(`app.js:2062`, `:2076-2079`) vía `handleSaveWork()` (`:2176`); restauración en
+`openWorkInModule()` (`:2207`, `:2236-2238`) vía `inst.setState(snap.moduleState)`;
+almacenamiento en `js/works.js:173, 225, 322`.
+
+**Regla nueva — el snapshot manda solo si está presente:** `setState()` aplica
+`unbounded` únicamente si la clave existe en el snapshot cargado; si falta (trabajo
+guardado antes de esta WAVE), gana el default `true`. Para los módulos que no
+implementan `setUnbounded` (todos salvo los 4 de la tabla), el botón
+`data-tool="unbounded"` (`index.html`) sale `disabled` en vez de mostrar un estado
+engañoso.
+
+---
+
+# WAVE 18 — Cámara lenta real: velocidad desacoplada de los FPS
+
+> 🔜 **Pendiente.**
+
+Diagnóstico verificado en el código: el multiplicador de velocidad ya escala el
+**tiempo**, no el render — `physics-engine.js:462` hace
+`this._accumulator += frameTime * this._speed`, pero el bucle de subpasos usa
+**siempre** `DEFAULT_DT = 1/60` (`:465-474`). El efecto es justo el que describe el
+usuario: a 0.1× el acumulador crece 1.67 ms por frame y tarda 16.7 ms en completar un
+paso de 1/60 s, así que `onUpdate` dispara solo ~6 veces por segundo. El render sigue a
+60 FPS y `#fpsCounter` (`app.js:2022-2029`) marca 60, pero **el movimiento se ve a
+tirones**, como si fuera a 6 FPS.
+
+## 18.1 Arreglo — paso variable acotado
+
+Escalar el propio subpaso cuando la velocidad baja de 1×, en vez de escalar solo el
+acumulador:
+
+```js
+const stepDt = DEFAULT_DT * Math.min(1, this._speed);
+this._accumulator += frameTime * this._speed;
+let steps = 0;
+while (this._accumulator >= stepDt && steps < this._maxSubsteps) {
+  this.onUpdate(stepDt);
+  this._accumulator -= stepDt;
+  this._elapsed += stepDt;
+  steps++;
+}
+```
+
+A 0.1× sale exactamente 1 subpaso por frame con `dt = 1/600` → movimiento continuo a
+60 FPS de render, diez veces más lento en el tiempo simulado. A 1× el comportamiento es
+idéntico al actual. Por encima de 1× nada cambia (`stepDt` se queda en 1/60 y crecen
+los subpasos, como hoy). El dt menor a velocidades bajas solo mejora la precisión de
+integración, sin riesgo numérico nuevo. Se revisa que `MAX_SUBSTEPS`
+(`physics-engine.js:19`) siga acotando el peor caso con el `stepDt` variable.
+
+## 18.2 Coherencia con Datos: todo en tiempo simulado
+
+Segunda mitad de lo pedido («si la velocidad está en 0.1× y hay una aceleración
+equivalente a 10 veces por segundo, que acelere 1 vez por segundo»). Los valores del
+`readout()` ya son tiempo **simulado** — cada módulo integra `this.t += dt` con dt
+fijo; no hay ningún `performance.now()`/`Date.now()` dentro de la física ni de los
+`readout()` en `js/modules/`. Lo que sí es wall-clock es la **cadencia de
+publicación**: `app.js:1250-1256` con `READOUT_MIN_MS = 100` (`app.js:120`, ~10 Hz de
+reloj real). Consecuencia hoy: a 5× se saltan muestras de tiempo simulado y a 0.1× se
+repite el mismo valor varias veces.
+
+Arreglo: cambiar el throttle de publicación a tiempo **simulado** (publicar cada
+`READOUT_MIN_SIM_S` de `this._elapsed`, no cada `READOUT_MIN_MS` de reloj), con un
+techo adicional de wall-clock para no saturar el DOM a 5×.
+
+**Regla nueva — reloj simulado, no reloj real:** todo lo que se muestra en la pestaña
+Datos se mide en segundos de simulación; el único indicador de reloj real que
+sobrevive en la UI es `#fpsCounter`. Cualquier módulo nuevo que quiera reportar una
+frecuencia (ej. Doppler en `sound.js`, EM en `em-waves.js`) la calcula sobre
+`this._elapsed`, nunca sobre `performance.now()`.

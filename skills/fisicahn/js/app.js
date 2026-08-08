@@ -115,9 +115,20 @@ let unbindParams = null;
 let _lastFpsShown = -1;
 let _lastChartAt = 0;
 let _lastReadoutAt = 0;
+let _lastReadoutSimAt = 0;
 const CHART_MIN_MS = 100; // ~10 Hz de SVG (evita innerHTML a 60 fps)
 /** Misma cadencia para `readout()`: los datos no se leen a 60 Hz (§3.1). */
 const READOUT_MIN_MS = 100;
+/**
+ * Cadencia de publicación del panel Datos en **tiempo simulado** (§18.2): los
+ * datos cambian cuando la simulación avanza, no cuando el reloj real avanza.
+ * A 0.1× se publica al llegar a 100 ms simulados (≈1 Hz real) en lugar de
+ * repetir el mismo valor 10 veces por segundo; READOUT_WALL_MIN_MS es el techo
+ * de reloj que evita saturar el DOM a 5× (donde 0.1 s simulados llegan cada
+ * 20 ms reales).
+ */
+const READOUT_MIN_SIM_S = 0.1;
+const READOUT_WALL_MIN_MS = 100;
 
 function bindEngineCallbacks() {
   if (!engine) return;
@@ -1185,8 +1196,22 @@ function pumpReadout(instance) {
   // `readout()` numérico, y el host lo presenta igual.
   if (!implementsMethod(instance, 'readout')) return;
   const now = performance.now();
-  if (now - _lastReadoutAt < READOUT_MIN_MS) return;
+  // Reloj simulado, no reloj real (§18.2): publicar cuando la simulación
+  // avanza 100 ms, con un techo de wall-clock para no saturar el DOM a 5×.
+  // Si el reloj simulado volvió atrás (reset del motor), publicar ya.
+  const simElapsed = engine?.getElapsed?.() ?? 0;
+  const simWentBack = simElapsed < _lastReadoutSimAt - 1e-6;
+  if (
+    !simWentBack &&
+    now - _lastReadoutAt < READOUT_WALL_MIN_MS
+  ) {
+    return;
+  }
+  if (!simWentBack && simElapsed - _lastReadoutSimAt < READOUT_MIN_SIM_S) {
+    return;
+  }
   _lastReadoutAt = now;
+  _lastReadoutSimAt = simElapsed;
 
   let data;
   try {
