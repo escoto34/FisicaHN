@@ -56,7 +56,6 @@ export default class StandingWaves extends SimModule {
       f2: 7
     };
     this.t = 0;
-    this.useCharts = false;
   }
 
   init(meta = null) {

@@ -37,7 +37,6 @@ export default class WaveOptics extends SimModule {
     super(ctx);
     this.params = { mode: 'double', lambda: 0.55, d: 2.0, a: 0.6, L: 6 };
     this.t = 0;
-    this.useCharts = false;
   }
 
   init(meta = null) {

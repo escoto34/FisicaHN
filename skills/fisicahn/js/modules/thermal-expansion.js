@@ -94,7 +94,6 @@ export default class ThermalExpansion extends SimModule {
       t: 1.5
     };
     this.t = 0;
-    this.useCharts = false;
   }
 
   init(meta = null) {

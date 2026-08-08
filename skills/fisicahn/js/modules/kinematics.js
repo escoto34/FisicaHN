@@ -17,9 +17,6 @@ import {
   clearChallenges
 } from '../module-ui.js';
 
-/** Punto de trabajo para worldToCanvas (no allocar en bucles, §3.2). */
-const _to = { x: 0, y: 0 };
-
 export default class Kinematics extends SimModule {
   constructor(ctx) {
     super(ctx);
@@ -31,7 +28,6 @@ export default class Kinematics extends SimModule {
     this.tSamples = [];
     this.isRunning = false;
     this.unbounded = true;
-    this.useCharts = true;
   }
 
   init(meta = null) {
@@ -43,7 +39,6 @@ export default class Kinematics extends SimModule {
     this.unbounded = true;
     this.isRunning = true;
     this.renderer?.resetCamera?.();
-    this.ui.showCharts?.(true);
 
     setModuleInfo(this.ui, {
       title: meta?.title || 'Cinemática',
@@ -182,41 +177,40 @@ export default class Kinematics extends SimModule {
     }
   }
 
-  render(ctx, alpha, elapsed) {
-    if (!this.renderer) return;
-    const r = this.renderer;
+  /* ---------- dibujo declarativo (§2.4, migrado en WAVE 15 para la gráfica en canvas) ---------- */
+
+  draw(scene) {
     if (this.trail.length > 1) {
-      ctx.save();
-      ctx.strokeStyle = 'rgba(79, 195, 247, 0.25)';
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([4, 4]);
-      ctx.beginPath();
-      this.trail.forEach((p, i) => {
-        const s = r.worldToCanvas(p.x, p.y, _to);
-        if (i === 0) ctx.moveTo(s.x, s.y);
-        else ctx.lineTo(s.x, s.y);
-      });
-      ctx.stroke();
-      ctx.restore();
+      scene.trail(this.trail, { color: 'field', dash: [4, 4], fade: false, alpha: 0.25, width: 1.5 });
     }
-    r.drawObject(this.pos.x, this.pos.y, {
+    scene.body(this.pos.x, this.pos.y, {
       shape: 'circle',
-      size: 0.4,
-      color: '#4fc3f7',
-      label: `t = ${roundTo(elapsed, 2)} s`
+      r: 0.4,
+      color: 'field',
+      label: `t = ${roundTo(scene.elapsed, 2)} s`
     });
     if (this.vel.magnitude() > 0.01) {
-      r.drawVector(this.pos.x, this.pos.y, this.vel.x * 0.3, this.vel.y * 0.3, {
-        color: '#66bb6a',
+      scene.vector(this.pos.x, this.pos.y, this.vel.x * 0.3, this.vel.y * 0.3, {
+        color: 'velocity',
         label: `v = ${roundTo(this.vel.magnitude(), 2)} m/s`
       });
     }
     if (this.accel.magnitude() > 0.01) {
-      r.drawVector(this.pos.x, this.pos.y, this.accel.x * 0.5, this.accel.y * 0.5, {
-        color: '#ef5350',
+      scene.vector(this.pos.x, this.pos.y, this.accel.x * 0.5, this.accel.y * 0.5, {
+        color: 'force',
         label: `a = ${roundTo(this.accel.magnitude(), 2)} m/s²`
       });
     }
+
+    // Gráfica x(t) en el propio lienzo (§15.1): sustituye el SVG lateral.
+    const vp = scene.viewport();
+    const points = this.tSamples.length > 1
+      ? this.tSamples.map((s) => ({ x: s.t, y: s.x }))
+      : [{ x: 0, y: this.pos.x }, { x: 1, y: this.pos.x }];
+    scene.hud.plot(
+      { x: vp.w - 220, y: vp.h - 150, w: 200, h: 130 },
+      { title: 'x (m) frente al tiempo (s)', series: [{ label: 'x', points, color: 'field' }] }
+    );
   }
 
   /** Datos numericos separados de la presentacion (contrato readout, §3.1). */
@@ -230,20 +224,6 @@ export default class Kinematics extends SimModule {
       ax: { value: roundTo(this.accel.x, 2), unit: 'm/s²' },
       ay: { value: roundTo(this.accel.y, 2), unit: 'm/s²' },
       modo: { value: this.unbounded ? 'Espacio infinito ON' : 'Con paredes', unit: '' }
-    };
-  }
-
-  getCharts() {
-    const points = this.tSamples.map((s) => ({ x: s.t, y: s.x }));
-    if (points.length < 2) {
-      return {
-        title: 'x (m) frente al tiempo (s)',
-        series: [{ label: 'x', points: [{ x: 0, y: this.pos.x }, { x: 1, y: this.pos.x }] }]
-      };
-    }
-    return {
-      title: 'x (m) frente al tiempo (s)',
-      series: [{ label: 'x', points }]
     };
   }
 

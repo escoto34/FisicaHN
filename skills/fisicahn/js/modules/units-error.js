@@ -81,7 +81,6 @@ export default class UnitsError extends SimModule {
     super(ctx);
     this.params = { modo: 'convertir', dimension: 'longitud', cantidad: 12, cifras: 3 };
     this.errorAbs = 0.5;
-    this.useCharts = false;
   }
 
   /** Unidades de origen y destino: primera y segunda de la dimensión actual. */

@@ -76,7 +76,6 @@ export default class KineticTheory extends SimModule {
     this.p = [];
     this.Tmeas = 0;
     this.t = 0;
-    this.useCharts = false;
   }
 
   init(meta = null) {

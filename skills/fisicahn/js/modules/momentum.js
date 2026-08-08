@@ -89,7 +89,6 @@ export default class MomentumModule extends SimModule {
     this.history = new TrailBuffer(240);
     /** Cuerpo que el usuario está arrastrando, o null. */
     this.dragging = null;
-    this.useCharts = false;
   }
 
   init() {

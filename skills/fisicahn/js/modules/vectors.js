@@ -51,7 +51,6 @@ export default class VectorsModule extends SimModule {
     };
     /** Vector que el usuario está arrastrando: 'A' | 'B' | null. */
     this.dragging = null;
-    this.useCharts = false;
   }
 
   init(meta = null) {

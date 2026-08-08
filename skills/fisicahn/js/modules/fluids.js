@@ -62,7 +62,6 @@ export default class Fluids extends SimModule {
     /** Posición vertical del cubo en modo arquimedes (mitad del cubo, m). */
     this.y = 0;
     this.vy = 0;
-    this.useCharts = false;
   }
 
   init(meta = null) {

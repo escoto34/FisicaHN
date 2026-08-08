@@ -69,7 +69,6 @@ export default class Rotational extends SimModule {
     this._prevParams = null;
     this.orbit1 = new TrailBuffer(900);
     this.orbit2 = new TrailBuffer(900);
-    this.useCharts = false;
   }
 
   init(meta = null) {

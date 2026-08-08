@@ -32,7 +32,6 @@ export default class Statics extends SimModule {
     /** Oscilación visual si está desequilibrado (no es dinámica completa). */
     this.wobble = 0;
     this.unbalanced = false;
-    this.useCharts = false;
   }
 
   init(meta = null) {

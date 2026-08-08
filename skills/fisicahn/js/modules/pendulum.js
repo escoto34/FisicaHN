@@ -84,7 +84,6 @@ export default class Pendulum extends SimModule {
     this.ghost = null;
     this.ghostTrail = new TrailBuffer(600);
     this.trail2 = new TrailBuffer(600);
-    this.useCharts = false;
   }
 
   init(meta = null) {

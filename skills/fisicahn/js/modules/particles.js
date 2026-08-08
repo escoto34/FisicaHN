@@ -44,7 +44,6 @@ export default class Particles extends SimModule {
     /** @type {Array<{name:string, pos:Vector2D, vel:Vector2D, q:number, m:number, color:string, trail:TrailBuffer, life:number}>} */
     this.particles = [];
     this.fireCooldown = 0;
-    this.useCharts = false;
   }
 
   init(meta = null) {

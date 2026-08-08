@@ -762,24 +762,6 @@ button.sidebar-brand-btn:hover .sidebar-title {
   line-height: 1.5;
 }
 
-/* --- Chart --- */
-.chart-panel {
-  flex-shrink: 0;
-}
-
-.chart-container {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-}
-
-.chart-svg {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
 /* --- Tool Buttons --- */
 .tool-row {
   display: flex;
@@ -1324,10 +1306,6 @@ button.sidebar-brand-btn:hover .sidebar-title {
 
   body.view-sim .canvas-footer {
     font-size: 0.7rem;
-  }
-
-  body.view-sim .chart-panel {
-    display: none; /* ahorra espacio; datos siguen en pestaña */
   }
 
   body.view-sim .session-badge-host {

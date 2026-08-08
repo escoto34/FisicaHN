@@ -34,7 +34,6 @@ export default class InclinedPlane extends SimModule {
     this.s = 0; // posición del bloque a lo largo del plano (0 = base)
     this.v = 0; // rapidez a lo largo del plano (pos = hacia la cima)
     this.t = 0;
-    this.useCharts = false;
   }
 
   init(meta = null) {

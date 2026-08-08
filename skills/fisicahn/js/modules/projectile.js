@@ -37,7 +37,6 @@ export default class ProjectileModule extends SimModule {
     this.landed = false;
     this.trail = new TrailBuffer(400);
     this.samples = [];
-    this.useCharts = false;
   }
 
   init(meta = null) {

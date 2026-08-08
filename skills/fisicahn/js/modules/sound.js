@@ -51,7 +51,6 @@ export default class SoundWaves extends SimModule {
     this.t = 0;
     this.sourceX = -8;
     this.waves = [];
-    this.useCharts = false;
   }
 
   init(meta = null) {

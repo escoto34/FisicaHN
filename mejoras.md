@@ -28,7 +28,7 @@
 - [WAVE 12 — Paleta de la landing y catálogo sin secciones](#wave-12--paleta-de-la-landing-y-catálogo-sin-secciones) ✅
 - [WAVE 13 — Legibilidad visual de 16 módulos](#wave-13--legibilidad-visual-de-16-módulos) ✅
 - [WAVE 14 — Controles funcionales en todos los módulos](#wave-14--controles-funcionales-en-todos-los-módulos) ✅
-- [WAVE 15 — Las gráficas se dibujan en el motor](#wave-15--las-gráficas-se-dibujan-en-el-motor)
+- [WAVE 15 — Las gráficas se dibujan en el motor](#wave-15--las-gráficas-se-dibujan-en-el-motor) ✅
 - [WAVE 16 — Panel derecho: orden y estética](#wave-16--panel-derecho-orden-y-estética)
 - [WAVE 17 — Origen centrado, encuadre inicial y espacio infinito](#wave-17--origen-centrado-encuadre-inicial-y-espacio-infinito)
 - [WAVE 18 — Cámara lenta real: velocidad desacoplada de los FPS](#wave-18--cámara-lenta-real-velocidad-desacoplada-de-los-fps)
@@ -2249,7 +2249,18 @@ ese módulo.
 
 # WAVE 15 — Las gráficas se dibujan en el motor
 
-> 🔜 **Pendiente.**
+> ✅ **Hecho.** Commit «Gráficas dentro del lienzo: eliminado el panel SVG
+> lateral».
+>
+> Resumen: `kinematics` era el único módulo con `getCharts()`, y el único que
+> seguía en `render(ctx)` sin migrar a `draw(scene)` — se migró entero (estela,
+> cuerpo, vectores con tokens del tema en vez de colores hardcodeados) y su
+> gráfica x(t) pasó a `scene.hud.plot()` dentro del propio `draw()`, siguiendo
+> el patrón ya usado por `momentum`. §15.2: retirado `#chartPanel`/`#chartSvg`
+> de `index.html`, `ui.setChart`/`ui.showCharts` y `applyModuleCharts` (con su
+> bombeo a ~10 Hz en `onEngineUpdate`) de `js/app.js`, la bandera `useCharts`
+> de los 19 módulos que la traían muerta, y las reglas `.chart-panel`/
+> `.chart-svg`/`.chart-container` de `css/main.css`. 95/95 tests verdes.
 
 Diagnóstico: hoy la gráfica vive en el panel derecho como un
 `<svg viewBox="0 0 300 180">` (`index.html:201-209`), alimentado por

@@ -41,7 +41,6 @@ export default class MassWeight extends SimModule {
   constructor(ctx) {
     super(ctx);
     this.params = { m: 50, astro: 'tierra' };
-    this.useCharts = false;
   }
 
   astro() {

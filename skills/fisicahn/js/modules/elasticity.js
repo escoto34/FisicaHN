@@ -47,7 +47,6 @@ export default class Elasticity extends SimModule {
   constructor(ctx) {
     super(ctx);
     this.params = { material: 'acero', L0: 1.5, A: 4, frac: 40 };
-    this.useCharts = false;
   }
 
   init(meta = null) {

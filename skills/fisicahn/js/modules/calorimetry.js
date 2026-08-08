@@ -84,7 +84,6 @@ export default class Calorimetry extends SimModule {
     /** Calor acumulado entregado al hielo (modo fase). */
     this.Q = 0;
     this.history = [];
-    this.useCharts = false;
   }
 
   init(meta = null) {

@@ -39,7 +39,6 @@ export default class Oscillatory extends SimModule {
     this.params = { modo: 'mhs', A: 5, k: 60, m: 1, g: 0.15 };
     this.t = 0;
     this.history = new TrailBuffer(480);
-    this.useCharts = false;
   }
 
   init(meta = null) {

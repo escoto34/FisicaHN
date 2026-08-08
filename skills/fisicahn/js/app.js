@@ -90,7 +90,6 @@ const playPauseLabel = document.getElementById('playPauseLabel');
 const resetBtn = document.getElementById('resetBtn');
 const stepBtn = document.getElementById('stepBtn');
 const paramsPanel = document.getElementById('paramsPanel');
-const chartSvg = document.getElementById('chartSvg');
 const bottomTabs = document.querySelectorAll('.bottom-tab');
 const bottomContent = document.getElementById('bottomContent');
 const toolBtns = document.querySelectorAll('.tool-btn');
@@ -113,10 +112,8 @@ let comparison = null;
 /** Desenlace del panel declarativo del módulo activo (§2.7). */
 let unbindParams = null;
 let _lastFpsShown = -1;
-let _lastChartAt = 0;
 let _lastReadoutAt = 0;
 let _lastReadoutSimAt = 0;
-const CHART_MIN_MS = 100; // ~10 Hz de SVG (evita innerHTML a 60 fps)
 /** Misma cadencia para `readout()`: los datos no se leen a 60 Hz (§3.1). */
 const READOUT_MIN_MS = 100;
 /**
@@ -214,7 +211,6 @@ function applyStoredTheme() {
 /* ============================================
    UI API para módulos
    ============================================ */
-const chartPanel = document.getElementById('chartPanel');
 
 /**
  * Envuelve `setData` con fusión + descarga final (~10 Hz) para los módulos
@@ -283,16 +279,6 @@ const ui = {
       paramsPanel.addEventListener('input', () => engine?.requestPaint?.());
       paramsPanel.addEventListener('change', () => engine?.requestPaint?.());
     }
-  },
-  /** Muestra gráfica solo si enableCharts(true) o se pasa contenido no vacío con show=true */
-  setChart(svgContent, opts = {}) {
-    if (!chartSvg) return;
-    const show = opts.show === true || (opts.show !== false && svgContent && !opts.hide);
-    if (chartPanel) chartPanel.hidden = !show;
-    if (show) chartSvg.innerHTML = svgContent;
-  },
-  showCharts(on) {
-    if (chartPanel) chartPanel.hidden = !on;
   },
   setInfo(msg) {
     const infoPanel = document.getElementById('tab-info');
@@ -1084,8 +1070,6 @@ async function loadEngineModule(engineKey, catalogEntry = null, initialMode = nu
   });
 
   paramsPanel.innerHTML = '<p class="placeholder-text">Cargando módulo...</p>';
-  chartSvg.innerHTML =
-    '<text x="150" y="90" text-anchor="middle" fill="var(--text-secondary)" font-size="11">Cargando...</text>';
 
   try {
     const mod = await import(path);
@@ -1105,7 +1089,6 @@ async function loadEngineModule(engineKey, catalogEntry = null, initialMode = nu
     // La pizarra necesita el puntero para dibujar: sin zoom ni pan encima.
     interaction?.setEnabled(resolvedKey !== 'whiteboard');
     interaction?.setTarget(instance);
-    ui.showCharts(false);
     const meta =
       resolvedKey === 'placeholder'
         ? { title, blurb: catalogEntry?.blurb || '' }
@@ -1141,8 +1124,6 @@ async function loadEngineModule(engineKey, catalogEntry = null, initialMode = nu
     }
     // Retos en barra inferior (solo motores con casos de uso o pack de examen)
     await setupChallengesForEngine(resolvedKey).catch(() => ui.setChallenges(null));
-    // Activar panel de gráficas solo si el módulo lo pide
-    if (instance.useCharts === true) ui.showCharts(true);
     // Arrancar loop (pizarra sin pausa/velocidad: el dibujo depende del RAF)
     if (engine && !engine.isRunning?.()) engine.start();
     ensureRunning();
@@ -1871,19 +1852,6 @@ function onEngineUpdate(dt) {
     return;
   }
   pumpReadout(inst);
-  // Gráficas SVG a ~10 Hz (no a 60 fps) — reduce layout/innerHTML
-  try {
-    if (inst && inst.useCharts === true && typeof inst.getCharts === 'function') {
-      const now = performance.now();
-      if (now - _lastChartAt >= CHART_MIN_MS) {
-        _lastChartAt = now;
-        const charts = inst.getCharts();
-        if (charts != null) applyModuleCharts(charts);
-      }
-    }
-  } catch {
-    /* no bloquear el loop */
-  }
 }
 
 /**
@@ -1901,59 +1869,6 @@ function attemptRecoverLoop() {
     delete simStatus.dataset.t;
   }
   updatePlayPauseUI();
-}
-
-/** Acepta string SVG o { series: [{label, points:[{x,y}]}] } */
-function applyModuleCharts(charts) {
-  if (typeof charts === 'string') {
-    ui.setChart(charts, { show: true });
-    return;
-  }
-  if (!charts || !Array.isArray(charts.series)) return;
-  const W = 300;
-  const H = 180;
-  const pad = { l: 36, r: 12, t: 16, b: 28 };
-  let minX = Infinity;
-  let maxX = -Infinity;
-  let minY = Infinity;
-  let maxY = -Infinity;
-  for (const s of charts.series) {
-    for (const p of s.points || []) {
-      if (p.x < minX) minX = p.x;
-      if (p.x > maxX) maxX = p.x;
-      if (p.y < minY) minY = p.y;
-      if (p.y > maxY) maxY = p.y;
-    }
-  }
-  if (!Number.isFinite(minX)) {
-    minX = 0;
-    maxX = 1;
-    minY = 0;
-    maxY = 1;
-  }
-  if (maxX === minX) maxX = minX + 1;
-  if (maxY === minY) maxY = minY + 1;
-  const pw = W - pad.l - pad.r;
-  const ph = H - pad.t - pad.b;
-  const sx = (x) => pad.l + ((x - minX) / (maxX - minX)) * pw;
-  const sy = (y) => pad.t + ph - ((y - minY) / (maxY - minY)) * ph;
-  const colors = ['#3ecfbf', '#3ecf7a', '#e8a838', '#f07178'];
-  let paths = '';
-  charts.series.forEach((s, i) => {
-    const pts = s.points || [];
-    if (pts.length < 2) return;
-    const d = pts.map((p, j) => `${j ? 'L' : 'M'}${sx(p.x).toFixed(1)},${sy(p.y).toFixed(1)}`).join(' ');
-    paths += `<path d="${d}" fill="none" stroke="${colors[i % colors.length]}" stroke-width="2"/>`;
-  });
-  const title = charts.title
-    ? `<text x="${W / 2}" y="12" text-anchor="middle" fill="var(--text-secondary)" font-size="10">${escapeHtml(
-        charts.title
-      )}</text>`
-    : '';
-  ui.setChart(
-    `${title}<line x1="${pad.l}" y1="${pad.t}" x2="${pad.l}" y2="${pad.t + ph}" stroke="var(--border-color)"/><line x1="${pad.l}" y1="${pad.t + ph}" x2="${pad.l + pw}" y2="${pad.t + ph}" stroke="var(--border-color)"/>${paths}`,
-    { show: true }
-  );
 }
 
 /**
