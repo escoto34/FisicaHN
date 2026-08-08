@@ -26,7 +26,7 @@ let selected = null;
 let dragOffset = null;
 let dragging = false;
 
-const COLORS = ['#e8eef6', '#4fc3f7', '#66bb6a', '#ffb74d', '#ef5350', '#ce93d8', '#111827'];
+const COLORS = ['#e8eef6', '#3ecfbf', '#3ecf7a', '#e8a838', '#f07178', '#ce93d8', '#111827'];
 const ERASE_RADIUS = 18;
 /**
  * Densidad del lápiz: ~7× más puntos que un solo sample por pointermove.
@@ -38,7 +38,7 @@ const PEN_SAMPLE_STEP = 1.5;
 const ERASE_PATH_STEP = ERASE_RADIUS / 7;
 
 function bgColor() {
-  return lightBg ? '#f4f6f8' : '#0f0f1a';
+  return lightBg ? '#f4f6f8' : '#0c0f14';
 }
 
 /** Puntero en píxeles CSS: el mismo espacio en el que dibuja `render` (§2.3). */
@@ -562,7 +562,7 @@ export function render(ctxDraw) {
       const b = strokeBounds(s);
       if (b) {
         ctxDraw.save();
-        ctxDraw.strokeStyle = '#4fc3f7';
+        ctxDraw.strokeStyle = '#3ecfbf';
         ctxDraw.lineWidth = 1.5;
         ctxDraw.setLineDash([4, 3]);
         ctxDraw.strokeRect(b.x, b.y, b.w, b.h);

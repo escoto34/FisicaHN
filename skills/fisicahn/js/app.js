@@ -547,16 +547,9 @@ function sectionHeaderHtml(catId, label, n, level) {
   `;
 }
 
-/** Marca una sección como plegada según el estado persistido. */
-function applySectionCollapsed(section, key) {
-  if (state.catalogCollapsed[key]) {
-    section.classList.add('catalog-section-collapsed');
-  }
-}
-
 /**
  * Renderiza el grid del catálogo según el filtro de nivel y la búsqueda.
- * §4.2: secciones por categoría · §4.4: agrupación de resultados por categoría.
+ * §4.2: lista plana de módulos · §4.4: agrupación de resultados por categoría.
  * §4.3 nº6: si la firma (nivel + consulta) no cambió, no se regenera el DOM.
  */
 let _lastCatalogRenderSig = null;
@@ -596,41 +589,19 @@ function renderCatalogGrids() {
       seen.add(card.id);
       mods.push(card);
     }
-    renderSectionedGrid(grid, mods, level, worksCount);
+    renderFlatGrid(grid, mods, worksCount);
   }
   bindCatalogCardClicks();
   bindSectionCollapse();
   bindSearchSuggestions();
 }
 
-/** Secciones por categoría (cabecera plegable + fila de tarjetas). */
-function renderSectionedGrid(grid, mods, level, worksCount) {
-  const groups = new Map();
+/** Catálogo plano: todos los módulos en una sola cuadrícula, sin secciones. */
+function renderFlatGrid(grid, mods, worksCount) {
   for (const mod of mods) {
-    const key = catalogSectionKey(mod.category);
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(mod);
-  }
-  for (const [key, list] of groups) {
-    const cat = getCategory(key) || getCategory(list[0]?.category);
-    const label = cat?.keyword || cat?.label || key;
-    const section = document.createElement('section');
-    section.className = 'catalog-section';
-    section.setAttribute('data-category', key);
-    section.innerHTML = sectionHeaderHtml(cat?.id || key, label, list.length, level);
-    const body = document.createElement('div');
-    body.className = 'catalog-section-body';
-    const row = document.createElement('div');
-    row.className = 'catalog-row';
-    for (const mod of list) {
-      const wrap = document.createElement('div');
-      wrap.innerHTML = catalogCardHtml(mod, { worksCount });
-      row.appendChild(wrap.firstElementChild);
-    }
-    body.appendChild(row);
-    section.appendChild(body);
-    applySectionCollapsed(section, key);
-    grid.appendChild(section);
+    const wrap = document.createElement('div');
+    wrap.innerHTML = catalogCardHtml(mod, { worksCount });
+    grid.appendChild(wrap.firstElementChild);
   }
 }
 
@@ -970,50 +941,16 @@ function fillSidebarUnified() {
     worksHost.appendChild(worksBtn);
   }
 
-  // Agrupar por categoría; solo la sección del módulo activo queda expandida.
-  const groups = new Map();
+  // Lista plana de módulos (sin secciones por categoría).
   for (const mod of getSimulationCatalog()) {
-    const catId = mod.category;
-    if (!groups.has(catId)) groups.set(catId, []);
-    groups.get(catId).push(mod);
-  }
-  for (const [catId, mods] of groups) {
-    const cat = getCategory(catId);
-    const activeHere = mods.some((m) => m.id === state.catalogId);
-    const group = document.createElement('section');
-    group.className = 'sidebar-group';
-    group.setAttribute('data-category', catId);
-    const head = document.createElement('button');
-    head.type = 'button';
-    head.className = 'sidebar-group-head';
-    head.setAttribute('aria-expanded', String(activeHere));
-    const icon = categoryIcon(catId);
-    head.innerHTML = `
-      <span class="sidebar-group-chevron" aria-hidden="true">${activeHere ? '▾' : '▸'}</span>
-      ${icon ? `<span class="sidebar-group-glyph" aria-hidden="true">${icon}</span>` : cat?.glyph ? `<span class="sidebar-group-glyph" aria-hidden="true">${escapeHtml(cat.glyph)}</span>` : ''}
-      <span class="sidebar-group-title">${escapeHtml(cat?.keyword || cat?.label || catId)}</span>
-    `;
-    const body = document.createElement('div');
-    body.className = 'sidebar-group-body';
-    if (!activeHere) group.classList.add('collapsed');
-    for (const mod of mods) {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'module-btn';
-      btn.dataset.catalogId = mod.id;
-      if (mod.id === state.catalogId) btn.classList.add('active');
-      btn.innerHTML = `<span>${escapeHtml(mod.title)}</span>`;
-      btn.addEventListener('click', () => openCatalogModule(mod.id));
-      body.appendChild(btn);
-    }
-    head.addEventListener('click', () => {
-      const collapsed = group.classList.toggle('collapsed');
-      head.setAttribute('aria-expanded', String(!collapsed));
-      head.querySelector('.sidebar-group-chevron').textContent = collapsed ? '▸' : '▾';
-    });
-    group.appendChild(head);
-    group.appendChild(body);
-    sidebarNav.appendChild(group);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'module-btn';
+    btn.dataset.catalogId = mod.id;
+    if (mod.id === state.catalogId) btn.classList.add('active');
+    btn.innerHTML = `<span>${escapeHtml(mod.title)}</span>`;
+    btn.addEventListener('click', () => openCatalogModule(mod.id));
+    sidebarNav.appendChild(btn);
   }
 }
 
@@ -1059,7 +996,6 @@ async function openCatalogModule(catalogId, opts = {}) {
   }
 
   state.catalogId = catalogId;
-  state.catalogLevel = entry.level || 'all';
   showSimShell();
   fillSidebarUnified();
 
@@ -1929,7 +1865,7 @@ function applyModuleCharts(charts) {
   const ph = H - pad.t - pad.b;
   const sx = (x) => pad.l + ((x - minX) / (maxX - minX)) * pw;
   const sy = (y) => pad.t + ph - ((y - minY) / (maxY - minY)) * ph;
-  const colors = ['#4fc3f7', '#66bb6a', '#ffb74d', '#ef5350'];
+  const colors = ['#3ecfbf', '#3ecf7a', '#e8a838', '#f07178'];
   let paths = '';
   charts.series.forEach((s, i) => {
     const pts = s.points || [];
@@ -2399,6 +2335,10 @@ async function init() {
   bindCatalogLevelFilters();
 
   const saved = loadProgress();
+  // Nivel del catálogo: se conserva el que eligió el usuario; por defecto "Todos".
+  if (saved && ['all', 'middle', 'high', 'advanced'].includes(saved.lastLevel)) {
+    state.catalogLevel = saved.lastLevel;
+  }
   if (canvas && engine) {
     engine.start();
   } else {

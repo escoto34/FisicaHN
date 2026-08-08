@@ -38,8 +38,8 @@
 
 .catalog-pizarra-btn {
   appearance: none;
-  border: 1px solid rgba(79, 195, 247, 0.4);
-  background: rgba(79, 195, 247, 0.12);
+  border: 1px solid rgba(62, 207, 191, 0.4);
+  background: rgba(62, 207, 191, 0.12);
   color: var(--accent);
   font-family: var(--font-ui);
   font-weight: 600;
@@ -52,13 +52,13 @@
 }
 
 .catalog-pizarra-btn:hover {
-  background: rgba(79, 195, 247, 0.22);
+  background: rgba(62, 207, 191, 0.22);
   border-color: var(--accent);
 }
 
 .catalog-pizarra-btn:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(79, 195, 247, 0.45);
+  box-shadow: 0 0 0 3px rgba(62, 207, 191, 0.45);
 }
 
 .catalog-brand {
@@ -112,8 +112,8 @@
 }
 
 .catalog-badge.works {
-  background: rgba(129, 199, 132, 0.18);
-  color: #81c784;
+  background: rgba(62, 207, 122, 0.18);
+  color: #3ecf7a;
 }
 
 .catalog-grid {
@@ -140,7 +140,7 @@
 }
 
 .catalog-card:hover {
-  border-color: rgba(79, 195, 247, 0.45);
+  border-color: rgba(62, 207, 191, 0.45);
   background: var(--bg-tertiary);
 }
 
@@ -150,7 +150,7 @@
 
 .catalog-card:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(79, 195, 247, 0.45);
+  box-shadow: 0 0 0 3px rgba(62, 207, 191, 0.45);
 }
 
 .catalog-card-top {
@@ -177,9 +177,9 @@
   border-radius: 10px;
   font-size: 1.15rem;
   line-height: 1;
-  background: rgba(79, 195, 247, 0.12);
+  background: rgba(62, 207, 191, 0.12);
   color: var(--accent);
-  border: 1px solid rgba(79, 195, 247, 0.25);
+  border: 1px solid rgba(62, 207, 191, 0.25);
 }
 
 .catalog-card-title {
@@ -250,13 +250,13 @@
 
 .catalog-back-btn:hover {
   color: var(--accent);
-  border-color: rgba(79, 195, 247, 0.35);
-  background: rgba(79, 195, 247, 0.08);
+  border-color: rgba(62, 207, 191, 0.35);
+  background: rgba(62, 207, 191, 0.08);
 }
 
 .catalog-back-btn:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(79, 195, 247, 0.45);
+  box-shadow: 0 0 0 3px rgba(62, 207, 191, 0.45);
 }
 
 @media (max-width: 900px) {
@@ -384,8 +384,8 @@
 
 .catalog-search-input:focus {
   outline: none;
-  border-color: rgba(79, 195, 247, 0.55);
-  box-shadow: 0 0 0 3px rgba(79, 195, 247, 0.18);
+  border-color: rgba(62, 207, 191, 0.55);
+  box-shadow: 0 0 0 3px rgba(62, 207, 191, 0.18);
 }
 
 .catalog-search-clear {
@@ -431,19 +431,19 @@
 }
 
 .catalog-level-pill:hover {
-  border-color: rgba(79, 195, 247, 0.4);
+  border-color: rgba(62, 207, 191, 0.4);
   color: var(--text-primary);
 }
 
 .catalog-level-pill[aria-pressed='true'] {
-  background: rgba(79, 195, 247, 0.14);
-  border-color: rgba(79, 195, 247, 0.55);
+  background: rgba(62, 207, 191, 0.14);
+  border-color: rgba(62, 207, 191, 0.55);
   color: var(--accent);
 }
 
 .catalog-level-pill:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(79, 195, 247, 0.4);
+  box-shadow: 0 0 0 3px rgba(62, 207, 191, 0.4);
 }
 
 /* --- Secciones por categoría --- */
@@ -471,13 +471,13 @@
 }
 
 .catalog-section-head:hover {
-  border-color: rgba(79, 195, 247, 0.35);
-  background: rgba(79, 195, 247, 0.06);
+  border-color: rgba(62, 207, 191, 0.35);
+  background: rgba(62, 207, 191, 0.06);
 }
 
 .catalog-section-head:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(79, 195, 247, 0.4);
+  box-shadow: 0 0 0 3px rgba(62, 207, 191, 0.4);
 }
 
 .catalog-sec-chevron {
@@ -555,8 +555,8 @@
   font-size: 0.78rem;
   padding: 4px 10px;
   border-radius: 999px;
-  border: 1px solid rgba(79, 195, 247, 0.3);
-  background: rgba(79, 195, 247, 0.08);
+  border: 1px solid rgba(62, 207, 191, 0.3);
+  background: rgba(62, 207, 191, 0.08);
   color: var(--text-secondary);
 }
 
@@ -618,7 +618,7 @@
 
 .search-suggestion {
   appearance: none;
-  border: 1px dashed rgba(79, 195, 247, 0.45);
+  border: 1px dashed rgba(62, 207, 191, 0.45);
   background: transparent;
   color: var(--accent);
   font-family: var(--font-ui);
@@ -630,7 +630,7 @@
 }
 
 .search-suggestion:hover {
-  background: rgba(79, 195, 247, 0.12);
+  background: rgba(62, 207, 191, 0.12);
   border-color: var(--accent);
 }
 

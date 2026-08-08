@@ -23,6 +23,9 @@
 - [WAVE 7 — Herramientas y calidad](#wave-7--herramientas-y-calidad)
 - [WAVE 8 — Capa pedagógica](#wave-8--capa-pedagógica)
 - [WAVE 9 — Funciones docentes y distribución](#wave-9--funciones-docentes-y-distribución)
+- [WAVE 10 — Auditoría de encuadre de los motores 5.1/5.2](#wave-10--auditoría-de-encuadre-y-corrección-de-los-motores-5152) ✅
+- [WAVE 11 — Iconos SVG en el catálogo y el tocador](#wave-11--iconos-svg-en-el-catálogo-y-el-tocador) ✅
+- [WAVE 12 — Paleta de la landing y catálogo sin secciones](#wave-12--paleta-de-la-landing-y-catálogo-sin-secciones) ✅
 - [Anexo A — Métricas de referencia](#anexo-a--métricas-de-referencia)
 - [Anexo B — Decisiones tomadas](#anexo-b--decisiones-tomadas)
 
@@ -89,6 +92,9 @@ migraciones completo; WAVE 5 llega a **46 módulos**.
 | 7 — Herramientas y calidad | Pendiente | — |
 | 8 — Capa pedagógica | Pendiente | — |
 | 9 — Funciones docentes | Pendiente | — |
+| 10 — Auditoría de encuadre 5.1/5.2 | ✅ Hecha | `4e48d5b` |
+| 11 — Iconos SVG | ✅ Hecha | `3a4a2e2` |
+| 12 — Paleta de la landing y catálogo sin secciones | ✅ Hecha | — |
 
 Tres de los cinco problemas dominantes están cerrados: el **#1** (archivos generados
  versionados) en la WAVE 0, el **#4** (sin contrato de módulo) en la WAVE 1 y el **#3**
@@ -2013,3 +2019,67 @@ SVGs bien formados y sin emojis. Suite completa: 36/36.
 
 Todo esto entra en `skills/fisicahn/` y se propaga con los tres scripts de sync;
 ninguna dependencia nueva ni bundler (§0).
+
+# WAVE 12 — Paleta de la landing y catálogo sin secciones
+
+> ✅ **Hecha** — trabajo de esta sesión, aún sin commit.
+
+Dos frentes de front-end resueltos juntos: el simulador adopta la **paleta de la
+landing** (`website/`) como fuente única de color, y el **catálogo deja de agrupar
+por categorías** para volverse una cuadrícula plana con el filtro «Todos» por defecto.
+
+## 12.1 Paleta de la landing en el simulador
+
+La paleta vive en `website/css/site.css:2` y ahora **es la fuente de verdad del look**
+del simulador:
+
+| Token landing | Valor | Destino en el simulador |
+|---|---|---|
+| `--bg` | `#0c0f14` | `--bg-primary`, tema canvas `dark.bg`, arranque `index.html` |
+| `--bg-elev` | `#141a22` | `--bg-secondary` |
+| `--bg-card` | `#1c2430` | `--bg-tertiary` |
+| `--text` | `#e8eef6` | `--text-primary`, `dark.text` |
+| `--muted` | `#9aa8b8` | `--text-secondary` |
+| `--accent` | `#3ecfbf` | `--accent` (era `#4fc3f7`) |
+| `--accent-2` | `#e8a838` | `--accent-secondary` |
+| `--ok` | `#3ecf7a` | `--success` |
+| `--err` | `#f07178` | `--danger` |
+
+- `css/main.css`: tokens del design system reasignados y **36 literales** heredados
+  migrados (`#4fc3f7` → `#3ecfbf`, `rgba(79,195,247,α)` → `rgba(62,207,191,α)`,
+  ámbar `#ffb74d` → `#e8a838`, verde «Mis trabajos» `#81c784` → `#3ecf7a`, rojos de
+  estado `#ef9a9a` → `#f07178`). `css/catalog.css`: otros 24 literales de acento +
+  badge «Mis trabajos».
+- `js/core/theme.js` — tema `dark` (el de arranque): fondo, texto, HUD y estados
+  `ok/warn/danger` de la paleta; `mass2`, `velocity`, `force`, `energy` y `DARK_SERIES`
+  ajustados a los tonos nuevos. `light` y `projector` reciben variantes oscurecidas de
+  los tres estados (contraste sobre fondos claros); `colorSafe` alinea **solo los
+  neutros** — su paleta para daltonismo queda intacta a propósito.
+- Paletas que elige el usuario en JS: gráficas de trabajos (`app.js`), pizarra
+  (`whiteboard.js`) y colisiones 2D (`collisions-2d.js`); `index.html` arranca en
+  `#0c0f14` sin flash de color.
+
+**Regla nueva — la semántica ante todo:** los colores vectoriales que distinguen
+magnitudes en el lienzo (masa azul, fuerza roja, velocidad verde, aceleración
+violeta, campo cian…) **no se reemplazan por la paleta** porque son el canal
+pedagógico de información; el cambio es de *chrome* (UI, fondos, neutros y estados).
+Modificar la landing exige volver a propagar aquí: `bash mobile/scripts/sync-www.sh`.
+
+## 12.2 Catálogo plano y filtro de nivel por defecto
+
+- `app.js`: `renderFlatGrid` sustituye las secciones por categoría («Medición y
+  vectores», «Cinemática», «Dinámica y fuerzas»…) en la vista principal; todas las
+  tarjetas van en una sola cuadrícula. Las secciones agrupadas quedan **solo en los
+  resultados de búsqueda** (§4.4), donde el encabezado de categoría ayuda a orientarse.
+- Sidebar plana: `fillSidebarUnified` ya no crea grupos plegables
+  (`sidebar-group`/`sidebar-group-head`); los módulos son botones directos.
+- Filtro de nivel (Todos / ESO / Bachillerato / Universidad): el estado se restaura
+  desde `lastLevel` **solo si el usuario lo eligió**; por defecto es `all` («Todos»).
+  Antes abrir un módulo forzaba `state.catalogLevel = entry.level`, y al volver al
+  catálogo el filtro aparecía cambiado sin que el usuario lo tocara — se elimina esa
+  sobreescritura.
+
+**Regla nueva — registro único, render cero cabeceras:** un módulo nuevo sigue
+entrando solo por `catalog.js` (§4.5); aparece en la cuadrícula plana y en la sidebar
+sin necesidad de código adicional. El catálogo principal no vuelve a tener grupos por
+categoría.

@@ -22,7 +22,7 @@ const params = {
   size: 0.45
 };
 
-const COLORS = ['#4fc3f7', '#ffb74d', '#66bb6a', '#ce93d8', '#ef5350', '#90caf9'];
+const COLORS = ['#3ecfbf', '#e8a838', '#3ecf7a', '#ce93d8', '#f07178', '#80dbff'];
 
 function spawn() {
   bodies = [];
