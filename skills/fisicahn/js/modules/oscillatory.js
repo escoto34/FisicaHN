@@ -140,10 +140,11 @@ export default class Oscillatory extends SimModule {
     const { A, m } = this.params;
     const x = this.x();
     const wall = -7.5;
+    const w = scene.world();
     const vp = scene.viewport();
 
     // Piso de apoyo.
-    scene.line(wall - 0.5, -0.9, vp.x + vp.w - 0.8, -0.9, { color: 'textDim', width: 3 });
+    scene.line(wall - 0.5, -0.9, w.right - 0.8, -0.9, { color: 'textDim', width: 3 });
     scene.line(-0.5, -0.9, 0.5, -1.4, { color: 'textDim', width: 3 });
     scene.line(7.0, -0.9, 7.6, -1.4, { color: 'textDim', width: 3 });
 
@@ -177,7 +178,7 @@ export default class Oscillatory extends SimModule {
       'bottom-left'
     );
 
-    // Historia x(t).
+    // Historia x(t): `vp.w` son px reales del viewport (world() no tiene `.width`).
     if (vp.w > 440 && this.history.length > 1) {
       const yRange = [-this.params.A * 1.2, this.params.A * 1.2];
       hud.plot(

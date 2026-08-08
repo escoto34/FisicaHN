@@ -185,8 +185,7 @@ export default class Fluids extends SimModule {
   _drawArchimedes(scene) {
     const { rf, rb, V } = this.params;
     const side = V ** (1 / 3); // lado del cubo (m³ → m, cubo perfecto)
-    const vp = scene.viewport();
-    const cx = vp.x + vp.w / 2;
+    const cx = 0; // centro del tanque en coordenadas de mundo
     const tx = 5.5; // mitad del ancho del tanque
     const tankTop = 1.6;
     const tankBottom = -2.6;
@@ -223,10 +222,11 @@ export default class Fluids extends SimModule {
     // Vectores W (abajo) y E (arriba) desde el centro del cubo.
     const W = this.weight();
     const E = this.buoyant();
-    const k = 0.006;
-    scene.vector(cx, cy - side / 2 - 0.15, 0, -W * k, { color: 'force', label: `W = ${roundTo(W, 1)} N`, labelSide: -1 });
+    // Longitud acotada (0.6..3.2 u de mundo) para cualquier par de densidades.
+    const vlen = (F) => Math.min(3.2, Math.max(0.6, F * 4e-4));
+    scene.vector(cx, cy - side / 2 - 0.15, 0, -vlen(W), { color: 'force', label: `W = ${roundTo(W, 1)} N`, labelSide: -1 });
     if (E > 0.01) {
-      scene.vector(cx, cy + side / 2 + 0.15, 0, E * k, { color: 'field', label: `E = ${roundTo(E, 1)} N`, labelSide: 1 });
+      scene.vector(cx, cy + side / 2 + 0.15, 0, vlen(E), { color: 'field', label: `E = ${roundTo(E, 1)} N`, labelSide: 1 });
     }
 
     const hud = scene.hud;
@@ -245,9 +245,8 @@ export default class Fluids extends SimModule {
   _drawBernoulli(scene) {
     const { rho, A1, A2, v1 } = this.params;
     const v2 = this.velocity2();
-    const vp = scene.viewport();
-    const cx = vp.x + vp.w / 2;
-    const cy = vp.y + vp.h / 2;
+    const cx = 0; // centro del tubo en coordenadas de mundo
+    const cy = 0;
     const half = 9;
 
     // Tubo de Venturi: rectángulos de pared (ancho proporcional a la sección).

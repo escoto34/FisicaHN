@@ -312,7 +312,7 @@ export default class KineticTheory extends SimModule {
     const bin = this.params.modo === 'binaria';
 
     // Paredes.
-    scene.rect(b.xmin - 0.6, b.ymin - 0.6, b.xmax - b.xmin + 1.2, b.ymax - b.ymin + 1.2, {
+    scene.rect((b.xmin + b.xmax) / 2, (b.ymin + b.ymax) / 2, b.xmax - b.xmin + 1.2, b.ymax - b.ymin + 1.2, {
       color: 'textDim',
       width: 2,
       dash: [4, 4]

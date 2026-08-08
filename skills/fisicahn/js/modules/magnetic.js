@@ -21,7 +21,7 @@ let pos, vel;
 /** Estela en anillo: el `push`+`shift()` era O(n) por frame (§3.2). */
 const trail = new TrailBuffer(400);
 /** Cámara fija en el centro de órbita (recomendado en clase). */
-let unbounded = false;
+let unbounded = true;
 /** Puntos de trabajo para worldToCanvas en bucles (§3.2). */
 const _bw = { x: 0, y: 0 }; // rejilla B
 const _tp = { x: 0, y: 0 }; // estela

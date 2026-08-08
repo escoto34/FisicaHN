@@ -153,9 +153,9 @@ export default class InclinedPlane extends SimModule {
   draw(scene) {
     const { ang, m1, mu, polea, m2 } = this.params;
     const th = ang * DEG;
-    const vp = scene.viewport();
-    const x0 = vp.x + 1;
-    const yb = vp.y + vp.h - 1.4;
+    const w = scene.world();
+    const x0 = w.left + 1.4;
+    const yb = w.bottom + 1.55;
     const baseEndX = x0 + L * Math.cos(th);
     const topX = baseEndX;
     const topY = yb + L * Math.sin(th);
@@ -170,7 +170,7 @@ export default class InclinedPlane extends SimModule {
       { color: 'spring', fill: true, alpha: 0.12, width: 2 }
     );
     // Suelo horizontal y pared vertical del triángulo.
-    scene.line(x0 - 1, yb, baseEndX + 1, yb, { color: 'textDim', width: 2 });
+    scene.line(Math.max(x0 - 1, w.left + 0.05), yb, Math.min(baseEndX + 1, w.right - 0.05), yb, { color: 'textDim', width: 2 });
     scene.polyline([{ x: baseEndX, y: yb }, { x: topX, y: topY }], { color: 'textDim', dash: [3, 4], alpha: 0.6 });
 
     // Ángulo en la base.
@@ -199,8 +199,8 @@ export default class InclinedPlane extends SimModule {
     const W = m1 * G;
     const N = this.normal();
     const Wp = this.WParallel();
-    // Escala común de fuerzas: 0.06 u/N (poco; se lee la dirección).
-    const k = 0.055;
+    // Escala común de fuerzas: 0.028 u/N (se leen las direcciones sin salir del mundo).
+    const k = 0.028;
     scene.vector(bx, by + 0.55, 0, -W * k, { color: 'force', label: `W = ${roundTo(W, 1)} N`, labelSide: -1 });
     scene.vector(bx + 1.1, by, -Math.sin(th) * N * k, Math.cos(th) * N * k, {
       color: 'mass2',
@@ -218,17 +218,18 @@ export default class InclinedPlane extends SimModule {
       const pulleyX = topX + 0.4;
       const pulleyY = topY + 0.4;
       scene.pulley(pulleyX, pulleyY, 0.5, { color: 'spring' });
-      // Cuerda: del bloque a la polea y vertical hasta m₂.
+      // Cuerda: del bloque a la polea y vertical hasta m₂, sin salir del mundo.
+      const ropeEndY = Math.max(pulleyY - 4.5, w.bottom + 1.35);
       scene.line(bx, by + 0.2, pulleyX, pulleyY, { color: 'spring', width: 2 });
-      scene.line(pulleyX, pulleyY, pulleyX, pulleyY - 4.5, { color: 'spring', width: 2 });
-      scene.body(pulleyX, pulleyY - 4.9, {
+      scene.line(pulleyX, pulleyY, pulleyX, ropeEndY, { color: 'spring', width: 2 });
+      scene.body(pulleyX, ropeEndY - 0.35, {
         shape: 'rect',
         r: 0.55,
         color: 'mass2',
         label: `m₂ = ${m2} kg`,
         labelColor: 'mass2'
       });
-      scene.vector(pulleyX, pulleyY - 4.5, 0, -m2 * G * 0.05, {
+      scene.vector(pulleyX, ropeEndY, 0, -Math.min(m2 * G * 0.028, 0.85), {
         color: 'force',
         label: `W₂ = ${roundTo(m2 * G, 1)} N`,
         labelSide: -1

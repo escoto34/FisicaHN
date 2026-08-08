@@ -30,7 +30,7 @@ export default class Kinematics extends SimModule {
     this.trail = new TrailBuffer(160);
     this.tSamples = [];
     this.isRunning = false;
-    this.unbounded = false;
+    this.unbounded = true;
     this.useCharts = true;
   }
 
@@ -40,7 +40,7 @@ export default class Kinematics extends SimModule {
     this.accel = new Vector2D(this.params.ax, this.params.ay);
     this.trail.clear();
     this.tSamples = [];
-    this.unbounded = false;
+    this.unbounded = true;
     this.isRunning = true;
     this.renderer?.resetCamera?.();
     this.ui.showCharts?.(true);

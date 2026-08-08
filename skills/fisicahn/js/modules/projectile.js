@@ -118,43 +118,59 @@ export default class ProjectileModule extends SimModule {
 
   /* ---------- dibujo declarativo (§2.4) ---------- */
 
+  /** Coordenadas de mundo ⇄ escena: escala al vuelo completo para no salirse. */
+  _sceneMap(scene) {
+    const w = scene.world();
+    const v0y = this.params.v0 * Math.sin(this.params.ang * DEG);
+    const tLand = (v0y + Math.sqrt(v0y * v0y + 2 * G * this.params.h0)) / G;
+    const span = Math.max(this.vx * tLand, 1);
+    const yMax = Math.max(this.maxHeight(), 1.5) * 1.15;
+    const X = (mx) => w.left + 0.6 + (mx / span) * (w.right - w.left - 1.2);
+    const Y = (my) => w.bottom + 0.5 + (my / yMax) * (w.top - w.bottom - 1.6);
+    return { X, Y, span, yMax };
+  }
+
   draw(scene) {
-    const vp = scene.viewport();
+    const w = scene.world();
+    const { X, Y, span, yMax } = this._sceneMap(scene);
+    const k = 0.075; // escala de los vectores de velocidad
 
     // Suelo.
-    scene.rect(vp.x + 0.2, 0.05, vp.w - 0.4, 0.12, { color: 'textDim', fill: true });
-    scene.label(vp.x + vp.w - 0.3, -0.5, 'suelo (y = 0)', { color: 'textDim' });
+    scene.rect((w.left + w.right) / 2, Y(0) - 0.18, w.right - w.left - 1, 0.12, { color: 'textDim', fill: true });
+    scene.label(w.right - 0.3, Y(0) - 0.9, 'suelo (y = 0)', { color: 'textDim' });
 
     // Ejes.
-    scene.line(vp.x + 0.2, 0, vp.x + vp.w - 0.2, 0, { color: 'textDim', width: 1.5 });
-    scene.line(vp.x + 0.2, 0, vp.x + 0.2, 0.5, { color: 'textDim', width: 1.5 });
+    scene.line(w.left + 0.2, Y(0), w.right - 0.2, Y(0), { color: 'textDim', width: 1.5 });
+    scene.line(X(0), Y(0), X(0), Y(0) + 0.5, { color: 'textDim', width: 1.5 });
 
     // Trayectoria (estela) + puntos muestreados para el plot.
     if (this.trail.length > 1) {
-      scene.trail(this.trail, { color: 'velocity', width: 2.5 });
+      const mapped = this.trail.toArray().map((p) => ({ x: X(p.x), y: Y(p.y) }));
+      scene.trail(mapped, { color: 'velocity', width: 2.5 });
     }
 
     // Cuerpo del proyectil.
-    scene.body(this.x, this.y, { shape: 'circle', r: 0.28, color: 'mass' });
+    scene.body(X(this.x), Y(this.y), { shape: 'circle', r: 0.28 * Math.min(1, 9 / span), color: 'mass' });
 
     // Vectores de velocidad en vuelo.
     if (this.launched && !this.landed && this.t > 0.02) {
-      scene.vector(this.x, this.y, this.vx * 0.12, this.vy * 0.12, { color: 'velocity', width: 2 });
+      scene.vector(X(this.x), Y(this.y), this.vx * k, this.vy * k, { color: 'velocity', width: 2 });
     }
 
     // Cota del alcance al aterrizar, y líneas de altura máxima.
     if (this.landed) {
-      scene.dimension(0, -1.3, this.x, -1.3, `R = ${roundTo(this.x, 2)} m`, { color: 'energy' });
-      scene.line(this.x, 0, this.x, -0.15, { color: 'energy', dash: [3, 3] });
+      scene.dimension(X(0), Y(-0.4), X(this.x), Y(-0.4), `R = ${roundTo(this.x, 2)} m`, { color: 'energy' });
+      scene.line(X(this.x), Y(0), X(this.x), Y(0) - 0.18, { color: 'energy', dash: [3, 3] });
     }
     const hMax = this.maxHeight();
     if (hMax > this.params.h0 && this.landed) {
-      scene.line(this.samplesReducedX(hMax), 0, this.samplesReducedX(hMax), hMax, {
+      const xMax = this.samplesReducedX();
+      scene.line(X(xMax), Y(0), X(xMax), Y(hMax), {
         color: 'mass2',
         dash: [4, 4],
         alpha: 0.6
       });
-      scene.label(this.samplesReducedX(hMax) - 0.25, hMax / 2, `h_max = ${roundTo(hMax, 2)} m`, {
+      scene.label(X(xMax) - 0.25, Y(hMax / 2), `h_max = ${roundTo(hMax, 2)} m`, {
         color: 'mass2',
         offsetX: -8
       });
@@ -178,6 +194,7 @@ export default class ProjectileModule extends SimModule {
     );
 
     // Gráfica y(t) en el lienzo (primitiva `plot`).
+    const vp = scene.viewport(); // el plot vive en px del HUD
     if (this.samples.length > 1 && vp.w > 460) {
       hud.plot(
         { x: vp.x + vp.w - 225, y: vp.y + vp.h - 140, w: 205, h: 124 },

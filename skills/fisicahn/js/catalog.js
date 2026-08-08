@@ -186,6 +186,29 @@ export const CATALOG = [
       'Herramienta geométrica previa a dinámica: sin componentes no se suman fuerzas. Se distingue de cinemática porque aquí no hay tiempo ni trayectoria.'
   },
   {
+    id: 'hyperbola',
+    title: 'Hipérbola',
+    titleEn: 'Hyperbola',
+    level: 'high',
+    category: 'medicion-vectores',
+    glyph: '🛰️',
+    accent: 'indigo',
+    blurb:
+      'Lugar geométrico con |PF₁ − PF₂| = 2a: arrastra P y comprueba que la diferencia de distancias a los focos no cambia.',
+    engineKey: 'hyperbola',
+    status: 'ready',
+    serves: [
+      'Secciones cónicas',
+      'Hipérbola como lugar geométrico',
+      'Focos y distancia focal c² = a² + b²',
+      'Asíntotas',
+      'Navegación LORAN',
+      'Órbitas hiperbólicas'
+    ],
+    topic:
+      'Última cónica del catálogo (tras elipses y parábolas en otras rutas): el lugar de diferencia constante. Es la base de la navegación LORAN: medir diferencias de distancias a dos estaciones.'
+  },
+  {
     id: 'kinematics',
     title: 'Cinemática',
     titleEn: 'Kinematics',

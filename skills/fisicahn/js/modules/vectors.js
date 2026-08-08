@@ -136,10 +136,10 @@ export default class VectorsModule extends SimModule {
 
   draw(scene) {
     // Rejilla + ejes: ancla visual para las componentes.
-    const vp = scene.viewport();
-    this.drawGrid(scene, vp);
-    scene.line(vp.x, 0, vp.x + vp.w, 0, { color: 'textDim', width: 1.5 });
-    scene.line(0, vp.y, 0, vp.y + vp.h, { color: 'textDim', width: 1.5 });
+    const w = scene.world();
+    this.drawGrid(scene, w);
+    scene.line(w.left, 0, w.right, 0, { color: 'textDim', width: 1.5 });
+    scene.line(0, w.bottom, 0, w.top, { color: 'textDim', width: 1.5 });
 
     const hud = scene.hud;
     if (this.params.modo === 'suma') this.drawSum(scene, hud);
@@ -147,13 +147,13 @@ export default class VectorsModule extends SimModule {
   }
 
   /** Rejilla de fondo discreta (0.5 u) para leer componentes a ojo. */
-  drawGrid(scene, vp) {
+  drawGrid(scene, w) {
     const step = 0.5;
-    for (let x = Math.ceil(vp.x / step) * step; x < vp.x + vp.w; x += step) {
-      scene.line(x, vp.y, x, vp.y + vp.h, { color: 'textDim', width: 0.5, alpha: 0.12 });
+    for (let x = Math.ceil(w.left / step) * step; x <= w.right; x += step) {
+      scene.line(x, w.bottom, x, w.top, { color: 'textDim', width: 0.5, alpha: 0.12 });
     }
-    for (let y = Math.ceil(vp.y / step) * step; y < vp.y + vp.h; y += step) {
-      scene.line(vp.x, y, vp.x + vp.w, y, { color: 'textDim', width: 0.5, alpha: 0.12 });
+    for (let y = Math.ceil(w.bottom / step) * step; y <= w.top; y += step) {
+      scene.line(w.left, y, w.right, y, { color: 'textDim', width: 0.5, alpha: 0.12 });
     }
   }
 

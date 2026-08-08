@@ -167,28 +167,36 @@ export default class Elasticity extends SimModule {
     const { material, L0, A, frac } = this.params;
     const e = this.strain();
     const L = L0 * (1 + e);
-    const vp = scene.viewport();
-    const cx = vp.x + 3.4;
-    const base = vp.y + vp.h - 2.2;
+    const w = scene.world();
+    const cx = w.left + 3.4;
+    const cap = w.top - 2.0; // cap fijo cerca de la cima del mundo
     const broken = this.region() === 'Rotura';
 
-    // Probeta fija por arriba, elongada según ε.
+    // Probeta cuelga del cap hacia abajo, elongada según ε (sin salir del mundo).
     const maxL = this.mat().eu > 1 ? 9 : 7;
-    const lPx = Math.min(9, (L / maxL) * 9);
-    scene.rect(cx, base - lPx / 2, 1.2, lPx, { color: 'spring', width: 2, fill: 'energy', alpha: 0.25 });
-    scene.rect(cx - 1.4, base - lPx - 0.25, 4, 0.5, { color: 'textDim', width: 2, fill: 'mass' });
-    scene.line(cx - 2.8, base - lPx - 0.25, cx + 2.8, base - lPx - 0.25, { color: 'textDim', width: 3 });
+    const lSpace = cap - w.bottom - 0.9;
+    const lPx = Math.max(0.8, Math.min(lSpace, (L / maxL) * (cap - w.bottom - 2)));
+    const yTop = cap; // arriba de la probeta
+    const yBot = cap - lPx; // abajo de la probeta
+    scene.rect(cx, cap - lPx / 2, 1.2, lPx, { color: 'spring', width: 2, fill: 'energy', alpha: 0.25 });
+    scene.rect(cx - 1.4, cap + 0.25, 4, 0.5, { color: 'textDim', width: 2, fill: 'mass' });
+    scene.line(cx - 2.8, cap + 0.25, cx + 2.8, cap + 0.25, { color: 'textDim', width: 3 });
 
     const F = this.force();
-    const k = 0.003;
-    scene.vector(cx, base - lPx - 1.1, 0, -F * k, { color: 'force', label: `F = ${roundTo(F / 1e3, 1)} kN`, labelSide: -1 });
-    scene.dimension(cx + 1.3, base - lPx, cx + 1.3, base - lPx + (lPx / maxL) * L0, `${L0} m →`, { color: 'textDim' });
+    const k = 5.9e-6; // techo de 2.6 u de mundo para la fuerza máxima
+    scene.vector(cx, cap + 0.35, 0, Math.min(F * k, w.top - cap - 0.55), {
+      color: 'force',
+      label: `F = ${roundTo(F / 1e3, 1)} kN`,
+      labelSide: 1
+    });
+    scene.dimension(cx + 1.3, yBot, cx + 1.3, yBot + (lPx / maxL) * L0, `${L0} m →`, { color: 'textDim' });
 
-    scene.label(cx, base + 0.9, `Región: ${this.region()}   E = ${this.Etext()}`, { color: 'energy' });
-    if (broken) scene.label(cx, base - lPx - 2.4, 'Rotura: la probeta cede', { color: 'danger' });
+    scene.label(cx, yBot - 0.55, `Región: ${this.region()}   E = ${this.Etext()}`, { color: 'energy' });
+    if (broken) scene.label(cx, yBot - 1.5, 'Rotura: la probeta cede', { color: 'danger' });
 
     // Curva σ–ε con el área elástica resaltada (resiliencia).
     const hud = scene.hud;
+    const vp = scene.viewport(); // el plot vive en px del HUD
     const pts = this._curvePoints();
     const eu = this.mat().eu;
     const su = this.mat().su / MPa;
@@ -199,26 +207,17 @@ export default class Elasticity extends SimModule {
     const maxY = su * 1.15;
     const elasticPts = pts.filter((p) => p.y <= sy).map((p) => ({ x: p.x, y: p.y }));
     const yieldPts = [{ x: 0, y: sy }, { x: (this.mat().sy / this.mat().E) * 1.25, y: sy }];
-    hud.plot(rect, {
+    hud.plot({ x: vp.x + vp.w - 245, y: vp.y + 24, w: 230, h: 152 }, {
       title: 'Curva σ–ε — el área elástica es la resiliencia',
       xRange: [0, maxX],
       yRange: [0, maxY],
       series: [
         { points: pts, color: 'energy', label: 'σ(ε)', fill: true },
         { points: elasticPts, color: 'velocity', label: 'Hooke' },
-        { points: yieldPts, color: 'textDim', dash: [3, 3] }
+        { points: yieldPts, color: 'textDim', dash: [3, 3] },
+        { points: [{ x: e, y: this.stress() / MPa }], color: 'danger', label: 'Estado actual', pointSize: 3.5 }
       ]
     });
-
-    // Punto vivo sobre la curva (replica el mapeo de `plot`).
-    const padL = 34, padB = 20, padT = 18;
-    const px = rect.x + padL;
-    const py = rect.y + padT;
-    const pw = rect.w - padL - 8;
-    const ph = rect.h - padT - padB;
-    const mx = px + Math.min(1, e / maxX) * pw;
-    const my = py + ph - Math.min(1, this.stress() / MPa / maxY) * ph;
-    scene.circle(mx, my, 4, { color: 'danger', fill: 'danger' });
 
     hud.chip(`Material: ${this.mat().label}`, 'top-left');
     hud.readout(

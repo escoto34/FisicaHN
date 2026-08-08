@@ -24,7 +24,7 @@ const trail = new TrailBuffer(MAX_TRAIL);
 /** Punto de trabajo para worldToCanvas (bucle de estela, §3.2). */
 const _to = { x: 0, y: 0 };
 let isRunning = false;
-let unbounded = false;
+let unbounded = true;
 let _engine = null;
 let _renderer = null;
 let _ui = null;
@@ -43,7 +43,7 @@ export function init(engine, renderer, ui, meta = null) {
   pos = new Vector2D(-6, 0);
   vel = new Vector2D(0, 0);
   isRunning = true;
-  unbounded = false;
+  unbounded = true;
   trail.clear();
   renderer.resetCamera();
   applyForce();

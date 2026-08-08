@@ -1180,10 +1180,22 @@ export class HudSurface extends Surface {
     ctx.clip();
     series.forEach((s, i) => {
       const list = pointList(s.points);
-      if (list.length < 2) return;
+      if (list.length < 1) return;
       ctx.strokeStyle = this.color(s.color, 'text') || seriesColor(i);
       ctx.lineWidth = this.lineWidth(s.width ?? 1.8);
       ctx.setLineDash(s.dash || seriesDash(i));
+      if (list.length === 1) {
+        // Marcador puntual (módulo de elasticidad: estado actual sobre σ–ε).
+        const p = list.at(0, _a);
+        ctx.beginPath();
+        ctx.arc(sx(p.x), sy(p.y), Math.max(1, (s.pointSize ?? 3) * this.theme.lineScale), 0, Math.PI * 2);
+        ctx.fillStyle = this.color(s.color, 'text') || seriesColor(i);
+        ctx.globalAlpha = s.alpha ?? 0.9;
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.stroke();
+        return;
+      }
       ctx.beginPath();
       for (let k = 0; k < list.length; k++) {
         list.at(k, _a);
@@ -1323,6 +1335,11 @@ export class Scene {
   registerPickable(id, bounds) {
     if (!this._collectPickables) return;
     this._pickables.push({ id, bounds });
+  }
+
+  /** Igual que `Surface.pickable`, reexpuesto en la escena (véase `_delegate`). */
+  pickable(id, bounds) {
+    return this.world$.pickable(id, bounds);
   }
 
   /**

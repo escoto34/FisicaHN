@@ -90,38 +90,47 @@ export default class MassWeight extends SimModule {
     const { m } = this.params;
     const a = this.astro();
     const W = this.weight(m, a.g);
-    const vp = scene.viewport();
+    const w = scene.world();
+    const g = w.bottom + 0.35; // niel del suelo (mundo)
 
-    // Suelo + báscula.
-    scene.rect(vp.x + 1.5, vp.y + vp.h - 3.1, vp.w - 3, 0.15, { color: 'textDim', fill: true });
-    scene.rect(vp.x + 3.5, vp.y + vp.h - 3.1, 2.2, 2.2, { color: 'mass', radius: 0.15 });
-    const platformY = vp.y + vp.h - 3.4;
-    scene.polygon([
-      { x: vp.x + 2.6, y: platformY },
-      { x: vp.x + 6.6, y: platformY },
-      { x: vp.x + 6.2, y: platformY - 0.7 },
-      { x: vp.x + 3.0, y: platformY - 0.7 }
-    ], { color: 'mass', fill: true, alpha: 0.25, dash: [] });
+    // Suelo.
+    scene.rect(0, g, w.right - w.left - 1.6, 0.3, { color: 'textDim', fill: true });
 
-    // Cuerpo sobre la báscula con su etiqueta de masa.
-    scene.body(vp.x + 4.6, platformY - 1.0 - m / 400, {
+    // Báscula: pedestal + plato sobre el suelo.
+    const bx = -3.6;
+    const topP = g + 1.1;
+    scene.rect(bx, topP + 0.5, 2.4, 1.0, { color: 'mass', radius: 0.15 });
+    scene.polygon(
+      [
+        { x: bx - 1.3, y: topP + 1.0 },
+        { x: bx + 1.3, y: topP + 1.0 },
+        { x: bx + 0.9, y: topP + 1.75 },
+        { x: bx - 0.9, y: topP + 1.75 }
+      ],
+      { color: 'mass', fill: true, alpha: 0.25, dash: [] }
+    );
+
+    // Cuerpo sobre la báscula (el tamaño crece con la masa).
+    const cy = topP + 2.1 - m / 250;
+    scene.body(bx, cy, {
       shape: 'rect', r: 1.0 - m / 2500, color: 'mass',
       label: `m = ${m} kg`
     });
 
-    // Vector peso (fuerza vertical E->D en lienzo = hacia abajo).
-    scene.vector(vp.x + 4.6, platformY - 1.0 - m / 400, 0, -W * 0.02, {
+    // Vector peso (hacia abajo en el lienzo), acotado al suelo del mundo.
+    const wLen = Math.min(3.6, Math.max(0.8, cy - w.bottom - 0.85));
+    scene.vector(bx, cy - 0.1, 0, -wLen, {
       color: 'force',
       label: `W = ${roundTo(W, 1)} N`,
       labelSide: -1,
       width: 3
     });
 
-    // Conversión m→kg bajo el astro (chip).
-    scene.chip(vp.x + 4.6, platformY - 3.1, `${a.label}: g = ${a.g} m/s²`, { color: 'energy' });
+    // Etiqueta del astro bajo el cuerpo.
+    scene.chip(bx, topP + 2.9, `${a.label}: g = ${a.g} m/s²`, { color: 'energy' });
 
     // Comparación multipanel: barra de W por astro (rect es el «plot» de barras).
-    this.drawWeightBars(scene, vp);
+    this.drawWeightBars(scene, w);
 
     const hud = scene.hud;
     hud.chip(`Masa ${m} kg — ${a.label}`, 'top-left');
@@ -136,29 +145,31 @@ export default class MassWeight extends SimModule {
   }
 
   /** Barras W por astro, ancladas a la derecha (escala N). */
-  drawWeightBars(scene, vp) {
+  drawWeightBars(scene, w) {
     const { m } = this.params;
     const maxW = this.weight(m, Math.max(...ASTROS.map((x) => x.g)));
-    const barW = 0.45;
-    const x0 = vp.x + vp.w - 3.2;
-    const x1 = vp.x + vp.w - 1.3;
-    const top = vp.y + vp.h - 6;
-    const usable = vp.h - 7.2;
+    const barW = 0.5;
+    const x0 = w.right - 8.6;
+    const top = w.top - 1.1;
+    const usable = 10.5;
     let i = 0;
     for (const a of ASTROS) {
       const W = this.weight(m, a.g);
-      const h = Math.max(0.2, (W / maxW) * (usable - 1.5));
-      scene.rect(x0 + (i * (barW + 0.22)), top + usable - h * 0.5, barW, h, {
+      const h = Math.max(0.2, (W / maxW) * usable);
+      scene.rect(x0 + i * (barW + 0.32), top - h / 2, barW, h, {
         color: i % 2 ? 'mass2' : 'energy',
         fill: true
       });
-      scene.label(x0 + (i * (barW + 0.22)), top + usable + 0.35, a.label.slice(0, 3), {
+      scene.label(x0 + i * (barW + 0.32), top - 0.75, a.label.slice(0, 3), {
         color: 'textDim',
         size: 9
       });
       i++;
     }
-    scene.label((x0 + x1) / 2, top - 0.5, 'Peso W por astro', { color: 'textDim', size: 10 });
+    scene.label(x0 + ((barW * 6 + 0.32 * 5) / 2), top + 0.6, 'Peso W por astro', {
+      color: 'textDim',
+      size: 10
+    });
   }
 
   /* ---------- datos numéricos (§3.1) ---------- */

@@ -169,14 +169,15 @@ export default class UnitsError extends SimModule {
 
     // Barras proporcionales: el largo es ∝ log del valor en esa unidad, con la
     // equivalencia anotada en los extremos.
-    const vp = scene.viewport();
-    const baseY = vp.y + vp.h * 0.45;
-    const maxLen = vp.w * 0.62;
-    const x0 = vp.x + (vp.w - maxLen) / 2;
-    const L1 = Math.max(2, Math.min(maxLen, ((Math.log10(cantidad) + 3) / 10) * maxLen));
-    const L2 = Number.isFinite(result) ? Math.max(2, Math.min(maxLen, ((Math.log10(result) + 3) / 10) * maxLen)) : 2;
+    const w = scene.world();
+    const cx = 0;
+    const baseY = 1.3;
+    const maxLen = (w.right - w.left) * 0.55;
+    const x0 = cx - maxLen / 2;
+    const L1 = Math.max(0.2, Math.min(maxLen, ((Math.log10(cantidad) + 3) / 10) * maxLen));
+    const L2 = Number.isFinite(result) ? Math.max(0.2, Math.min(maxLen, ((Math.log10(result) + 3) / 10) * maxLen)) : 0.2;
 
-    scene.chip(vp.x + vp.w / 2, baseY - 2.2, `${DIM_LABELS[dimension]} · ${from} → ${to}`);
+    scene.chip(cx, baseY - 2.2, `${DIM_LABELS[dimension]} · ${from} → ${to}`);
 
     scene.rect(x0, baseY, L1, 0.7, { color: 'mass', radius: 0.2, fill: true });
     scene.label(x0 + L1 + 0.15, baseY + 0.35, `${cantidad} ${from}`, { color: 'mass' });
