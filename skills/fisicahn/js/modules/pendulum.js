@@ -279,8 +279,8 @@ export default class Pendulum extends SimModule {
       scene.body(p.x, p.y, { shape: 'circle', r: 0.12, color: 'textDim' });
       scene.body(b1.x, b1.y, { shape: 'circle', r: 0.18 + this.params.m1 * 0.07, color: 'mass' });
       scene.body(b2.x, b2.y, { shape: 'circle', r: 0.18 + this.params.m2 * 0.07, color: 'mass2' });
-      scene.label(b1.x, b1.y, `m₁ = ${this.params.m1} kg`, { color: 'mass' });
-      scene.label(b2.x, b2.y, `m₂ = ${this.params.m2} kg`, { color: 'mass2' });
+      scene.label(b1.x, b1.y, `m₁ = ${this.params.m1} kg`, { avoid: true, color: 'mass' });
+      scene.label(b2.x, b2.y, `m₂ = ${this.params.m2} kg`, { avoid: true, color: 'mass2' });
 
       // Desviación de la vertical para cada varilla.
       scene.line(p.x, p.y, p.x, p.y - this.params.l1 - 1, { color: 'textDim', dash: [2, 4], alpha: 0.5 });

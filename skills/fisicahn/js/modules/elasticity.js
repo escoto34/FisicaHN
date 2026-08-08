@@ -194,8 +194,8 @@ export default class Elasticity extends SimModule {
     });
     scene.dimension(cx + 1.3, yBot, cx + 1.3, yBot + (lPx / maxL) * L0, `${L0} m →`, { color: 'textDim' });
 
-    scene.label(cx, yBot - 0.55, `Región: ${this.region()}   E = ${this.Etext()}`, { color: 'energy' });
-    if (broken) scene.label(cx, yBot - 1.5, 'Rotura: la probeta cede', { color: 'danger' });
+    scene.label(cx, yBot - 0.55, `Región: ${this.region()}   E = ${this.Etext()}`, { avoid: true, color: 'energy' });
+    if (broken) scene.label(cx, yBot - 1.5, 'Rotura: la probeta cede', { avoid: true, color: 'danger' });
 
     // Curva σ–ε con el área elástica resaltada (resiliencia).
     const hud = scene.hud;

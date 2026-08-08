@@ -119,14 +119,14 @@ export default class Mirrors extends SimModule {
     const cx = -2 * this.fSigned();
 
     scene.line(-11.5, 0, 11.5, 0, { color: 'textDim', width: 1.4 });
-    scene.label(11.6, 0.25, 'eje', { color: 'textDim', size: 11 });
+    scene.label(11.6, 0.25, 'eje', { avoid: true, color: 'textDim', size: 11 });
 
     // Espejo: arco de círculo con centro en C = (−2f, 0) y radio R = 2|f|.
     this._drawMirror(scene, cx);
 
     // Objeto: flecha vertical en x = −d₀.
     scene.vector(-d0, 0, 0, h, { color: 'mass', width: 2.6 });
-    scene.label(-d0 - 0.35, h / 2, 'O', { color: 'mass' });
+    scene.label(-d0 - 0.35, h / 2, 'O', { avoid: true, color: 'mass' });
 
     if (di === null) {
       scene.hud.chip('d₀ = f: la imagen está en el infinito', 'top-left', { color: 'amber' });
@@ -150,7 +150,7 @@ export default class Mirrors extends SimModule {
     } else {
       scene.vector(xImg, 0, 0, hImg, { color: 'force', width: 2.2, dash: [5, 3] });
     }
-    scene.label(xImg + 0.35, hImg / 2, `I ${di > 0 ? '(real)' : '(virtual)'}`, { color: 'force' });
+    scene.label(xImg + 0.35, hImg / 2, `I ${di > 0 ? '(real)' : '(virtual)'}`, { avoid: true, color: 'force' });
 
     // Tres rayos desde la punta O = (−d₀, h).
     const f = this.fSigned();
@@ -165,9 +165,9 @@ export default class Mirrors extends SimModule {
 
     // Marcas C, 2F y F sobre el eje.
     scene.body(cx, 0, { shape: 'circle', r: 0.1, color: 'textDim' });
-    scene.label(cx, -0.5, 'C', { color: 'textDim' });
+    scene.label(cx, -0.5, 'C', { avoid: true, color: 'textDim' });
     scene.body(gx, 0, { shape: 'circle', r: 0.1, color: 'textDim' });
-    scene.label(gx, -0.5, 'F', { color: 'textDim' });
+    scene.label(gx, -0.5, 'F', { avoid: true, color: 'textDim' });
 
     scene.hud.chip(`Espejo ${this.params.tipo === 'concavo' ? 'cóncavo' : 'convexo'}`, 'top-left');
     scene.hud.readout(

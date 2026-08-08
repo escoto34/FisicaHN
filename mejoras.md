@@ -26,7 +26,7 @@
 - [WAVE 10 — Auditoría de encuadre de los motores 5.1/5.2](#wave-10--auditoría-de-encuadre-y-corrección-de-los-motores-5152) ✅
 - [WAVE 11 — Iconos SVG en el catálogo y el tocador](#wave-11--iconos-svg-en-el-catálogo-y-el-tocador) ✅
 - [WAVE 12 — Paleta de la landing y catálogo sin secciones](#wave-12--paleta-de-la-landing-y-catálogo-sin-secciones) ✅
-- [WAVE 13 — Legibilidad visual de 16 módulos](#wave-13--legibilidad-visual-de-16-módulos)
+- [WAVE 13 — Legibilidad visual de 16 módulos](#wave-13--legibilidad-visual-de-16-módulos) ✅
 - [WAVE 14 — Controles funcionales en todos los módulos](#wave-14--controles-funcionales-en-todos-los-módulos)
 - [WAVE 15 — Las gráficas se dibujan en el motor](#wave-15--las-gráficas-se-dibujan-en-el-motor)
 - [WAVE 16 — Panel derecho: orden y estética](#wave-16--panel-derecho-orden-y-estética)
@@ -2094,7 +2094,24 @@ categoría.
 
 # WAVE 13 — Legibilidad visual de 16 módulos
 
-> 🔜 **Pendiente.**
+> ✅ **Hecho.** Commit «Legibilidad: motor de anticolisión y migración de los 4
+> módulos legacy».
+>
+> Resumen: §13.1 — registro de cajas por frame en `Scene` (`registerBox`/`findFreeBox`),
+> `Surface.label`/`chip` con `opts.avoid` (candidatos arriba→abajo→derecha→izquierda),
+> `HudSurface` con cola automática por ancla (`_nextOffset`, sustituye el `opts.line`
+> manual) y `scene.callout()` nuevo. §13.2 — vocabulario nuevo en `scene.js`/
+> `draw-primitives.js`: `hatch` (apoyo fijo), `thermal` (degradado frío↔caliente),
+> `fluidPattern` (anillos de fluido) y `emphasisHalo`. §13.0/§13.3 — `statics`,
+> `wave-optics` y `particles` migrados de legacy (`render(ctx)`) a `SimModule` con
+> `draw(scene)`; `induction` ya estaba migrado. `body()` activa `avoid` por defecto en
+> su etiqueta (antes ninguna primitiva registraba caja). Pasada puntual en los 16
+> módulos: `opts.avoid: true` en 65 llamadas a `label`/`chip` mundo, más dos arreglos
+> de posición reales que el nuevo test atrapó (`thermal-expansion`: dos etiquetas
+> centradas se salían del viewbox por el borde izquierdo; un chip pisaba el borde por
+> anclar en el extremo de la barra en vez de su centro). Nuevo
+> `js/tests/legibility.test.mjs`: verifica los 16 módulos contra `Scene._labelBoxes`
+> en 5 frames — sin solapes y dentro del viewbox 900×700. 70/70 tests verdes.
 
 Diagnóstico: la API declarativa (`website/sim/js/core/scene.js`) no tiene motor de
 layout de etiquetas. `Surface.label`/`chip` pintan donde el módulo diga

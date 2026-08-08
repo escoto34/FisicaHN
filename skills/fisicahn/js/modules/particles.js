@@ -1,246 +1,186 @@
 /**
- * Física de partículas — trayectorias de cargas en campo B (espectro / detección).
- * Pedagogía: q, m, v y radio de curvatura r = mv / |q|B.
+ * @fileoverview Física de partículas — trayectorias de cargas en campo B
+ * (espectro/detección), tanda 5.4. Pedagogía: q, m, v y radio de curvatura
+ * r = mv / |q|B. Migrado a `draw(scene)` en la WAVE 13 (§13.0/§13.3).
+ *
+ * Nota de alcance: la versión legacy tenía botones «Disparar e⁻/p⁺/α/μ⁻» para
+ * forzar una especie. El panel declarativo (§2.7) resetea la simulación en
+ * cada cambio de parámetro (`app.js: mountDeclarativeParams`), así que un
+ * botón ahí borraría las trayectorias en vuelo — un regresión, no una mejora
+ * de legibilidad. Se deja fuera de esta WAVE (es asunto de controles,
+ * WAVE 14) y las 4 especies siguen apareciendo por el disparo automático.
  */
 
+import { SimModule } from '../core/sim-module.js';
 import { Vector2D } from '../utils/vector2d.js';
 import { TrailBuffer } from '../core/trail-buffer.js';
 import { roundTo } from '../utils/math-helpers.js';
-import {
-  setModuleInfo,
-  setModuleFormulas,
-  paramControl,
-  bindParamControls,
-  clearChallenges
-} from '../module-ui.js';
-
-/** El centro de la región de campo B es el origen del mundo (§17.1). */
-export const anchor = { x: 0, y: 0 };
-
-let _engine = null;
-let _renderer = null;
-let _ui = null;
-
-const params = {
-  B: 1.2,
-  q: 1,
-  m: 1,
-  v0: 4,
-  autoFire: true
-};
-
-/** @type {Array<{pos: Vector2D, vel: Vector2D, q: number, m: number, color: string, trail: TrailBuffer, life: number}>} */
-let particles = [];
-let fireCooldown = 0;
-/** Punto de trabajo para worldToCanvas en bucles (§3.2). */
-const _tc = { x: 0, y: 0 };
+import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 const SPECIES = [
-  { name: 'e⁻', q: -1, m: 0.3, color: '#4fc3f7' },
-  { name: 'p⁺', q: 1, m: 1.2, color: '#ef5350' },
-  { name: 'α', q: 2, m: 2.4, color: '#ffb74d' },
-  { name: 'μ⁻', q: -1, m: 0.7, color: '#ce93d8' }
+  { name: 'e⁻', q: -1, m: 0.3, color: 'field' },
+  { name: 'p⁺', q: 1, m: 1.2, color: 'force' },
+  { name: 'α', q: 2, m: 2.4, color: 'mass2' },
+  { name: 'μ⁻', q: -1, m: 0.7, color: 'accel' }
 ];
 
-function spawn(kindIndex) {
-  const sp = SPECIES[kindIndex % SPECIES.length];
-  const q = params.q * Math.sign(sp.q) * Math.abs(sp.q);
-  const m = Math.max(0.15, params.m * sp.m);
-  particles.push({
-    name: sp.name,
-    pos: new Vector2D(-7.5, (Math.random() - 0.5) * 1.2),
-    vel: new Vector2D(params.v0, 0),
-    q,
-    m,
-    color: sp.color,
-    trail: new TrailBuffer(80),
-    life: 12
-  });
-  while (particles.length > 12) particles.shift();
-}
+export default class Particles extends SimModule {
+  static viewport = { width: 20, height: 15 };
 
-export function init(engine, renderer, ui, meta = null) {
-  _engine = engine;
-  _renderer = renderer;
-  _ui = ui;
-  particles = [];
-  // meta se usa abajo en setModuleInfo si existe
-  fireCooldown = 0;
-  renderer.resetCamera();
+  /** El centro de la región de campo B es el origen del mundo (§17.1). */
+  static anchor = { x: 0, y: 0 };
 
-  setModuleInfo(ui, {
-    title: meta?.title || 'Cargas en campo B (partículas)',
-    blurb:
-      meta?.blurb ||
-      'Varias especies (e⁻, p⁺, α…) en B: curvatura y r = mv/|q|B.',
-    story:
-      'Mismo principio que “Campos magnéticos” (Lorentz), pero aquí se lanzan varias especies con distinta m y q para comparar radios — enfoque de espectrómetro/detector. El módulo de campos magnéticos es la intro con una sola carga.',
-    cases: [
-      'Espectrómetro de masas: separar iones por m/q.',
-      'Detectores en colisionadores (curvatura → momento).',
-      'Comparar e⁻ vs p⁺: mismo |q| pero distinta masa → distinto r.'
-    ]
-  });
-  setModuleFormulas(ui, {
-    items: [
-      { name: 'Fuerza de Lorentz', formula: 'F = q · (v × B)', note: 'Perpendicular a v y a B; no cambia |v| (solo dirección).' },
-      { name: 'Radio de Larmor', formula: 'r = m·v⊥ / |q|·B', note: 'Mayor momento o menor |q|B → curva más abierta.' },
-      { name: 'Periodo ciclotrón', formula: 'T = 2π·m / |q|·B', note: 'Independiente de la velocidad (no relativista).' }
-    ]
-  });
-  clearChallenges(ui);
-  renderParams();
-  spawn(0);
-}
+  static params = [
+    { id: 'B', label: 'Campo', latex: 'B', unit: 'T', min: 0.2, max: 3, step: 0.1, value: 1.2 },
+    { id: 'v0', label: 'Velocidad inicial', latex: 'v_0', unit: 'm/s', min: 1, max: 8, step: 0.5, value: 4 },
+    { id: 'm', label: 'Factor de masa', latex: 'm', unit: '×', min: 0.5, max: 2, step: 0.1, value: 1 },
+    { id: 'q', label: 'Factor de carga', latex: 'q', unit: '×', min: 0.5, max: 2, step: 0.1, value: 1 },
+    { id: 'autoFire', type: 'checkbox', label: 'Disparo automático', value: true }
+  ];
 
-export function destroy() {
-  particles = [];
-  _engine = _renderer = _ui = null;
-}
-
-export function reset() {
-  particles = [];
-  fireCooldown = 0;
-  spawn(0);
-  _renderer?.resetCamera();
-}
-
-export function update(dt) {
-  const B = params.B; // B en z (sale de la pantalla)
-
-  if (params.autoFire) {
-    fireCooldown -= dt;
-    if (fireCooldown <= 0) {
-      spawn(Math.floor(Math.random() * SPECIES.length));
-      fireCooldown = 1.6;
-    }
+  constructor(ctx) {
+    super(ctx);
+    this.params = { B: 1.2, v0: 4, m: 1, q: 1, autoFire: true };
+    /** @type {Array<{name:string, pos:Vector2D, vel:Vector2D, q:number, m:number, color:string, trail:TrailBuffer, life:number}>} */
+    this.particles = [];
+    this.fireCooldown = 0;
+    this.useCharts = false;
   }
 
-  for (const p of particles) {
-    // F = q v × B  →  a = (q/m) v × Bẑ  → ax = (qB/m) vy, ay = -(qB/m) vx  (2D)
-    const k = (p.q * B) / p.m;
-    const ax = k * p.vel.y;
-    const ay = -k * p.vel.x;
-    // Mutables: antes se creaban 3 Vector2D por partícula y por tick (§3.2).
-    p.vel.set(p.vel.x + ax * dt, p.vel.y + ay * dt);
-    p.pos.addScaled(p.vel, dt);
-    p.trail.push({ x: p.pos.x, y: p.pos.y });
-    p.life -= dt;
-  }
-  // Compactación in situ: el `filter()` creaba un array nuevo por frame (§3.2).
-  let write = 0;
-  for (let i = 0; i < particles.length; i++) {
-    const p = particles[i];
-    if (p.life > 0 && Math.abs(p.pos.x) < 14 && Math.abs(p.pos.y) < 12) {
-      if (write !== i) particles[write] = p;
-      write++;
-    }
-  }
-  particles.length = write;
-
-  updateData();
-}
-
-export function render(ctx) {
-  if (!_renderer) return;
-  const r = _renderer;
-  r.drawGrid({ spacing: 1 });
-
-  // Región de campo B
-  ctx.save();
-  const a = r.worldToCanvas(-8, 6);
-  const b = r.worldToCanvas(8, -6);
-  ctx.fillStyle = 'rgba(79, 195, 247, 0.06)';
-  ctx.fillRect(a.x, a.y, b.x - a.x, b.y - a.y);
-  ctx.strokeStyle = 'rgba(79, 195, 247, 0.25)';
-  ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y);
-  ctx.restore();
-  r.drawLabel(0, 6.6, `B = ${roundTo(params.B, 2)} T (⊙ o ⊗ según convención 2D)`, {
-    color: 'rgba(79,195,247,0.7)',
-    fontSize: 11
-  });
-
-  for (const p of particles) {
-    if (p.trail.length > 1) {
-      ctx.save();
-      ctx.strokeStyle = p.color;
-      ctx.globalAlpha = 0.35;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      for (let i = 0; i < p.trail.length; i++) {
-        const c = r.worldToCanvas(p.trail.get(i).x, p.trail.get(i).y, _tc);
-        if (i === 0) ctx.moveTo(c.x, c.y);
-        else ctx.lineTo(c.x, c.y);
-      }
-      ctx.stroke();
-      ctx.restore();
-    }
-    r.drawObject(p.pos.x, p.pos.y, {
-      shape: 'circle',
-      size: 0.2 + p.m * 0.05,
-      color: p.color,
-      label: p.name
+  init(meta = null) {
+    this.reset();
+    setModuleInfo(this.ui, {
+      title: meta?.title || 'Cargas en campo B (partículas)',
+      blurb: meta?.blurb || 'Varias especies (e⁻, p⁺, α…) en B: curvatura y r = mv/|q|B.',
+      story:
+        'Mismo principio que "Campos magnéticos" (Lorentz), pero aquí se lanzan varias especies con distinta m y q para comparar radios — enfoque de espectrómetro/detector. El módulo de campos magnéticos es la intro con una sola carga.',
+      cases: [
+        'Espectrómetro de masas: separar iones por m/q.',
+        'Detectores en colisionadores (curvatura → momento).',
+        'Comparar e⁻ vs p⁺: mismo |q| pero distinta masa → distinto r.'
+      ]
     });
+    setModuleFormulas(this.ui, {
+      items: [
+        { name: 'Fuerza de Lorentz', formula: 'F = q \\cdot (v \\times B)', note: 'Perpendicular a v y a B; no cambia |v| (solo dirección).' },
+        { name: 'Radio de Larmor', formula: 'r = m v_\\perp / |q| B', note: 'Mayor momento o menor |q|B → curva más abierta.' },
+        { name: 'Periodo ciclotrón', formula: 'T = 2\\pi m / |q| B', note: 'Independiente de la velocidad (no relativista).' }
+      ]
+    });
+    clearChallenges(this.ui);
   }
 
-  // Emisor
-  r.drawObject(-8.2, 0, { shape: 'rect', size: 0.25, color: '#90a4ae', label: 'fuente', glow: false });
-}
+  reset() {
+    this.particles = [];
+    this.fireCooldown = 0;
+    this.engine?.reset?.();
+    this.spawn(0);
+  }
 
-function updateData() {
-  if (!_ui) return;
-  const p = particles[particles.length - 1];
-  const rLar =
-    p && Math.abs(p.q * params.B) > 1e-6
-      ? (p.m * p.vel.magnitude()) / Math.abs(p.q * params.B)
-      : 0;
-  _ui.setData(`
-    <div class="data-grid">
-      <div><span class="data-label">Partículas</span><span class="data-value">${particles.length}</span></div>
-      <div><span class="data-label">B</span><span class="data-value">${roundTo(params.B, 2)} T</span></div>
-      <div><span class="data-label">Última</span><span class="data-value">${p ? p.name : '—'}</span></div>
-      <div><span class="data-label">r ≈</span><span class="data-value">${p ? roundTo(rLar, 2) + ' m' : '—'}</span></div>
-    </div>
-  `);
-}
+  spawn(kindIndex) {
+    const sp = SPECIES[kindIndex % SPECIES.length];
+    const q = this.params.q * Math.sign(sp.q) * Math.abs(sp.q);
+    const m = Math.max(0.15, this.params.m * sp.m);
+    this.particles.push({
+      name: sp.name,
+      pos: new Vector2D(-7.5, (Math.random() - 0.5) * 1.2),
+      vel: new Vector2D(this.params.v0, 0),
+      q,
+      m,
+      color: sp.color,
+      trail: new TrailBuffer(80),
+      life: 12
+    });
+    while (this.particles.length > 12) this.particles.shift();
+  }
 
-function renderParams() {
-  _ui.setParams(`
-    ${paramControl({ id: 'B', labelTex: 'B', labelRest: 'campo', min: 0.2, max: 3, step: 0.1, value: params.B, unit: 'T' })}
-    ${paramControl({ id: 'v0', labelTex: 'v_0', labelRest: 'velocidad inicial', min: 1, max: 8, step: 0.5, value: params.v0, unit: 'm/s' })}
-    ${paramControl({ id: 'm', labelTex: 'm', labelRest: 'factor de masa', min: 0.5, max: 2, step: 0.1, value: params.m, unit: '×' })}
-    ${paramControl({ id: 'q', labelTex: 'q', labelRest: 'factor de carga', min: 0.5, max: 2, step: 0.1, value: params.q, unit: '×' })}
-    <div class="control-group">
-      <label class="gate-check">
-        <input type="checkbox" id="param_autoFire" ${params.autoFire ? 'checked' : ''}>
-        Disparo automático
-      </label>
-    </div>
-    <div class="btn-row" style="flex-wrap:wrap;gap:6px;margin-top:8px">
-      ${SPECIES.map(
-        (s, i) =>
-          `<button type="button" class="ctrl-btn" data-spawn="${i}">Disparar ${s.name}</button>`
-      ).join('')}
-    </div>
-  `);
-  bindParamControls(['B', 'v0', 'm', 'q'], (id, value) => {
-    params[id] = value;
-    updateData();
-  });
-  document.getElementById('param_autoFire')?.addEventListener('change', (e) => {
-    params.autoFire = e.target.checked;
-  });
-  document.querySelectorAll('[data-spawn]').forEach((btn) => {
-    btn.addEventListener('click', () => spawn(parseInt(btn.dataset.spawn, 10)));
-  });
-}
+  update(dt) {
+    const { B, autoFire } = this.params;
 
-export function getState() {
-  return { params: { ...params } };
-}
-export function setState(s) {
-  if (!s?.params) return;
-  Object.assign(params, s.params);
-  renderParams();
-  updateData();
+    if (autoFire) {
+      this.fireCooldown -= dt;
+      if (this.fireCooldown <= 0) {
+        this.spawn(Math.floor(Math.random() * SPECIES.length));
+        this.fireCooldown = 1.6;
+      }
+    }
+
+    for (const p of this.particles) {
+      // F = q v × B  →  a = (q/m) v × Bẑ  → ax = (qB/m) vy, ay = -(qB/m) vx  (2D)
+      const k = (p.q * B) / p.m;
+      const ax = k * p.vel.y;
+      const ay = -k * p.vel.x;
+      p.vel.set(p.vel.x + ax * dt, p.vel.y + ay * dt);
+      p.pos.addScaled(p.vel, dt);
+      p.trail.push({ x: p.pos.x, y: p.pos.y });
+      p.life -= dt;
+    }
+    let write = 0;
+    for (let i = 0; i < this.particles.length; i++) {
+      const p = this.particles[i];
+      if (p.life > 0 && Math.abs(p.pos.x) < 14 && Math.abs(p.pos.y) < 12) {
+        if (write !== i) this.particles[write] = p;
+        write++;
+      }
+    }
+    this.particles.length = write;
+  }
+
+  /* ---------- dibujo declarativo (§2.4, migrado en WAVE 13) ---------- */
+
+  draw(scene) {
+    // Región de campo B, centrada en el origen (§17.1).
+    scene.rect(0, 0, 16, 12, { color: 'field', fill: 'field', alpha: 0.06, stroke: true });
+    scene.label(0, 6.6, `B = ${roundTo(this.params.B, 2)} T (⊙ o ⊗ según convención 2D)`, {
+      color: 'field', size: 11
+    });
+
+    for (const p of this.particles) {
+      if (p.trail.length > 1) scene.trail(p.trail, { color: p.color, width: 2, fade: true });
+      scene.body(p.pos.x, p.pos.y, { shape: 'circle', r: 0.2 + p.m * 0.05, color: p.color, label: p.name });
+    }
+
+    // Emisor
+    scene.body(-8.2, 0, { shape: 'rect', r: 0.25, color: 'textDim', glow: false, label: 'fuente' });
+
+    const last = this.particles[this.particles.length - 1];
+    const rLar =
+      last && Math.abs(last.q * this.params.B) > 1e-6
+        ? (last.m * last.vel.magnitude()) / Math.abs(last.q * this.params.B)
+        : 0;
+    scene.hud.readout(
+      [
+        { label: 'partículas', value: this.particles.length, unit: '' },
+        { label: 'B', value: roundTo(this.params.B, 2), unit: 'T' },
+        { label: 'última', value: last ? last.name : '—', unit: '' },
+        { label: 'r', value: last ? roundTo(rLar, 2) : 0, unit: 'm' }
+      ],
+      'top-left'
+    );
+  }
+
+  /* ---------- datos numéricos (§3.1) ---------- */
+
+  readout() {
+    const last = this.particles[this.particles.length - 1];
+    const rLar =
+      last && Math.abs(last.q * this.params.B) > 1e-6
+        ? (last.m * last.vel.magnitude()) / Math.abs(last.q * this.params.B)
+        : 0;
+    return {
+      partículas: { value: this.particles.length, unit: '' },
+      B: { value: roundTo(this.params.B, 2), unit: 'T' },
+      última: { value: last ? last.name : '—', unit: '' },
+      r: { value: last ? roundTo(rLar, 2) : 0, unit: 'm' }
+    };
+  }
+
+  getState() {
+    return { params: { ...this.params } };
+  }
+
+  setState(s) {
+    if (!s?.params) return;
+    Object.assign(this.params, s.params);
+  }
 }

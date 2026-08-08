@@ -169,7 +169,7 @@ export default class ThermalExpansion extends SimModule {
   /** Barra de longitud len (m) con etiqueta. */
   _bar(scene, x, y, len, color, label) {
     scene.rect(x, y - 0.3, len, 0.6, { color, width: 2.5 });
-    scene.label(x + len / 2, y - 0.62, label, { color });
+    scene.label(x + len / 2, y - 0.62, label, { avoid: true, color });
   }
 
   _drawLine(scene) {
@@ -180,16 +180,16 @@ export default class ThermalExpansion extends SimModule {
     const L1 = L0 + vis;
     const x = -9;
 
-    scene.label(-9.4, 6.9, `Referencia  T₀ = ${T0} °C`, { color: 'textDim' });
+    scene.label(-9.4, 6.9, `Referencia  T₀ = ${T0} °C`, { avoid: true, align: 'left', color: 'textDim' });
     this._bar(scene, x, 6, L0, 'textDim', `${L0} m`);
-    scene.label(-9.4, 1.9, `Calentado  T = ${this.params.T} °C`, { color: 'mass' });
+    scene.label(-9.4, 1.9, `Calentado  T = ${this.params.T} °C`, { avoid: true, align: 'left', color: 'mass' });
     this._bar(scene, x, 1, L1, 'mass', `${roundTo(L1, 3)} m`);
 
     if (Math.abs(vis) > 0.01) {
       scene.dimension(x + L0, 2.3, x + L1, 2.3, `ΔL = ${roundTo(dL * 1000, 2)} mm`, {
         color: 'energy'
       });
-      scene.chip(x, -0.4, `Deformación ×${GAIN} para que se vea`, { color: 'energy' });
+      scene.chip(x + L0 / 2, -0.4, `Deformación ×${GAIN} para que se vea`, { avoid: true, color: 'energy' });
     }
 
     scene.hud.readout(
@@ -209,9 +209,9 @@ export default class ThermalExpansion extends SimModule {
     const s1 = s0 + vis;
     const cx = -5;
 
-    scene.label(-9.4, 5.9, `Área inicial ${roundTo(s0 * s0, 2)} m²`, { color: 'textDim' });
+    scene.label(-9.4, 5.9, `Área inicial ${roundTo(s0 * s0, 2)} m²`, { avoid: true, align: 'left', color: 'textDim' });
     scene.rect(cx - s0 / 2, 3 - s0 / 2, s0, s0, { color: 'textDim', width: 2 });
-    scene.label(-9.4, -2.4, `Área dilatada ${roundTo(s1 * s1, 2)} m²`, { color: 'mass' });
+    scene.label(-9.4, -2.4, `Área dilatada ${roundTo(s1 * s1, 2)} m²`, { avoid: true, align: 'left', color: 'mass' });
     scene.rect(cx - s1 / 2, -4 - s1 / 2, s1, s1, { color: 'mass', width: 2 });
 
     scene.dimension(cx - s1 / 2, -4 - s1 / 2 - 0.8, cx + s1 / 2, -4 - s1 / 2 - 0.8, `${roundTo(s1, 3)} m`, {
@@ -261,9 +261,9 @@ export default class ThermalExpansion extends SimModule {
     };
 
     cube(-6.5, 4.5, a0, 'textDim');
-    scene.label(-6.5, 7.8, 'V₀ = ' + roundTo(a0 * a0 * a0, 2) + ' m³', { color: 'textDim' });
+    scene.label(-6.5, 7.8, 'V₀ = ' + roundTo(a0 * a0 * a0, 2) + ' m³', { avoid: true, color: 'textDim' });
     cube(4.5, 4.5, a1, 'mass');
-    scene.label(4.5, 7.8, 'Dilatado', { color: 'mass' });
+    scene.label(4.5, 7.8, 'Dilatado', { avoid: true, color: 'mass' });
 
     scene.hud.readout(
       [
@@ -291,8 +291,8 @@ export default class ThermalExpansion extends SimModule {
     const x0 = -8;
     const y0 = 4;
 
-    scene.label(x0 + Lv / 2, y0 + 2.6, `T − T₀ = ${roundTo(dT, 0)} °C`, { color: 'energy' });
-    scene.chip(x0, y0 - 2.2, `R real ≈ ${R >= 100 ? '∞' : roundTo(R, 2) + ' m'}`, { color: 'textDim' });
+    scene.label(x0 + Lv / 2, y0 + 2.6, `T − T₀ = ${roundTo(dT, 0)} °C`, { avoid: true, color: 'energy' });
+    scene.chip(x0, y0 - 2.2, `R real ≈ ${R >= 100 ? '∞' : roundTo(R, 2) + ' m'}`, { avoid: true, color: 'textDim' });
 
     const pts = (offsetY) => {
       const out = [];
@@ -307,7 +307,7 @@ export default class ThermalExpansion extends SimModule {
     scene.polyline(pts(0.09), { color: 'mass2', width: 8 });
     scene.polyline(pts(-0.09), { color: 'mass', width: 8 });
     scene.body(x0, y0, { shape: 'rect', w: 0.5, h: 0.7, color: 'textDim' });
-    scene.label(x0 - 0.5, y0 - 0.8, 'Fijo', { color: 'textDim' });
+    scene.label(x0 - 0.5, y0 - 0.8, 'Fijo', { avoid: true, color: 'textDim' });
 
     scene.vector(x0 + Lv, y0 + yEnd, 0.5, Math.sign(yEnd) * 0.5, {
       color: 'energy',

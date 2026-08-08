@@ -228,13 +228,13 @@ export default class Calorimetry extends SimModule {
     scene.rect(3, 2, 5, 6, { color: 'textDim', width: 2, fill: 'rgba(255,171,64,0.12)' });
     scene.fill(-8, 2, 5, (T1 + 30) / 120 * 6, { color: 'mass', alpha: 0.25, waves: false });
     scene.fill(3, 2, 5, (T2 + 30) / 120 * 6, { color: 'force', alpha: 0.25, waves: false });
-    scene.label(-8, 8.6, `Agua ${m1} kg · ${roundTo(T1, 1)} °C`, { color: 'mass' });
-    scene.label(3, 8.6, `Metal ${m2} kg · ${roundTo(T2, 1)} °C`, { color: 'force' });
+    scene.label(-8, 8.6, `Agua ${m1} kg · ${roundTo(T1, 1)} °C`, { avoid: true, color: 'mass' });
+    scene.label(3, 8.6, `Metal ${m2} kg · ${roundTo(T2, 1)} °C`, { avoid: true, color: 'force' });
 
     // Termómetros de ambos lados y hacia dónde fluye Q.
-    scene.label(-1.4, 5, 'Q →', { color: 'energy', size: 15 });
+    scene.label(-1.4, 5, 'Q →', { avoid: true, color: 'energy', size: 15 });
     scene.vector(0.5, 5, 1.6, 0, { color: 'energy' });
-    scene.chip(-1.4, 1.4, `T_eq = ${roundTo(Teq, 1)} °C`, { color: 'energy' });
+    scene.chip(-1.4, 1.4, `T_eq = ${roundTo(Teq, 1)} °C`, { avoid: true, color: 'energy' });
 
     const rows = [
       { label: 'T_eq', value: roundTo(Teq, 2), unit: '°C' },
@@ -283,11 +283,11 @@ export default class Calorimetry extends SimModule {
     const level = this.Q < Q1 ? 0.35 : this.Q < Q2 ? 0.35 + 0.5 * (this.Q - Q1) / (Q2 - Q1) : 1;
     scene.rect(-3, 2, 6, 7, { color: 'textDim', width: 2, fill: 'rgba(79,195,247,0.10)' });
     scene.fill(-3, 2, 6, 7 * level, { color: this.Q < Q2 ? 'mass' : 'energy', alpha: 0.3, waves: level < 1 && this.Q >= Q1 });
-    scene.label(-3, 9.4, `Hielo → agua: ${mIce} kg`, { color: 'mass' });
-    scene.label(1.6, 9.4, `P = ${P} W`, { color: 'energy' });
+    scene.label(-3, 9.4, `Hielo → agua: ${mIce} kg`, { avoid: true, color: 'mass' });
+    scene.label(1.6, 9.4, `P = ${P} W`, { avoid: true, color: 'energy' });
 
-    scene.chip(-2.4, 1.2, `Fase: ${fase}`, { color: 'energy' });
-    scene.chip(2.2, 1.2, `T = ${roundTo(T, 1)} °C`, { color: 'mass' });
+    scene.chip(-2.4, 1.2, `Fase: ${fase}`, { avoid: true, color: 'energy' });
+    scene.chip(2.2, 1.2, `T = ${roundTo(T, 1)} °C`, { avoid: true, color: 'mass' });
 
     hud.readout(
       [
@@ -329,18 +329,18 @@ export default class Calorimetry extends SimModule {
     // Focos y barra.
     scene.rect(-10.5, 4.5, 2, 4, { color: 'force', width: 2, fill: 'rgba(255,107,107,0.15)' });
     scene.rect(8.5, 4.5, 2, 4, { color: 'mass', width: 2, fill: 'rgba(78,161,255,0.15)' });
-    scene.label(-9.5, 9, `${roundTo(T1, 1)} °C`, { color: 'force' });
-    scene.label(9.5, 9, `${roundTo(T2, 1)} °C`, { color: 'mass' });
+    scene.label(-9.5, 9, `${roundTo(T1, 1)} °C`, { avoid: true, color: 'force' });
+    scene.label(9.5, 9, `${roundTo(T2, 1)} °C`, { avoid: true, color: 'mass' });
 
     if (modo === 'conduccion') {
       scene.rect(-8.5, 5.6, 17, 2.2, { color: 'textDim', width: 2, fill: 'rgba(255,171,64,0.25)' });
-      scene.label(0, 5.4, `P = k·A·ΔT/L = ${roundTo(P, 1)} W`, { color: 'energy' });
+      scene.label(0, 5.4, `P = k·A·ΔT/L = ${roundTo(P, 1)} W`, { avoid: true, color: 'energy' });
       // Perfil lineal T(x) sobre la barra.
       for (let i = 1; i <= 6; i++) {
         const x = -8.5 + (17 * i) / 7;
         scene.body(x, 8.4, { shape: 'circle', r: 0.14, color: i % 2 ? 'force' : 'mass' });
       }
-      scene.label(0, 8.9, 'Perfil lineal T(x): mismo gradiente en toda la barra', { color: 'textDim' });
+      scene.label(0, 8.9, 'Perfil lineal T(x): mismo gradiente en toda la barra', { avoid: true, color: 'textDim' });
     } else if (modo === 'conveccion') {
       // Lazo de fluido: sube caliente junto al foco, baja frío al otro lado.
       scene.polyline(
@@ -352,7 +352,7 @@ export default class Calorimetry extends SimModule {
       );
       scene.vector(0, 6.7, 0, 0.7, { color: 'force' });
       scene.vector(0, 4.4, 0, -0.7, { color: 'mass' });
-      scene.label(0, 2.4, `P = h·A·ΔT = ${roundTo(P, 1)} W`, { color: 'energy' });
+      scene.label(0, 2.4, `P = h·A·ΔT = ${roundTo(P, 1)} W`, { avoid: true, color: 'energy' });
     } else {
       // Radiación: círculo que brilla según T (color → temperatura).
       const Tk = T1 + 273.15;
@@ -360,8 +360,8 @@ export default class Calorimetry extends SimModule {
       scene.body(-3.5, 6.7, { shape: 'circle', r: 1.1 + glow * 0.5, color: glow > 0.5 ? 'force' : 'mass2' });
       scene.arc(-3.5, 6.7, 1.9, 0, Math.PI * 2, { color: 'force', dash: [3, 3], alpha: 0.6 });
       scene.arc(-3.5, 6.7, 3.2, 0, Math.PI * 2, { color: 'force', dash: [3, 3], alpha: 0.35 });
-      scene.label(-3.5, 10.2, `P = εσA(T⁴−Tₐ⁴) = ${roundTo(P, 2)} W`, { color: 'energy' });
-      scene.label(5.5, 4, 'Calor radiado en todas direcciones', { color: 'textDim' });
+      scene.label(-3.5, 10.2, `P = εσA(T⁴−Tₐ⁴) = ${roundTo(P, 2)} W`, { avoid: true, color: 'energy' });
+      scene.label(5.5, 4, 'Calor radiado en todas direcciones', { avoid: true, color: 'textDim' });
       for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {
         scene.vector(-3.5 + Math.cos(a) * 1.1, 6.7 + Math.sin(a) * 1.1, Math.cos(a) * 1.6, Math.sin(a) * 1.6, {
           color: 'force',

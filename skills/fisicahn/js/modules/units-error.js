@@ -180,13 +180,13 @@ export default class UnitsError extends SimModule {
     const L1 = Math.max(0.2, Math.min(maxLen, ((Math.log10(cantidad) + 3) / 10) * maxLen));
     const L2 = Number.isFinite(result) ? Math.max(0.2, Math.min(maxLen, ((Math.log10(result) + 3) / 10) * maxLen)) : 0.2;
 
-    scene.chip(cx, baseY - 2.2, `${DIM_LABELS[dimension]} · ${from} → ${to}`);
+    scene.chip(cx, baseY - 2.2, `${DIM_LABELS[dimension]} · ${from} → ${to}`, { avoid: true });
 
     scene.rect(x0, baseY, L1, 0.7, { color: 'mass', radius: 0.2, fill: true });
-    scene.label(x0 + L1 + 0.15, baseY + 0.35, `${cantidad} ${from}`, { color: 'mass' });
+    scene.label(x0 + L1 + 0.15, baseY + 0.35, `${cantidad} ${from}`, { avoid: true, color: 'mass' });
 
     scene.rect(x0, baseY - 1.5, L2, 0.7, { color: 'energy', radius: 0.2, fill: true });
-    scene.label(x0 + L2 + 0.15, baseY - 1.15, `${Number.isFinite(result) ? result.toPrecision(4) : '—'} ${to}`, {
+    scene.label(x0 + L2 + 0.15, baseY - 1.15, `${Number.isFinite(result) ? result.toPrecision(4) : '—'} ${to}`, { avoid: true,
       color: 'energy'
     });
 

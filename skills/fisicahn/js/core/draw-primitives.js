@@ -94,6 +94,122 @@ export function chip(ctx, x, y, text, opts = {}) {
 }
 
 /**
+ * Rayado diagonal entre dos puntos: símbolo estándar de apoyo fijo o sección
+ * sólida en los diagramas de estática (WAVE 13, §13.2). Dibuja la línea base
+ * y los trazos perpendiculares a 45°, hacia un lado (`opts.side`).
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {number} x1 @param {number} y1 @param {number} x2 @param {number} y2
+ * @param {object} [opts]
+ * @param {number} [opts.spacing=8] - Separación entre trazos, px.
+ * @param {number} [opts.length=10] - Longitud de cada trazo, px.
+ * @param {number} [opts.side=1] - 1 o -1: a qué lado de la línea caen los trazos.
+ */
+export function hatchLine(ctx, x1, y1, x2, y2, opts = {}) {
+  const spacing = opts.spacing ?? 8;
+  const len = opts.length ?? 10;
+  const side = opts.side ?? 1;
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const segLen = Math.hypot(dx, dy) || 1;
+  const ux = dx / segLen;
+  const uy = dy / segLen;
+  // Rota la dirección de la línea 135° (hacia `side`) para que cada trazo
+  // caiga en diagonal hacia fuera, como en la notación de libro de texto.
+  const theta = side * (-3 * Math.PI) / 4;
+  const hx = ux * Math.cos(theta) - uy * Math.sin(theta);
+  const hy = ux * Math.sin(theta) + uy * Math.cos(theta);
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+  const steps = Math.max(1, Math.round(segLen / spacing));
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const px = x1 + dx * t;
+    const py = y1 + dy * t;
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(px + hx * len, py + hy * len);
+    ctx.stroke();
+  }
+}
+
+/**
+ * Interpola entre dos colores hex/rgb para representar una magnitud continua
+ * (temperatura, concentración…). Degradado de temperatura de la WAVE 13,
+ * §13.2, sin depender de un color semántico nuevo.
+ * @param {string} coldHex @param {string} hotHex @param {number} t - [0,1]
+ * @returns {string} color CSS `rgb(r, g, b)`
+ */
+export function thermalColor(coldHex, hotHex, t) {
+  const c = Math.max(0, Math.min(1, t));
+  const parse = (color) => {
+    const h = String(color).trim().replace('#', '');
+    const n = h.length === 3 ? h.split('').map((ch) => ch + ch).join('') : h.padEnd(6, '0');
+    return [parseInt(n.slice(0, 2), 16) || 0, parseInt(n.slice(2, 4), 16) || 0, parseInt(n.slice(4, 6), 16) || 0];
+  };
+  const [r1, g1, b1] = parse(coldHex);
+  const [r2, g2, b2] = parse(hotHex);
+  const r = Math.round(r1 + (r2 - r1) * c);
+  const g = Math.round(g1 + (g2 - g1) * c);
+  const b = Math.round(b1 + (b2 - b1) * c);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+/**
+ * Anillos concéntricos ondulados: textura de fluido/viscosidad de la
+ * WAVE 13, §13.2 — distingue un medio continuo de un cuerpo sólido sin
+ * depender del color.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {number} cx @param {number} cy @param {number} rMax
+ * @param {object} [opts]
+ * @param {number} [opts.rings=3]
+ * @param {number} [opts.amplitude=2] - Amplitud de la ondulación, px.
+ * @param {number} [opts.waves=10] - Número de ondas por anillo.
+ */
+export function ripplePattern(ctx, cx, cy, rMax, opts = {}) {
+  const rings = Math.max(1, opts.rings ?? 3);
+  const amp = opts.amplitude ?? 2;
+  const waves = opts.waves ?? 10;
+  for (let i = 1; i <= rings; i++) {
+    const r = (rMax * i) / rings;
+    ctx.beginPath();
+    for (let a = 0; a <= Math.PI * 2 + 0.001; a += 0.15) {
+      const rr = r + Math.sin(a * waves) * amp;
+      const px = cx + Math.cos(a) * rr;
+      const py = cy + Math.sin(a) * rr;
+      if (a === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+}
+
+/**
+ * Resplandor radial alrededor de un punto: halo de énfasis de la WAVE 13,
+ * §13.2, para objetos interactivos o seleccionados. Forma/brillo, no un
+ * color semántico nuevo.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {number} cx @param {number} cy @param {number} r
+ * @param {object} [opts]
+ * @param {string} [opts.color='rgba(255,255,255,0.6)']
+ * @param {string} [opts.blend='lighter']
+ */
+export function halo(ctx, cx, cy, r, opts = {}) {
+  const color = opts.color || 'rgba(255,255,255,0.6)';
+  ctx.save();
+  const grad = ctx.createRadialGradient(cx, cy, r * 0.4, cx, cy, r * 1.6);
+  grad.addColorStop(0, color);
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.globalCompositeOperation = opts.blend || 'lighter';
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 1.6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+/**
  * Dibuja una leyenda horizontal con varios elementos (color + etiqueta).
  * @param {CanvasRenderingContext2D} ctx
  * @param {Array<{color:string, label:string}>} items

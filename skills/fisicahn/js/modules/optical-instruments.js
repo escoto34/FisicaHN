@@ -186,7 +186,7 @@ export default class OpticalInstruments extends SimModule {
       ],
       { color, width: 1.8 }
     );
-    if (label) scene.label(x, 2, `${label} (f=${fCm} cm)`, { color });
+    if (label) scene.label(x, 2, `${label} (f=${fCm} cm)`, { avoid: true, color });
   }
 
   _drawOjo(scene) {
@@ -196,15 +196,15 @@ export default class OpticalInstruments extends SimModule {
 
     // Retina (pantalla fija) y cristalino (lente que acomoda).
     scene.line(6.4, -1.6, 6.4, 1.6, { color: 'textDim', width: 3 });
-    scene.label(7, 1.9, 'retina', { color: 'textDim', size: 11 });
+    scene.label(7, 1.9, 'retina', { avoid: true, color: 'textDim', size: 11 });
     this._lens(scene, 3.2, roundTo(f, 2), 'mass', 'cristalino');
 
     // Objeto lejos (posición de dibujo comprimida).
     const xObj = -6.2;
     const h = 0.5;
     scene.vector(xObj, 0, 0, h, { color: 'mass', width: 2 });
-    scene.label(xObj - 0.4, h / 2, 'O', { color: 'mass' });
-    scene.label(xObj, -0.7, `${this.params.do} cm`, { color: 'textDim', size: 11 });
+    scene.label(xObj - 0.4, h / 2, 'O', { avoid: true, color: 'mass' });
+    scene.label(xObj, -0.7, `${this.params.do} cm`, { avoid: true, color: 'textDim', size: 11 });
 
     // Rayos que acomodan: paralelo + por el centro, convergiendo en la retina.
     const hImg = h * (-L / this.params.do); // M = −di/do con di = L
@@ -237,15 +237,15 @@ export default class OpticalInstruments extends SimModule {
     // Objeto entre F y la lente (x = −dLupa).
     const h = 1.1;
     scene.vector(-dLupa, 0, 0, h, { color: 'mass', width: 2.2 });
-    scene.label(-dLupa - 0.4, h / 2, 'O', { color: 'mass' });
+    scene.label(-dLupa - 0.4, h / 2, 'O', { avoid: true, color: 'mass' });
 
     // Foco e imagen virtual (detrás del objeto, discontinua).
     scene.body(-fLupa, 0, { shape: 'circle', r: 0.1, color: 'textDim' });
-    scene.label(-fLupa, -0.5, 'F', { color: 'textDim' });
+    scene.label(-fLupa, -0.5, 'F', { avoid: true, color: 'textDim' });
     const xImg = -di; // di < 0 → imagen a la izquierda
     const hImg = h * (-di / dLupa);
     scene.vector(xImg, 0, 0, hImg, { color: 'force', width: 2.2, dash: [5, 3] });
-    scene.label(xImg + 0.4, hImg / 2, 'I (virtual)', { color: 'force' });
+    scene.label(xImg + 0.4, hImg / 2, 'I (virtual)', { avoid: true, color: 'force' });
 
     this._twoRays(scene, -dLupa, h, 0, fLupa, xImg, hImg, 'energy', false);
 
@@ -273,12 +273,12 @@ export default class OpticalInstruments extends SimModule {
     // Objeto muy cerca del foco del objetivo.
     const xObj = -do1;
     scene.vector(xObj, 0, 0, h, { color: 'mass', width: 2 });
-    scene.label(xObj - 0.4, h / 2, 'O', { color: 'mass' });
+    scene.label(xObj - 0.4, h / 2, 'O', { avoid: true, color: 'mass' });
 
     // Imagen intermedia real en x = di1.
     const h1 = h * Math.abs(mObj);
     scene.vector(di1, 0, 0, -h1, { color: 'energy', width: 2.2 });
-    scene.label(di1 + 0.35, -h1 / 2 - 0.3, 'intermedia', { color: 'energy', size: 11 });
+    scene.label(di1 + 0.35, -h1 / 2 - 0.3, 'intermedia', { avoid: true, color: 'energy', size: 11 });
 
     // Final virtual (punto próximo) desde el ocular: objeto a do2 = L − di1.
     const do2 = L - di1;
@@ -286,7 +286,7 @@ export default class OpticalInstruments extends SimModule {
     const h2 = -h1 * (-di2 / do2);
     const x2 = L + di2; // di2 < 0 → la imagen está a la izquierda del ocular
     scene.vector(x2, 0, 0, h2, { color: 'force', width: 2.2, dash: [5, 3] });
-    scene.label(x2 + 0.4, h2 / 2, 'I (virtual)', { color: 'force' });
+    scene.label(x2 + 0.4, h2 / 2, 'I (virtual)', { avoid: true, color: 'force' });
 
     // Rayos: objetivo (de O a la intermedia) y ocular (de la intermedia a la final).
     this._twoRays(scene, xObj, h, 0, fo, di1, -h1, 'energy', true);
@@ -313,7 +313,7 @@ export default class OpticalInstruments extends SimModule {
 
     // Haz paralelo desde la izquierda (objeto en el infinito).
     const yTop = 1.3;
-    scene.label(-8, yTop + 0.4, 'objeto en ∞', { color: 'textDim', size: 11 });
+    scene.label(-8, yTop + 0.4, 'objeto en ∞', { avoid: true, color: 'textDim', size: 11 });
     for (let i = 0; i < 3; i++) {
       const yIn = yTop * (1 - i * 0.4);
       scene.line(-8, yIn, 0, yIn, { color: 'mass', width: 1.6, alpha: 0.8 });
@@ -322,12 +322,12 @@ export default class OpticalInstruments extends SimModule {
       // Ocular: recollima hacia la derecha (paralelas más juntas).
       const yOut = yIn * (feT / foT);
       scene.line(foT + feT, yOut, 12, yOut, { color: 'spring', width: 1.6, alpha: 0.9 });
-      scene.label(11.5, yOut + 0.3, `M = ${roundTo(M, 1)}×`, { color: 'spring', size: 12 });
+      scene.label(11.5, yOut + 0.3, `M = ${roundTo(M, 1)}×`, { avoid: true, color: 'spring', size: 12 });
     }
 
     // Plano focal del objetivo marcado.
     scene.body(foT, 0, { shape: 'circle', r: 0.12, color: 'textDim' });
-    scene.label(foT, -0.55, 'plano focal', { color: 'textDim', size: 11 });
+    scene.label(foT, -0.55, 'plano focal', { avoid: true, color: 'textDim', size: 11 });
 
     scene.hud.chip(`Telescopio: M = f_o/f_e = ${roundTo(M, 2)}×`, 'top-left');
     scene.hud.readout(

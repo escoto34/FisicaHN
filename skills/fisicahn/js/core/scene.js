@@ -22,12 +22,17 @@
  */
 
 import { getTheme, resolveColor, seriesColor, seriesDash } from './theme.js';
-import { roundRect, arrowHead } from './draw-primitives.js';
+import { roundRect, arrowHead, hatchLine, thermalColor, ripplePattern, halo } from './draw-primitives.js';
 
 /** Puntos de trabajo reutilizados: dibujar no debe allocar (§3.2). */
 const _a = { x: 0, y: 0 };
 const _b = { x: 0, y: 0 };
 const _c = { x: 0, y: 0 };
+
+/** AABB en px CSS: ¿se solapan `a` y `b`? (§13.1) */
+function rectsOverlap(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
 
 /**
  * Normaliza las tres formas en las que un módulo puede pasar una secuencia de
@@ -465,9 +470,13 @@ export class Surface {
     ctx.restore();
 
     if (opts.label) {
+      // `avoid` por defecto (§13.1): con varios cuerpos cerca — partículas,
+      // proyectiles — sus etiquetas se pisan sin esto. `opts.avoidLabel: false`
+      // lo desactiva para el caso puntual que lo necesite.
       this.label(x, y, opts.label, {
         color: opts.labelColor || opts.color,
-        offsetY: -(rp + 8)
+        offsetY: -(rp + 8),
+        avoid: opts.avoidLabel !== false
       });
     }
     if (opts.id) this.pickable(opts.id, { x, y, r });
@@ -781,24 +790,110 @@ export class Surface {
     return this;
   }
 
-  /** Etiqueta anclada a un punto del mundo. */
-  label(x, y, text, opts = {}) {
-    const p = this.project(x, y, _a);
-    return this._screenText(p.x + (opts.offsetX || 0), p.y + (opts.offsetY || 0), text, opts);
+  /**
+   * Caja AABB de un texto en px CSS, según su punto de anclaje, alineación y
+   * línea base (§13.1) — para registrar el espacio ocupado y detectar
+   * solapes, sin depender de cómo `_screenText` interpreta esos mismos ejes.
+   */
+  _textBox(px, py, w, h, align = 'center', baseline = 'bottom') {
+    const x = align === 'left' ? px : align === 'right' ? px - w : px - w / 2;
+    const y = baseline === 'top' ? py : baseline === 'middle' ? py - h / 2 : py - h;
+    return { x, y, w, h };
   }
 
-  /** Insignia con fondo: legible sobre cualquier parte de la escena. */
+  /**
+   * Busca dónde colocar `box` sin pisar otra etiqueta ya registrada este
+   * frame (§13.1). Si `opts.avoid` no está activo, o no hay escena, registra
+   * la caja tal cual y no la mueve.
+   */
+  _placeBox(box, opts) {
+    if (!opts.avoid || !this._scene) {
+      if (this._scene) this._scene.registerBox(box);
+      return box;
+    }
+    return this._scene.findFreeBox(box);
+  }
+
+  /** Etiqueta anclada a un punto del mundo. Con `opts.avoid` evita pisar otras etiquetas del frame (§13.1). */
+  label(x, y, text, opts = {}) {
+    const p = this.project(x, y, _a);
+    let sx = p.x + (opts.offsetX || 0);
+    let sy = p.y + (opts.offsetY || 0);
+    const ctx = this.ctx;
+    if (ctx) {
+      ctx.save();
+      ctx.font = this.font(opts.size ?? 13, opts.weight);
+      const w = ctx.measureText(text).width;
+      ctx.restore();
+      const h = this.fontSize((opts.size ?? 13) * 1.35);
+      const align = opts.align || 'center';
+      const baseline = opts.baseline || 'bottom';
+      const box = this._textBox(sx, sy, w, h, align, baseline);
+      const placed = this._placeBox(box, opts);
+      sx += placed.x - box.x;
+      sy += placed.y - box.y;
+    }
+    return this._screenText(sx, sy, text, opts);
+  }
+
+  /**
+   * Etiqueta con línea guía: para objetos pequeños donde el texto no cabe
+   * encima (§13.1). Se aparta con el mismo registro de cajas que `label` y
+   * `chip`, así que nunca pisa una etiqueta ya colocada este frame.
+   * @param {number} x @param {number} y @param {string} text
+   * @param {object} [opts]
+   * @param {number} [opts.angle=-Math.PI/4] - Dirección de la guía, radianes.
+   * @param {number} [opts.distance=26] - Longitud de la guía, px CSS.
+   */
+  callout(x, y, text, opts = {}) {
+    const ctx = this.ctx;
+    if (!ctx) return this;
+    const p = this.project(x, y, _a);
+    const size = opts.size ?? 11;
+    ctx.save();
+    ctx.font = this.font(size);
+    const w = ctx.measureText(text).width;
+    ctx.restore();
+    const h = this.fontSize(size * 1.6);
+    const angle = opts.angle ?? -Math.PI / 4;
+    const dist = opts.distance ?? 26;
+    const tx = p.x + Math.cos(angle) * dist;
+    const ty = p.y + Math.sin(angle) * dist;
+    const align = Math.cos(angle) >= 0 ? 'left' : 'right';
+    const box = { x: align === 'left' ? tx : tx - w, y: ty - h / 2, w, h };
+    const placed = opts.avoid === false ? (this._scene ? this._scene.registerBox(box) : box) : this._placeBox(box, { avoid: true });
+    const anchorX = align === 'left' ? placed.x : placed.x + placed.w;
+    const midY = placed.y + placed.h / 2;
+    ctx.save();
+    ctx.strokeStyle = this.color(opts.lineColor || opts.color, 'textDim');
+    ctx.lineWidth = this.lineWidth(1);
+    ctx.setLineDash(opts.dash || [2, 2]);
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    ctx.lineTo(anchorX, midY);
+    ctx.stroke();
+    ctx.restore();
+    return this._screenText(anchorX, midY, text, { ...opts, align, baseline: 'middle' });
+  }
+
+  /** Insignia con fondo: legible sobre cualquier parte de la escena. Con `opts.avoid` evita pisar otras etiquetas del frame (§13.1). */
   chip(x, y, text, opts = {}) {
     const ctx = this.ctx;
     if (!ctx) return this;
     const p = this.project(x, y, _a);
-    const px = p.x + (opts.offsetX || 0);
-    const py = p.y + (opts.offsetY || 0);
+    let px = p.x + (opts.offsetX || 0);
+    let py = p.y + (opts.offsetY || 0);
     ctx.save();
     ctx.font = this.font(opts.size ?? 12);
     const padX = 8 * this.theme.fontScale;
     const w = ctx.measureText(text).width + padX * 2;
     const h = this.fontSize(22);
+    ctx.restore();
+    const box = this._textBox(px, py, w, h, 'center', 'middle');
+    const placed = this._placeBox(box, opts);
+    px += placed.x - box.x;
+    py += placed.y - box.y;
+    ctx.save();
     ctx.fillStyle = opts.background || this.theme.hudBg;
     ctx.strokeStyle = this.color(opts.color, 'hudBorder');
     ctx.lineWidth = this.lineWidth(1);
@@ -909,6 +1004,90 @@ export class Surface {
     return this;
   }
 
+  /* ---------- vocabulario visual (§13.2): forma y textura, no sólo color ---------- */
+
+  /**
+   * Rayado diagonal entre dos puntos del mundo: símbolo estándar de apoyo
+   * fijo o sección sólida en los diagramas de estática (`statics`), también
+   * útil como textura de pared/suelo en otros módulos.
+   * @param {number} x1 @param {number} y1 @param {number} x2 @param {number} y2
+   * @param {object} [opts]
+   * @param {number} [opts.side=1] - 1 o -1: a qué lado de la línea caen los trazos.
+   */
+  hatch(x1, y1, x2, y2, opts = {}) {
+    const ctx = this.ctx;
+    if (!ctx) return this;
+    const from = this.project(x1, y1, _a);
+    const to = this.project(x2, y2, _b);
+    ctx.save();
+    ctx.strokeStyle = this.color(opts.color, 'textDim');
+    ctx.lineWidth = this.lineWidth(opts.width ?? 1.5);
+    hatchLine(ctx, from.x, from.y, to.x, to.y, {
+      spacing: (opts.spacing ?? 8) * this.theme.lineScale,
+      length: (opts.length ?? 10) * this.theme.lineScale,
+      side: opts.side ?? 1
+    });
+    ctx.restore();
+    return this;
+  }
+
+  /**
+   * Círculo relleno con el color interpolado entre dos extremos según una
+   * magnitud continua `t` en [0,1] — degradado de temperatura para
+   * `calorimetry` y `thermal-expansion` sin depender de un tercer color
+   * "semántico" nuevo: por defecto interpola entre `theme.field` (frío) y
+   * `theme.force` (caliente), ya reservados para campo y fuerza.
+   * @param {number} x @param {number} y @param {number} r - Radio, unidades de mundo.
+   * @param {number} t - [0,1], 0 = frío, 1 = caliente.
+   */
+  thermal(x, y, r, t, opts = {}) {
+    const ctx = this.ctx;
+    if (!ctx) return this;
+    const cold = this.color(opts.cold, 'field');
+    const hot = this.color(opts.hot, 'force');
+    const fill = thermalColor(cold, hot, t);
+    return this.circle(x, y, r, { ...opts, fill, stroke: opts.stroke !== false, color: opts.color || fill });
+  }
+
+  /**
+   * Anillos concéntricos ondulados: patrón de fluido/viscosidad para
+   * `fluids`, ondas de superficie o cualquier textura de "medio continuo"
+   * que no debe leerse como un cuerpo sólido.
+   * @param {number} x @param {number} y @param {number} r - Radio máximo, unidades de mundo.
+   */
+  fluidPattern(x, y, r, opts = {}) {
+    const ctx = this.ctx;
+    if (!ctx) return this;
+    const p = this.project(x, y, _a);
+    const rp = this.screenSpace ? r : this.px(r);
+    ctx.save();
+    ctx.strokeStyle = this.color(opts.color, 'field');
+    ctx.lineWidth = this.lineWidth(opts.width ?? 1);
+    ctx.globalAlpha = opts.alpha ?? 0.5;
+    ripplePattern(ctx, p.x, p.y, Math.max(1, rp), {
+      rings: opts.rings ?? 3,
+      amplitude: (opts.amplitude ?? 2) * this.theme.lineScale,
+      waves: opts.waves ?? 10
+    });
+    ctx.restore();
+    return this;
+  }
+
+  /**
+   * Halo de énfasis: resplandor radial alrededor de un objeto interactivo o
+   * seleccionado. Es forma/brillo, no un color semántico nuevo — respeta la
+   * regla de la WAVE 12 de no tocar la paleta vectorial.
+   * @param {number} x @param {number} y @param {number} r - Radio del cuerpo, unidades de mundo.
+   */
+  emphasisHalo(x, y, r, opts = {}) {
+    const ctx = this.ctx;
+    if (!ctx) return this;
+    const p = this.project(x, y, _a);
+    const rp = this.screenSpace ? r : this.px(r);
+    halo(ctx, p.x, p.y, Math.max(1, rp), { color: this.color(opts.color, 'mass'), blend: opts.blend });
+    return this;
+  }
+
   /* ---------- registro para picking ---------- */
 
   /**
@@ -936,6 +1115,30 @@ export class Surface {
 export class HudSurface extends Surface {
   constructor(camera) {
     super(camera, { screenSpace: true });
+    /** Desplazamiento acumulado por ancla este frame, px CSS (§13.1). */
+    this._anchorOffsets = {};
+  }
+
+  /** Se reenlaza cada frame (`Scene.beginHud`): reinicia la cola por ancla. */
+  bind(ctx, theme) {
+    super.bind(ctx, theme);
+    this._anchorOffsets = {};
+    return this;
+  }
+
+  /**
+   * Desplazamiento a lo largo del eje del ancla para el próximo elemento:
+   * si `opts.line` viene explícito respeta el comportamiento histórico
+   * (múltiplo de `height`); si no, encola tras lo último dibujado en esa
+   * ancla — así `hud.chip('top-left')` seguido de `hud.readout(…,'top-left')`
+   * ya no parten del mismo punto y se pisan (§13.1).
+   * @param {string} anchor @param {number} height @param {object} opts
+   */
+  _nextOffset(anchor, height, opts) {
+    if (opts.line != null) return height * opts.line;
+    const cur = this._anchorOffsets[anchor] || 0;
+    this._anchorOffsets[anchor] = cur + height + (opts.gap ?? 4);
+    return cur;
   }
 
   /**
@@ -976,7 +1179,8 @@ export class HudSurface extends Surface {
   text(text, anchor = 'top-left', opts = {}) {
     const a = this.anchorPoint(anchor, opts.padX, opts.padY);
     const lh = this.fontSize(opts.lineHeight ?? 18);
-    const y = a.y + a.dir * lh * (opts.line || 0) + (a.dir > 0 ? lh * 0.8 : 0);
+    const off = this._nextOffset(anchor, lh, opts);
+    const y = a.y + a.dir * off + (a.dir > 0 ? lh * 0.8 : 0);
     return this._screenText(a.x, y, text, {
       ...opts,
       align: opts.align || a.align,
@@ -1000,10 +1204,11 @@ export class HudSurface extends Surface {
     const w = ctx.measureText(text).width + padX * 2;
     const h = this.fontSize(22);
     const lh = h + 6;
+    const off = this._nextOffset(anchor, lh, opts);
     const cx = a.align === 'right' ? a.x - w / 2 : a.align === 'center' ? a.x : a.x + w / 2;
-    const cy = a.y + a.dir * (h / 2 + lh * (opts.line || 0));
+    const cy = a.y + a.dir * (h / 2 + off);
     ctx.restore();
-    return super.chip(cx, cy, text, { ...opts, offsetX: 0, offsetY: 0 });
+    return super.chip(cx, cy, text, { ...opts, offsetX: 0, offsetY: 0, avoid: false });
   }
 
   /**
@@ -1071,8 +1276,10 @@ export class HudSurface extends Surface {
     );
     const w = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 20;
     const h = lh * lines.length + 14;
+    const off = this._nextOffset(anchor, h + 6, opts);
     const left = a.align === 'right' ? a.x - w : a.x;
-    const top = a.dir > 0 ? a.y : a.y - h;
+    const top = a.dir > 0 ? a.y + off : a.y - h - off;
+    if (this._scene) this._scene.registerBox({ x: left, y: top, w, h });
     ctx.fillStyle = this.theme.hudBg;
     ctx.strokeStyle = this.theme.hudBorder;
     ctx.lineWidth = this.lineWidth(1);
@@ -1255,6 +1462,9 @@ export class Scene {
     this._pickables = [];
     this._collectPickables = false;
 
+    /** Cajas de texto ocupadas este frame, en px CSS (§13.1). */
+    this._labelBoxes = [];
+
     this.theme = getTheme();
     /** Segundos del frame en curso (para animaciones dependientes del tiempo). */
     this.dt = 1 / 60;
@@ -1311,6 +1521,7 @@ export class Scene {
     this.world$.bind(worldCtx, this.theme);
     this._pickables.length = 0;
     this._collectPickables = true;
+    this._labelBoxes.length = 0;
     return this;
   }
 
@@ -1340,6 +1551,42 @@ export class Scene {
   /** Igual que `Surface.pickable`, reexpuesto en la escena (véase `_delegate`). */
   pickable(id, bounds) {
     return this.world$.pickable(id, bounds);
+  }
+
+  /**
+   * Ocupa `box` en el registro de este frame (§13.1), sin buscar sitio libre.
+   * @param {{x:number,y:number,w:number,h:number}} box
+   * @returns {{x:number,y:number,w:number,h:number}} el mismo `box`.
+   */
+  registerBox(box) {
+    this._labelBoxes.push(box);
+    return box;
+  }
+
+  /**
+   * Busca el primer sitio libre para `box` entre los candidatos
+   * arriba → abajo → derecha → izquierda (§13.1). Si ninguno está libre, se
+   * queda con el original: mejor una etiqueta superpuesta que una que
+   * desaparece silenciosamente.
+   * @param {{x:number,y:number,w:number,h:number}} box
+   * @returns {{x:number,y:number,w:number,h:number}}
+   */
+  findFreeBox(box) {
+    const boxes = this._labelBoxes;
+    const overlapsAny = (b) => boxes.some((o) => rectsOverlap(b, o));
+    if (!overlapsAny(box)) return this.registerBox(box);
+    const dx = box.w + 4;
+    const dy = box.h + 4;
+    const candidates = [
+      { ...box, y: box.y - dy },
+      { ...box, y: box.y + dy },
+      { ...box, x: box.x + dx },
+      { ...box, x: box.x - dx }
+    ];
+    for (const c of candidates) {
+      if (!overlapsAny(c)) return this.registerBox(c);
+    }
+    return this.registerBox(box);
   }
 
   /**

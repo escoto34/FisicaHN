@@ -171,14 +171,14 @@ export default class Induction extends SimModule {
     // origen que usa la física (`magnetX` oscila alrededor de 0). El imán
     // cruza la bobina: Φ máximo en el centro, |ε| máximo en el cruce.
     scene.line(-6.4, -1.6, 7.4, -1.6, { color: 'textDim', width: 2 });
-    scene.label(7.8, -1.95, 'riel', { color: 'textDim', size: 11 });
+    scene.label(7.8, -1.95, 'riel', { avoid: true, color: 'textDim', size: 11 });
     this._coil(scene, 0, 0, 5, 1.15, 'energy');
 
     // Imán (rojo N, azul S) sobre el riel.
     scene.rect(x - 1.5, -0.95, 1.5, 1.9, { color: 'force', width: 2 });
     scene.rect(x, -0.95, 1.5, 1.9, { color: 'textDim', width: 2 });
-    scene.label(x - 0.75, 0.15, 'N', { color: 'force' });
-    scene.label(x + 0.75, 0.15, 'S', { color: 'textDim' });
+    scene.label(x - 0.75, 0.15, 'N', { avoid: true, color: 'force' });
+    scene.label(x + 0.75, 0.15, 'S', { avoid: true, color: 'textDim' });
 
     // Flecha de velocidad en la punta del imán.
     const v = this.magnetV();
@@ -255,8 +255,8 @@ export default class Induction extends SimModule {
       ],
       { color: 'mass', width: 1.6 }
     );
-    scene.label(-4.9, 1.1, 'V₁ ~', { color: 'mass' });
-    scene.label(2.6, 1.4, `V₂ = ${roundTo(N2 / N1, 2)}·V₁`, { color: 'energy' });
+    scene.label(-4.9, 1.1, 'V₁ ~', { avoid: true, color: 'mass' });
+    scene.label(2.6, 1.4, `V₂ = ${roundTo(N2 / N1, 2)}·V₁`, { avoid: true, color: 'energy' });
 
     scene.hud.chip('Transformador: V₂/V₁ = N₂/N₁', 'top-left');
     const vp = scene.viewport();

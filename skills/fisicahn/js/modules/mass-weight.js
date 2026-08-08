@@ -131,7 +131,7 @@ export default class MassWeight extends SimModule {
     });
 
     // Etiqueta del astro bajo el cuerpo.
-    scene.chip(bx, topP + 2.9, `${a.label}: g = ${a.g} m/s²`, { color: 'energy' });
+    scene.chip(bx, topP + 2.9, `${a.label}: g = ${a.g} m/s²`, { avoid: true, color: 'energy' });
 
     // Comparación multipanel: barra de W por astro (rect es el «plot» de barras).
     this.drawWeightBars(scene, w);
@@ -164,13 +164,13 @@ export default class MassWeight extends SimModule {
         color: i % 2 ? 'mass2' : 'energy',
         fill: true
       });
-      scene.label(x0 + i * (barW + 0.32), top - 0.75, a.label.slice(0, 3), {
+      scene.label(x0 + i * (barW + 0.32), top - 0.75, a.label.slice(0, 3), { avoid: true,
         color: 'textDim',
         size: 9
       });
       i++;
     }
-    scene.label(x0 + ((barW * 6 + 0.32 * 5) / 2), top + 0.6, 'Peso W por astro', {
+    scene.label(x0 + ((barW * 6 + 0.32 * 5) / 2), top + 0.6, 'Peso W por astro', { avoid: true,
       color: 'textDim',
       size: 10
     });

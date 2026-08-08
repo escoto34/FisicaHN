@@ -1,212 +1,167 @@
 /**
- * Óptica ondulatoria: interferencia de doble rendija y difracción de una rendija.
+ * @fileoverview Óptica ondulatoria — interferencia de doble rendija y
+ * difracción de una rendija (tanda 5.4). Migrado a `draw(scene)` en la
+ * WAVE 13 (§13.0/§13.3).
  */
 
+import { SimModule } from '../core/sim-module.js';
 import { roundTo } from '../utils/math-helpers.js';
-import {
-  setModuleInfo,
-  setModuleFormulas,
-  clearChallenges
-} from '../module-ui.js';
+import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
-/** La rendija (punto fijo del montaje) queda en el origen del mundo (§17.1). */
-export const anchor = { x: 0, y: 0 };
+const N_SAMPLES = 120;
 
-let _engine, _renderer, _ui;
-let t = 0;
+export default class WaveOptics extends SimModule {
+  static viewport = { width: 20, height: 12 };
 
-const params = {
-  mode: 'double', // double | single
-  lambda: 0.55, // visual scale (µm-like)
-  d: 2.0, // slit separation (sim units)
-  a: 0.6, // single slit width
-  L: 6 // screen distance
-};
+  /** La rendija (punto fijo del montaje) queda en el origen del mundo (§17.1). */
+  static anchor = { x: 0, y: 0 };
 
-export function init(engine, renderer, ui, meta = null) {
-  _engine = engine;
-  _renderer = renderer;
-  _ui = ui;
-  t = 0;
-  renderer?.resetCamera?.();
-  setModuleInfo(ui, {
-    title: meta?.title || 'Interferencia y difracción',
-    blurb:
-      meta?.blurb ||
-      'Patrón de Young (doble rendija) e intensidad de difracción de una rendija.',
-    story:
-      'La luz como onda interfiere. Young midió λ con franjas; la difracción limita la resolución de instrumentos.',
-    cases: [
-      'Experimento de Young con láser y rendijas.',
-      'Anillos/ franjas en películas delgadas (idea de camino óptico).',
-      'Límite de difracción de un telescopio (apertura).'
-    ]
-  });
-  setModuleFormulas(ui, {
-    items: [
-      { name: 'Young (máximos)', formula: 'd sinθ = m λ', note: 'm = 0, ±1, ±2…' },
-      { name: 'Intensidad (2 rendijas, ideal)', formula: 'I ∝ cos²(δ/2)', note: 'δ = (2π/λ) d sinθ' },
-      { name: 'Difracción 1 rendija (mínimos)', formula: 'a sinθ = m λ', note: 'm = ±1, ±2…' },
-      { name: 'sinc', formula: 'I ∝ [sinβ/β]²', note: 'β = (π a sinθ)/λ' }
-    ]
-  });
-  clearChallenges(ui);
-  renderParams();
-}
+  static params = [
+    {
+      id: 'mode',
+      type: 'select',
+      label: 'Modo',
+      value: 'double',
+      options: [
+        { value: 'double', label: 'Doble rendija (Young)' },
+        { value: 'single', label: 'Difracción 1 rendija' }
+      ]
+    },
+    { id: 'lambda', label: 'Longitud de onda', latex: '\\lambda', min: 0.3, max: 1.2, step: 0.02, value: 0.55 },
+    { id: 'd', label: 'Separación', latex: 'd', min: 0.5, max: 4, step: 0.05, value: 2.0 },
+    { id: 'a', label: 'Ancho de rendija', latex: 'a', min: 0.2, max: 2, step: 0.05, value: 0.6 },
+    { id: 'L', label: 'Distancia a pantalla', latex: 'L', min: 3, max: 10, step: 0.2, value: 6 }
+  ];
 
-export function destroy() {
-  _engine = _renderer = _ui = null;
-}
-export function reset(engine) {
-  t = 0;
-  engine?.reset?.();
-}
-export function setTool() {}
-export function update(dt) {
-  t += dt;
-  updateData();
-}
-
-function intensity(y) {
-  const theta = Math.atan2(y, params.L);
-  const s = Math.sin(theta);
-  const k = (2 * Math.PI) / Math.max(params.lambda, 0.05);
-  if (params.mode === 'double') {
-    const delta = k * params.d * s;
-    const beta = (k * params.a * s) / 2;
-    const env = Math.abs(beta) < 1e-6 ? 1 : (Math.sin(beta) / beta) ** 2;
-    return env * Math.cos(delta / 2) ** 2;
+  constructor(ctx) {
+    super(ctx);
+    this.params = { mode: 'double', lambda: 0.55, d: 2.0, a: 0.6, L: 6 };
+    this.t = 0;
+    this.useCharts = false;
   }
-  const beta = (Math.PI * params.a * s) / Math.max(params.lambda, 0.05);
-  return Math.abs(beta) < 1e-6 ? 1 : (Math.sin(beta) / beta) ** 2;
-}
 
-function updateData() {
-  const fringe = (params.lambda * params.L) / Math.max(params.d, 0.05);
-  _ui?.setData(`
-    <div style="font-family:var(--font-mono);font-size:0.82rem;line-height:1.7">
-      <div>modo = ${params.mode === 'double' ? 'doble rendija' : 'una rendija'}</div>
-      <div>λ = ${params.lambda} · d = ${params.d} · a = ${params.a}</div>
-      <div>L pantalla = ${params.L}</div>
-      <div>Δy ≈ λL/d = ${roundTo(fringe, 3)} (espacio franjas)</div>
-    </div>
-  `);
-}
-
-export function render(ctx) {
-  if (!_renderer) return;
-  const r = _renderer;
-
-  // source
-  r.drawObject(-4, 0, { shape: 'circle', size: 0.25, color: '#fff59d', label: 'fuente' });
-  // slits plate (centrado: la rendija es el punto fijo del montaje)
-  const plate = r.worldToCanvas(0, 0);
-  ctx.save();
-  ctx.strokeStyle = '#90a4ae';
-  ctx.lineWidth = 6;
-  ctx.beginPath();
-  const pTop = r.worldToCanvas(0, 4);
-  const pBot = r.worldToCanvas(0, -4);
-  ctx.moveTo(pTop.x, pTop.y);
-  ctx.lineTo(pBot.x, pBot.y);
-  ctx.stroke();
-  // slit marks
-  if (params.mode === 'double') {
-    r.drawObject(0, params.d / 2, { shape: 'circle', size: 0.12, color: '#4fc3f7', label: '' });
-    r.drawObject(0, -params.d / 2, { shape: 'circle', size: 0.12, color: '#4fc3f7', label: '' });
-  } else {
-    r.drawObject(0, 0, { shape: 'rect', size: 0.15, color: '#4fc3f7', label: 'a' });
-  }
-  ctx.restore();
-
-  // screen
-  const screenX = 7;
-  const ys = [];
-  for (let i = 0; i <= 120; i++) {
-    const y = -4 + (8 * i) / 120;
-    ys.push({ y, I: intensity(y) });
-  }
-  // intensity as brightness bars on screen
-  for (const s of ys) {
-    const p = r.worldToCanvas(screenX, s.y);
-    const g = Math.round(255 * Math.pow(s.I, 0.7));
-    ctx.fillStyle = `rgb(${g},${g},${Math.min(255, g + 40)})`;
-    ctx.fillRect(p.x - 4, p.y - 2, 14, 4);
-  }
-  // graph of I(y) to the right
-  ctx.save();
-  ctx.strokeStyle = 'rgba(79,195,247,0.85)';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  for (let i = 0; i < ys.length; i++) {
-    const p = r.worldToCanvas(screenX + 0.8 + ys[i].I * 2.5, ys[i].y);
-    if (i === 0) ctx.moveTo(p.x, p.y);
-    else ctx.lineTo(p.x, p.y);
-  }
-  ctx.stroke();
-  ctx.restore();
-
-  // animated wave crests hint
-  const phase = t * 3;
-  ctx.save();
-  ctx.strokeStyle = 'rgba(255,245,157,0.25)';
-  for (let k = 0; k < 5; k++) {
-    const x = -3.5 + ((phase + k) % 3.5);
-    const p0 = r.worldToCanvas(x, -1.2);
-    const p1 = r.worldToCanvas(x, 1.2);
-    ctx.beginPath();
-    ctx.moveTo(p0.x, p0.y);
-    ctx.lineTo(p1.x, p1.y);
-    ctx.stroke();
-  }
-  ctx.restore();
-}
-
-function renderParams() {
-  _ui.setParams(`
-    <div class="control-group">
-      <label class="control-label">Modo</label>
-      <select id="wo_mode" class="custom-select">
-        <option value="double" ${params.mode === 'double' ? 'selected' : ''}>Doble rendija (Young)</option>
-        <option value="single" ${params.mode === 'single' ? 'selected' : ''}>Difracción 1 rendija</option>
-      </select>
-    </div>
-    <div class="control-group"><label class="control-label">$\lambda$</label>
-      <div class="slider-row"><input type="range" id="wo_l" class="custom-slider" min="0.3" max="1.2" step="0.02" value="${params.lambda}"><span id="wo_ld">${params.lambda}</span></div></div>
-    <div class="control-group"><label class="control-label">$d$ (separación)</label>
-      <div class="slider-row"><input type="range" id="wo_d" class="custom-slider" min="0.5" max="4" step="0.05" value="${params.d}"><span id="wo_dd">${params.d}</span></div></div>
-    <div class="control-group"><label class="control-label">$a$ (ancho)</label>
-      <div class="slider-row"><input type="range" id="wo_a" class="custom-slider" min="0.2" max="2" step="0.05" value="${params.a}"><span id="wo_ad">${params.a}</span></div></div>
-    <div class="control-group"><label class="control-label">$L$ (pantalla)</label>
-      <div class="slider-row"><input type="range" id="wo_L" class="custom-slider" min="3" max="10" step="0.2" value="${params.L}"><span id="wo_Ld">${params.L}</span></div></div>
-  `);
-  setTimeout(() => {
-    document.getElementById('wo_mode')?.addEventListener('change', (e) => {
-      params.mode = e.target.value;
-      updateData();
+  init(meta = null) {
+    this.reset();
+    setModuleInfo(this.ui, {
+      title: meta?.title || 'Interferencia y difracción',
+      blurb: meta?.blurb || 'Patrón de Young (doble rendija) e intensidad de difracción de una rendija.',
+      story: 'La luz como onda interfiere. Young midió λ con franjas; la difracción limita la resolución de instrumentos.',
+      cases: [
+        'Experimento de Young con láser y rendijas.',
+        'Anillos/ franjas en películas delgadas (idea de camino óptico).',
+        'Límite de difracción de un telescopio (apertura).'
+      ]
     });
-    const bind = (id, key, d) => {
-      const el = document.getElementById(id);
-      el?.addEventListener('input', () => {
-        params[key] = parseFloat(el.value);
-        const disp = document.getElementById(d);
-        if (disp) disp.textContent = String(params[key]);
-        updateData();
-      });
-    };
-    bind('wo_l', 'lambda', 'wo_ld');
-    bind('wo_d', 'd', 'wo_dd');
-    bind('wo_a', 'a', 'wo_ad');
-    bind('wo_L', 'L', 'wo_Ld');
-  }, 0);
-}
+    setModuleFormulas(this.ui, {
+      items: [
+        { name: 'Young (máximos)', formula: 'd \\sin\\theta = m \\lambda', note: 'm = 0, ±1, ±2…' },
+        { name: 'Intensidad (2 rendijas, ideal)', formula: 'I \\propto \\cos^2(\\delta/2)', note: 'δ = (2π/λ) d senθ' },
+        { name: 'Difracción 1 rendija (mínimos)', formula: 'a \\sin\\theta = m \\lambda', note: 'm = ±1, ±2…' },
+        { name: 'sinc', formula: 'I \\propto [\\sin\\beta/\\beta]^2', note: 'β = (π a senθ)/λ' }
+      ]
+    });
+    clearChallenges(this.ui);
+  }
 
-export function getState() {
-  return { t, params: { ...params } };
-}
-export function setState(s) {
-  if (!s || typeof s !== 'object') return;
-  if (s.params) Object.assign(params, s.params);
-  if (s.t != null) t = s.t;
-  renderParams();
+  reset() {
+    this.t = 0;
+    this.engine?.reset?.();
+  }
+
+  update(dt) {
+    this.t += dt;
+  }
+
+  intensity(y) {
+    const { L, lambda, mode, d, a } = this.params;
+    const theta = Math.atan2(y, L);
+    const s = Math.sin(theta);
+    const k = (2 * Math.PI) / Math.max(lambda, 0.05);
+    if (mode === 'double') {
+      const delta = k * d * s;
+      const beta = (k * a * s) / 2;
+      const env = Math.abs(beta) < 1e-6 ? 1 : (Math.sin(beta) / beta) ** 2;
+      return env * Math.cos(delta / 2) ** 2;
+    }
+    const beta = (Math.PI * a * s) / Math.max(lambda, 0.05);
+    return Math.abs(beta) < 1e-6 ? 1 : (Math.sin(beta) / beta) ** 2;
+  }
+
+  /* ---------- dibujo declarativo (§2.4, migrado en WAVE 13) ---------- */
+
+  draw(scene) {
+    const { mode, d, L } = this.params;
+
+    // Fuente
+    scene.body(-4, 0, { shape: 'circle', r: 0.25, color: 'ray', label: 'fuente' });
+
+    // Placa de rendijas: centrada en el origen (punto fijo del montaje, §17.1).
+    scene.line(0, 4, 0, -4, { color: 'textDim', width: 6 });
+    if (mode === 'double') {
+      scene.body(0, d / 2, { shape: 'circle', r: 0.12, color: 'field', glow: false });
+      scene.body(0, -d / 2, { shape: 'circle', r: 0.12, color: 'field', glow: false });
+    } else {
+      scene.body(0, 0, { shape: 'rect', r: 0.15, color: 'field', glow: false, label: 'a' });
+    }
+
+    // Pantalla: barras de brillo según intensidad, más la curva I(y) a la derecha.
+    const screenX = 7;
+    const samples = [];
+    for (let i = 0; i <= N_SAMPLES; i++) {
+      const y = -4 + (8 * i) / N_SAMPLES;
+      samples.push({ y, I: this.intensity(y) });
+    }
+    for (const s of samples) {
+      const g = Math.round(255 * Math.pow(s.I, 0.7));
+      scene.rect(screenX, s.y, 0.22, 0.08, { fill: `rgb(${g}, ${g}, ${Math.min(255, g + 40)})`, stroke: false });
+    }
+    scene.polyline(
+      samples.map((s) => ({ x: screenX + 0.8 + s.I * 2.5, y: s.y })),
+      { color: 'field', width: 2 }
+    );
+
+    // Animación de crestas cerca de la fuente (indicativa, no propagación real).
+    const phase = this.t * 3;
+    for (let k = 0; k < 5; k++) {
+      const x = -3.5 + ((phase + k) % 3.5);
+      scene.line(x, -1.2, x, 1.2, { color: 'ray', alpha: 0.22, width: 1 });
+    }
+
+    const fringe = (this.params.lambda * L) / Math.max(d, 0.05);
+    scene.hud.readout(
+      [
+        { label: 'modo', value: mode === 'double' ? 'doble rendija' : 'una rendija', unit: '' },
+        { label: 'λ', value: this.params.lambda, unit: '' },
+        { label: 'd', value: d, unit: '' },
+        { label: 'a', value: this.params.a, unit: '' },
+        { label: 'Δy', value: roundTo(fringe, 3), unit: '(franjas)' }
+      ],
+      'top-left'
+    );
+  }
+
+  /* ---------- datos numéricos (§3.1) ---------- */
+
+  readout() {
+    const { mode, lambda, d, a, L } = this.params;
+    const fringe = (lambda * L) / Math.max(d, 0.05);
+    return {
+      modo: { value: mode === 'double' ? 'doble rendija' : 'una rendija', unit: '' },
+      lambda: { value: lambda, unit: '' },
+      d: { value: d, unit: '' },
+      a: { value: a, unit: '' },
+      L: { value: L, unit: '' },
+      'Δy': { value: roundTo(fringe, 3), unit: '' }
+    };
+  }
+
+  getState() {
+    return { t: this.t, params: { ...this.params } };
+  }
+
+  setState(s) {
+    if (!s || typeof s !== 'object') return;
+    if (s.params) Object.assign(this.params, s.params);
+    if (s.t != null) this.t = s.t;
+  }
 }

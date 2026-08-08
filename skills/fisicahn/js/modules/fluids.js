@@ -206,7 +206,7 @@ export default class Fluids extends SimModule {
       alpha: 0.3,
       waves: true
     });
-    scene.label(cx, level + 0.5, `Líquido ρf = ${rf} kg/m³`, { color: 'field' });
+    scene.label(cx, level + 0.5, `Líquido ρf = ${rf} kg/m³`, { avoid: true, color: 'field' });
 
     // Cubo en su posición (equilibrio o cayendo).
     const cy = this.y;
@@ -265,8 +265,8 @@ export default class Fluids extends SimModule {
     for (const s of seg) {
       scene.rect((s.x0 + s.x1) / 2, cy, s.x1 - s.x0, s.w * 2, { color: 'textDim', width: 2 });
     }
-    scene.label(cx - half + 0.6, cy - w1 - 0.5, `A₁ = ${A1} cm²`, { color: 'textDim' });
-    scene.label(cx, cy - w2 - 0.5, `A₂ = ${A2} cm²`, { color: 'textDim' });
+    scene.label(cx - half + 0.6, cy - w1 - 0.5, `A₁ = ${A1} cm²`, { avoid: true, color: 'textDim' });
+    scene.label(cx, cy - w2 - 0.5, `A₂ = ${A2} cm²`, { avoid: true, color: 'textDim' });
 
     // Flechas de velocidad: más largas donde el tubo es más estrecho.
     const kv = 0.9;
@@ -290,7 +290,7 @@ export default class Fluids extends SimModule {
       fill: 'field',
       alpha: 0.8
     });
-    scene.label(gaugeX, cy + 3.6, `ΔP = ${roundTo(dP / 1000, 1)} kPa`, { color: 'field' });
+    scene.label(gaugeX, cy + 3.6, `ΔP = ${roundTo(dP / 1000, 1)} kPa`, { avoid: true, color: 'field' });
 
     const hud = scene.hud;
     hud.chip('Continuidad y Bernoulli en el tubo de Venturi', 'top-left');

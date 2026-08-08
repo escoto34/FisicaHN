@@ -233,8 +233,8 @@ export default class StandingWaves extends SimModule {
     scene.polyline(pts1, { color: 'textDim', width: 1.5, alpha: 0.5 });
     scene.polyline(pts2, { color: 'textDim', width: 1.5, alpha: 0.5 });
 
-    scene.label(-0.2, 3.2, 'y₁ + y₂ con envolvente', { color: 'spring' });
-    scene.label(-9.2, -2.2, `f₁ = ${f1} Hz · f₂ = ${f2} Hz`, { color: 'textDim' });
+    scene.label(-0.2, 3.2, 'y₁ + y₂ con envolvente', { avoid: true, color: 'spring' });
+    scene.label(-9.2, -2.2, `f₁ = ${f1} Hz · f₂ = ${f2} Hz`, { avoid: true, color: 'textDim' });
 
     scene.hud.chip('Batidos: la envolvente marca el período', 'top-left');
     scene.hud.readout(
