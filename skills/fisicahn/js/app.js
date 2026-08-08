@@ -803,22 +803,22 @@ function bindSearchSuggestions() {
 
 /* --- Ficha del módulo (§4.3): «Útil para» (serves[]) --- */
 
-/** Adjunta los `serves[]` del módulo al pie del panel de parámetros. */
+/** Adjunta los `serves[]` del módulo a su propia sección al pie del panel (§16.1). */
 function appendCatalogServes(entry) {
-  if (!paramsPanel) return;
+  const section = document.getElementById('servesSection');
+  const host = document.getElementById('servesPanel');
+  if (!section || !host) return;
   const list = entry?.serves || [];
-  paramsPanel.querySelectorAll('.catalog-serves').forEach((n) => n.remove());
-  if (!list.length) return;
-  const wrap = document.createElement('div');
-  wrap.className = 'catalog-serves';
+  host.innerHTML = '';
+  if (!list.length) {
+    section.hidden = true;
+    return;
+  }
   const items = list
     .map((s) => `<span class="catalog-serves-chip">${escapeHtml(s)}</span>`)
     .join('');
-  wrap.innerHTML = `<details open>
-    <summary>Útil para</summary>
-    <div class="catalog-serves-list">${items}</div>
-  </details>`;
-  paramsPanel.appendChild(wrap);
+  host.innerHTML = `<div class="catalog-serves"><div class="catalog-serves-list">${items}</div></div>`;
+  section.hidden = false;
 }
 
 /* ============================================

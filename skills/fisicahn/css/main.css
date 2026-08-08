@@ -678,6 +678,38 @@ button.sidebar-brand-btn:hover .sidebar-title {
   border: 0;
 }
 
+/* --- Select moderno (§16.2) --- */
+/* Sustituye al chrome nativo del navegador y a los 5 bloques de estilo inline
+   que los módulos legacy repetían carácter a carácter. */
+.custom-select {
+  width: 100%;
+  padding: 8px 30px 8px 10px;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: var(--bg-tertiary);
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%233ecfbf' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.custom-select:hover {
+  border-color: rgba(62, 207, 191, 0.4);
+}
+
+.custom-select:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(62, 207, 191, 0.25);
+}
+
 /* --- Buttons --- */
 .btn-row {
   display: flex;

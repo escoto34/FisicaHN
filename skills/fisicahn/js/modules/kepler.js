@@ -237,7 +237,7 @@ function renderParams() {
   _ui.setParams(`
     <div class="control-group">
       <label class="control-label">Modo</label>
-      <select id="kp_mode" class="custom-select" style="width:100%;padding:8px;background:var(--bg-tertiary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:6px">
+      <select id="kp_mode" class="custom-select">
         <option value="kepler" ${params.mode === 'kepler' ? 'selected' : ''}>Leyes de Kepler (elipse)</option>
         <option value="flyby" ${params.mode === 'flyby' ? 'selected' : ''}>Asistencia gravitacional</option>
       </select>

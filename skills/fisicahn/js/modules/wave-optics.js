@@ -166,7 +166,7 @@ function renderParams() {
   _ui.setParams(`
     <div class="control-group">
       <label class="control-label">Modo</label>
-      <select id="wo_mode" class="custom-select" style="width:100%;padding:8px;background:var(--bg-tertiary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:6px">
+      <select id="wo_mode" class="custom-select">
         <option value="double" ${params.mode === 'double' ? 'selected' : ''}>Doble rendija (Young)</option>
         <option value="single" ${params.mode === 'single' ? 'selected' : ''}>Difracción 1 rendija</option>
       </select>

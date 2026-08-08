@@ -244,7 +244,7 @@ function renderParams() {
   _ui.setParams(`
     <div class="control-group">
       <label class="control-label">Modo</label>
-      <select id="th_mode" class="custom-select" style="width:100%;padding:8px;background:var(--bg-tertiary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:6px">
+      <select id="th_mode" class="custom-select">
         <option value="isotherm" ${params.mode === 'isotherm' ? 'selected' : ''}>Isoterma (P–V)</option>
         <option value="isochoric" ${params.mode === 'isochoric' ? 'selected' : ''}>Isocora (V fijo)</option>
         <option value="isobaric" ${params.mode === 'isobaric' ? 'selected' : ''}>Isóbara (P fijo)</option>

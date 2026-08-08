@@ -2252,9 +2252,21 @@ contrario la gráfica se solapa con el resto del HUD.
 
 # WAVE 16 — Panel derecho: orden y estética
 
-> 🔜 **Pendiente.**
+> ✅ **Hecho.** Commit «Panel derecho en orden y selects modernos».
+>
+> Resumen: «Herramientas» sube justo debajo de «Parámetros» y «Útil para» deja de
+> colgarse al pie de `paramsPanel` para vivir en su propia `.panel-section`
+> (`#servesSection`) al final del `<aside>` (orden: Controles → Parámetros →
+> Herramientas → Gráficas → Útil para; con la WAVE 15 desaparece Gráficas).
+> `appendCatalogServes()` apunta a `#servesPanel` y oculta la sección cuando el
+> módulo no declara `serves[]`. Nueva regla `.custom-select` en `css/main.css`
+> (tokens de la WAVE 12, `appearance: none`, chevron SVG, `:hover` y
+> `:focus-visible`), y los 5 módulos legacy (`lenses`, `kepler`, `wave-optics`,
+> `photoelectric`, `thermodynamics`) borran su estilo inline duplicado.
 
 ## 16.1 Herramientas encima de «Útil para»
+
+> ✅ **Hecho.**
 
 Orden actual del DOM: Controles (`index.html:169`) → Parámetros (`:195`) → Gráficas
 (`:201`) → Herramientas (`:206`). «Útil para» **no es una sección propia**:
@@ -2270,8 +2282,11 @@ orden final queda:
 
 ## 16.2 Selects modernos
 
+> ✅ **Hecho.** `css/main.css` define `.custom-select`; 5 módulos legacy sin estilo
+> inline.
+
 `params-schema.js:78-90` emite `<select class="custom-select">` y **`.custom-select`
-no tiene ninguna regla CSS** en `css/main.css`, `css/catalog.css` ni
+no tiene ninguna regla CSS** para `css/main.css`, `css/catalog.css` ni
 `css/challenges.css` — se ve con el chrome nativo del navegador, desalineado con el
 resto del panel. Además 5 módulos legacy lo parchean con estilos inline duplicados
 carácter a carácter: `lenses.js:464`, `kepler.js:240`, `wave-optics.js:166`,
