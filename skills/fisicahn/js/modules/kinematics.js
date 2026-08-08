@@ -249,10 +249,12 @@ export default class Kinematics extends SimModule {
 
   renderParams() {
     if (!this.ui) return;
+    const on = this.unbounded ? ' active' : '';
+    const txt = this.unbounded ? 'Espacio infinito: ON' : 'Espacio infinito: OFF';
     this.ui.setParams(`
       <div class="control-group">
-        <button type="button" class="ctrl-btn unbounded-btn" id="param_unbounded" aria-pressed="false">
-          Espacio infinito: OFF
+        <button type="button" class="ctrl-btn unbounded-btn${on}" id="param_unbounded" aria-pressed="${this.unbounded}">
+          ${txt}
         </button>
       </div>
       ${paramControl({ id: 'vx', labelTex: 'v_x', labelRest: 'velocidad', min: -5, max: 5, step: 0.1, value: this.params.vx, unit: 'm/s' })}

@@ -12,6 +12,9 @@ import {
   clearChallenges
 } from '../module-ui.js';
 
+/** Punto fijo del techo (donde cuelgan las cuerdas), al origen del mundo (§17.1). */
+export const anchor = { x: 0, y: 0 };
+
 let _engine, _renderer, _ui;
 let t = 0;
 /** Oscilación visual si está desequilibrado (no es dinámica completa). */
@@ -149,10 +152,11 @@ function updateData() {
   `);
 }
 
-/** Anclajes fijos y posición de la masa. */
+/** Anclajes fijos y posición de la masa, con el techo en el origen (§17.1). */
 function layout() {
-  const left = { x: -5.5, y: 3.2 };
-  const right = { x: 5.5, y: 3.2 };
+  const roofY = 0;
+  const left = { x: -5.5, y: roofY };
+  const right = { x: 5.5, y: roofY };
   // La masa cuelga; altura según ángulos (intersección geométrica simple)
   const th1 = (params.theta1 * Math.PI) / 180;
   const th2 = (params.theta2 * Math.PI) / 180;
@@ -193,8 +197,8 @@ export function render(ctx) {
   const { left, right, mass, sol } = L;
 
   // techo / viga
-  const roofA = r.worldToCanvas(-6.5, 3.35);
-  const roofB = r.worldToCanvas(6.5, 3.35);
+  const roofA = r.worldToCanvas(-6.5, 0.35);
+  const roofB = r.worldToCanvas(6.5, 0.35);
   ctx.save();
   ctx.fillStyle = 'rgba(100, 120, 140, 0.45)';
   ctx.fillRect(roofA.x, roofA.y - 18, roofB.x - roofA.x, 22);

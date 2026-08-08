@@ -9,6 +9,9 @@ import {
   clearChallenges
 } from '../module-ui.js';
 
+/** La rendija (punto fijo del montaje) queda en el origen del mundo (§17.1). */
+export const anchor = { x: 0, y: 0 };
+
 let _engine, _renderer, _ui;
 let t = 0;
 
@@ -95,29 +98,29 @@ export function render(ctx) {
   const r = _renderer;
 
   // source
-  r.drawObject(-7, 0, { shape: 'circle', size: 0.25, color: '#fff59d', label: 'fuente' });
-  // slits plate
-  const plate = r.worldToCanvas(-3, 0);
+  r.drawObject(-4, 0, { shape: 'circle', size: 0.25, color: '#fff59d', label: 'fuente' });
+  // slits plate (centrado: la rendija es el punto fijo del montaje)
+  const plate = r.worldToCanvas(0, 0);
   ctx.save();
   ctx.strokeStyle = '#90a4ae';
   ctx.lineWidth = 6;
   ctx.beginPath();
-  const pTop = r.worldToCanvas(-3, 4);
-  const pBot = r.worldToCanvas(-3, -4);
+  const pTop = r.worldToCanvas(0, 4);
+  const pBot = r.worldToCanvas(0, -4);
   ctx.moveTo(pTop.x, pTop.y);
   ctx.lineTo(pBot.x, pBot.y);
   ctx.stroke();
   // slit marks
   if (params.mode === 'double') {
-    r.drawObject(-3, params.d / 2, { shape: 'circle', size: 0.12, color: '#4fc3f7', label: '' });
-    r.drawObject(-3, -params.d / 2, { shape: 'circle', size: 0.12, color: '#4fc3f7', label: '' });
+    r.drawObject(0, params.d / 2, { shape: 'circle', size: 0.12, color: '#4fc3f7', label: '' });
+    r.drawObject(0, -params.d / 2, { shape: 'circle', size: 0.12, color: '#4fc3f7', label: '' });
   } else {
-    r.drawObject(-3, 0, { shape: 'rect', size: 0.15, color: '#4fc3f7', label: 'a' });
+    r.drawObject(0, 0, { shape: 'rect', size: 0.15, color: '#4fc3f7', label: 'a' });
   }
   ctx.restore();
 
-  // screen at x = L - 3? put screen at x=4
-  const screenX = 4;
+  // screen
+  const screenX = 7;
   const ys = [];
   for (let i = 0; i <= 120; i++) {
     const y = -4 + (8 * i) / 120;
@@ -148,7 +151,7 @@ export function render(ctx) {
   ctx.save();
   ctx.strokeStyle = 'rgba(255,245,157,0.25)';
   for (let k = 0; k < 5; k++) {
-    const x = -6.5 + ((phase + k) % 3.5);
+    const x = -3.5 + ((phase + k) % 3.5);
     const p0 = r.worldToCanvas(x, -1.2);
     const p1 = r.worldToCanvas(x, 1.2);
     ctx.beginPath();

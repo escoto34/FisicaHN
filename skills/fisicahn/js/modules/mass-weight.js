@@ -24,6 +24,9 @@ const ASTROS = [
 export default class MassWeight extends SimModule {
   static viewport = { width: 22, height: 13 };
 
+  // Punto fijo del mecanismo en el origen del mundo (WAVE 17.1).
+  static anchor = { x: 0, y: 0 };
+
   static params = [
     { id: 'm', label: 'Masa', latex: 'm', unit: 'kg', min: 0.5, max: 200, step: 0.5, value: 50 },
     {
@@ -91,13 +94,14 @@ export default class MassWeight extends SimModule {
     const a = this.astro();
     const W = this.weight(m, a.g);
     const w = scene.world();
-    const g = w.bottom + 0.35; // niel del suelo (mundo)
+    // Suelo centrado en el mundo: la báscula queda sobre el origen (§17.1).
+    const g = -1.9;
 
     // Suelo.
     scene.rect(0, g, w.right - w.left - 1.6, 0.3, { color: 'textDim', fill: true });
 
-    // Báscula: pedestal + plato sobre el suelo.
-    const bx = -3.6;
+    // Báscula: pedestal + plato sobre el suelo (eje centrado en el origen).
+    const bx = 0;
     const topP = g + 1.1;
     scene.rect(bx, topP + 0.5, 2.4, 1.0, { color: 'mass', radius: 0.15 });
     scene.polygon(

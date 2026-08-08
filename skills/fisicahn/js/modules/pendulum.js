@@ -22,6 +22,9 @@ const DEG = Math.PI / 180;
 export default class Pendulum extends SimModule {
   static viewport = { width: 24, height: 16 };
 
+  // Punto fijo del mecanismo en el origen del mundo (WAVE 17.1).
+  static anchor = { x: 0, y: 0 };
+
   static params = [
     {
       id: 'modo',
@@ -64,8 +67,8 @@ export default class Pendulum extends SimModule {
       th2: -90,
       eps: 0
     };
-    /** Pivote del péndulo en el mundo (ambos modos). */
-    this.pivot = { x: 0, y: 6 };
+    /** Pivote del péndulo en el mundo (ambos modos). Centrado en el origen por la regla §17.1. */
+    this.pivot = { x: 0, y: 0 };
     this.t = 0;
     // Simple: θ, ω, periodo medido, historia de cruces.
     this.th = 0;

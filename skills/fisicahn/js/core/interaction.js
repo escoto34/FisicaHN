@@ -32,6 +32,8 @@ export class CanvasInteraction {
     this.camera = opts.camera;
     this.scene = opts.scene;
     this.onChange = opts.onChange || (() => {});
+    /** Empieza el usuario a manipular un objeto: la app suelta el encuadre manual. */
+    this.onPickStart = opts.onPickStart || (() => {});
 
     /** Módulo activo: recibe onPick/onDrag si los implementa. */
     this.target = null;
@@ -112,6 +114,7 @@ export class CanvasInteraction {
         this._dragId = id;
         c.setPointerCapture?.(e.pointerId);
         this._emit('onPickStart', id, world);
+        this.onPickStart(id, world);
         e.preventDefault();
       }
     };

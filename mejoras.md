@@ -2287,9 +2287,20 @@ el proyecto: `.challenge-select` (`css/challenges.css:233`).
 
 # WAVE 17 — Origen centrado, encuadre inicial y espacio infinito
 
-> 🔜 **Pendiente.**
+> ✅ **Hecho.** Commit «Origen centrado, encuadre inicial y botón de espacio infinito».
+>
+> Resumen: los 16 módulos de la WAVE 13 declaran `static anchor = {x:0,y:0}` (3 legacy con
+> `export const anchor`) y `smoke-55.test.mjs` los verifica a ≤0.5 u del origen;
+> `camera.reset()` fija `_userFramed` y la app lo libera en Reiniciar, cambio de
+> parámetro, toggle de espacio infinito y primer `pointerdown` de manipulación
+> (`onPickStart`); `updateViewControlsUI()` sincroniza zoom, encuadre y espacio
+> infinito; `dynamics.js` exporta por fin `getUnbounded`.
 
 ## 17.1 El punto fijo en el centro del plano
+
+> ✅ **Hecho.** Báscula de `mass-weight` centrada (`bx=0`, suelo `g=-1.9`), probeta de
+> `elasticity` en `cx=0`, techo/anclajes de `statics` en y=0.35/0, rendija de
+> `wave-optics` en x=0 (fuente -4, pantalla 7, crestas -3.5).
 
 `Camera` arranca y resetea en `x=0, y=0` (`js/core/camera.js:33-34`, `:328-336`) y
 `app.js:1144-1149` aplica `static viewport` + `resetCamera()` al cargar cada módulo. No
@@ -2300,7 +2311,13 @@ que hoy usan un origen desplazado; se extiende el arnés de `smoke-55.test.mjs` 
 exigir que el punto fijo declarado por el módulo caiga a ≤0.5 unidades de mundo de
 (0,0).
 
-## 17.2 «Encuadre inicial» que de verdad encuadra
+## 17.2 «Encuadre de verdad encuadra»
+
+> ✅ **Hecho.** `camera.reset()` fija `_userFramed`; `follow()` retorna temprano mientras
+> esté fija. La app libera la bandera al acabar de cargar el módulo, en Reiniciar,
+> cambio de parámetro, toggle de espacio infinito y `onPickStart`. `updateViewControlsUI()`
+> sincroniza los cuatro controles y el botón de herramienta de espacio infinito
+> (`data-tool="unbounded"`) se deshabilitado para módulos sin soporte.
 
 `#resetViewBtn` (`index.html:136` → handler `js/app.js:1538-1542` → `camera.reset()`)
 es un **no-op práctico** en los módulos con espacio infinito activo: `reset()` limpia
@@ -2311,10 +2328,15 @@ y la cámara salta de nuevo al objeto.
 Arreglo: `camera.reset()` fija una bandera `_userFramed` que suspende el `follow()`
 hasta que el usuario mueva algo o reinicie la simulación. Se repasa además
 `updateViewControlsUI()` (`js/app.js:1330`), que hoy solo actualiza `#zoomLabel` y deja
-sin reflejar el resto de estados de vista (zoom in/out deshabilitado, etc.) — se
+sin reflejar el resto de estados de vista (zoom in/out deshabilitado, etc.) —se
 extiende para que cada botón de vista muestre su estado real.
 
 ## 17.3 Espacio infinito ON por defecto
+
+> ✅ **Hecho.** `dynamics.js` exporta `getUnbounded` y `renderParams()` de kinematics y
+> dynamics pinta `aria-pressed`/`active` desde el estado real. Para módulos sin
+> `setUnbounded` el botón `data-tool="unbounded"` sale `disabled`. `setState()` aplica
+> `unbounded` solo si la clave está en el snapshot.
 
 Estado real: solo **4 módulos** lo implementan —`kinematics.js:33`, `dynamics.js:27`,
 `gravity.js:19`, `magnetic.js:24`— y los 4 ya tienen default `true`. Quedan dos
@@ -2323,7 +2345,7 @@ incoherencias por corregir:
 - El botón se **pinta OFF** aunque el estado sea ON: `kinematics.js:254-256` y
   `dynamics.js:259-261` emiten `aria-pressed="false"` y texto «Espacio infinito: OFF»
   sin la clase `active`. `gravity.js:135` sí lo pinta bien (`active` + «ON») y sirve de
-  patrón para corregir los otros dos.
+  patrón que corregir los otros dos.
 - `dynamics.js` no exporta `getUnbounded` (bug ya documentado en §14.2), causa raíz de
   que su botón nunca se apague.
 

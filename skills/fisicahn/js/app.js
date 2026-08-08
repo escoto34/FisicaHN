@@ -170,7 +170,13 @@ function ensureEngine() {
       camera,
       scene,
       // En pausa nada repinta solo: mover la cámara debe pedir un frame.
-      onChange: () => engine?.requestPaint?.()
+      onChange: () => {
+        engine?.requestPaint?.();
+        updateViewControlsUI();
+      },
+      // El usuario vuelve a manipular el sistema: se suelta el encuadre
+      // manual fijado con «Encuadre inicial» (§17.2).
+      onPickStart: () => camera?.resumeFollow?.()
     });
     // Un cambio de tema invalida el fondo (rejilla y ejes cambian de color).
     onThemeChange(() => {
@@ -1119,7 +1125,6 @@ async function loadEngineModule(engineKey, catalogEntry = null, initialMode = nu
       console.error(`Error en init de ${resolvedKey}:`, err);
       showModuleBroken(title);
     }
-    updateViewControlsUI();
     // Enlace profundo a un modo interno del catálogo (§4.4): aplicar el parámetro.
     if (initialMode && instance && instance.params && initialMode.param) {
       try {
@@ -1142,6 +1147,11 @@ async function loadEngineModule(engineKey, catalogEntry = null, initialMode = nu
     if (engine && !engine.isRunning?.()) engine.start();
     ensureRunning();
     updateTransportControlsForModule(resolvedKey);
+    // Fin de la carga: los `resetCamera()` de init() de módulo acabaron; el
+    // encuadre declarado manda y el seguimiento vuelve a estar operativo
+    // (hasta que el usuario fije uno manual con «Encuadre inicial», §17.2).
+    camera?.resumeFollow?.();
+    updateViewControlsUI();
   } catch (err) {
     console.error(`Error cargando motor ${resolvedKey}:`, err);
     showModuleBroken(title);
@@ -1175,6 +1185,9 @@ function mountDeclarativeParams(mod, instance) {
     } catch (err) {
       console.error('Error al aplicar un parámetro:', err);
     }
+    // Cambiar un parámetro también cuenta como «el usuario mueve algo»: el
+    // encuadre manual se libera y el seguimiento vuelve (§17.2).
+    camera?.resumeFollow?.();
     comparison?.syncParam(id, value, 'a');
     engine?.requestPaint?.();
   });
@@ -1289,8 +1302,22 @@ function toggleComparison() {
 
 /** Sincroniza el estado visual de los controles de vista con el modelo. */
 function updateViewControlsUI() {
+  if (!camera) return;
   const zoomLabel = document.getElementById('zoomLabel');
-  if (zoomLabel && camera) zoomLabel.textContent = `${Math.round(camera.zoom * 100)}%`;
+  if (zoomLabel) zoomLabel.textContent = `${Math.round(camera.zoom * 100)}%`;
+  // Botones de zoom: se deshabilitan en los extremos (§17.2).
+  const zoomInBtn = document.getElementById('zoomInBtn');
+  const zoomOutBtn = document.getElementById('zoomOutBtn');
+  if (zoomInBtn) zoomInBtn.disabled = camera.zoom >= camera.maxZoom - 1e-9;
+  if (zoomOutBtn) zoomOutBtn.disabled = camera.zoom <= camera.minZoom + 1e-9;
+  // «Encuadre inicial» refleja el encuadre manual fijado por el usuario.
+  const resetViewBtn = document.getElementById('resetViewBtn');
+  if (resetViewBtn) {
+    resetViewBtn.classList.toggle('active', camera.userFramed);
+    resetViewBtn.title = camera.userFramed
+      ? 'Encuadre fijado: sigue el objeto al reiniciar'
+      : 'Encuadre inicial (0)';
+  }
   const themeBtn = document.getElementById('themeBtn');
   if (themeBtn) {
     themeBtn.title = `Tema del lienzo: ${THEMES[getThemeName()]?.label || getThemeName()} (T)`;
@@ -1304,6 +1331,21 @@ function updateViewControlsUI() {
     compareBtn.title = supported
       ? 'Comparación lado a lado (C)'
       : 'Comparación no disponible en este módulo todavía';
+  }
+  // «Espacio infinito» solo existe en los 4 módulos que lo implementan
+  // (kinematics, dynamics, gravity, magnetic); el resto muestra el botón
+  // deshabilitado en vez de un estado engañoso (§17.3).
+  const unboundedBtn = document.querySelector('.tool-btn[data-tool="unbounded"]');
+  if (unboundedBtn) {
+    const inst = state.moduleInstances[state.currentModule];
+    const supported = !!inst && typeof inst.setUnbounded === 'function';
+    unboundedBtn.disabled = !supported;
+    const on = supported && !!inst.getUnbounded?.();
+    unboundedBtn.classList.toggle('active', on);
+    unboundedBtn.setAttribute('aria-pressed', supported ? String(on) : 'false');
+    unboundedBtn.title = supported
+      ? 'Espacio infinito — sin paredes, la cámara sigue al objeto (I)'
+      : 'Espacio infinito no disponible en este módulo';
   }
 }
 
@@ -1478,6 +1520,9 @@ resetBtn?.addEventListener('click', () => {
   if (inst && typeof inst.reset === 'function') {
     inst.reset(engine, renderer, ui);
   }
+  // Reiniciar la simulación reanuda el seguimiento (§17.2).
+  camera?.resumeFollow?.();
+  updateViewControlsUI();
 });
 
 /* ============================================
@@ -1641,6 +1686,8 @@ toolBtns.forEach((btn) => {
       } else if (inst && typeof inst.setTool === 'function') {
         inst.setTool('unbounded');
       }
+      camera?.resumeFollow?.();
+      updateViewControlsUI();
       return;
     }
     if (tool === 'stopwatch') {

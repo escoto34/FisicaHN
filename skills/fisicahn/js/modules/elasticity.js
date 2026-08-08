@@ -28,6 +28,9 @@ const MPa = 1e6;
 export default class Elasticity extends SimModule {
   static viewport = { width: 22, height: 14 };
 
+  // Punto fijo del mecanismo en el origen del mundo (WAVE 17.1).
+  static anchor = { x: 0, y: 0 };
+
   static params = [
     {
       id: 'material',
@@ -168,7 +171,7 @@ export default class Elasticity extends SimModule {
     const e = this.strain();
     const L = L0 * (1 + e);
     const w = scene.world();
-    const cx = w.left + 3.4;
+    const cx = 0; // probeta centrada en el origen del mundo
     const cap = w.top - 2.0; // cap fijo cerca de la cima del mundo
     const broken = this.region() === 'Rotura';
 

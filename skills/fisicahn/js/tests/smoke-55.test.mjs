@@ -189,3 +189,55 @@ test('defaults 5.5: unbounded=true en kinematics, dynamics y magnetic', async ()
   magNs.init(ctxSim.engine, ctxSim.renderer, ctxSim.ui, {});
   assert.equal(magNs.getUnbounded(), true, 'magnetic: unbounded debe iniciar en true');
 });
+
+/* §17.1 — el punto fijo declarado por cada módulo cae a ≤0.5 u de mundo de (0,0). */
+const ANCHORED = [
+  'units-error', 'vectors', 'mass-weight', 'elasticity', 'statics', 'pendulum',
+  'standing-waves', 'fluids', 'calorimetry', 'kinetic-theory', 'thermal-expansion',
+  'mirrors', 'induction', 'wave-optics', 'optical-instruments', 'particles'
+];
+
+for (const name of ANCHORED) {
+  test(`anchor 17.1: ${name} declara su punto fijo a ≤0.5 u del origen`, async () => {
+    const mod = await import(base.href + name + '.js');
+    const anchor = mod.default?.anchor ?? mod.anchor;
+    assert.ok(anchor, `${name}: no declara anchor`);
+    const d = Math.hypot(anchor.x - 0, anchor.y - 0);
+    assert.ok(
+      d <= 0.5,
+      `${name}: punto fijo en (${anchor.x}, ${anchor.y}) a ${d.toFixed(2)} u del origen`
+    );
+  });
+}
+
+/* §17.2 — encuadre inicial: reset() fija `_userFramed`, follow() se suspende
+ * y resumeFollow() lo libera. */
+test('17.2: camera.reset() suspende follow() hasta resumeFollow()', async () => {
+  const { Camera } = await import(new URL('camera.js', CORE).href);
+  const cam = new Camera({ worldWidth: 20, worldHeight: 15 });
+  cam.reset();
+  assert.equal(cam.userFramed, true, 'reset() debe fijar userFramed');
+  cam.follow(3, 4);
+  cam.update(1 / 60);
+  // El encuadre manual manda: la cámara no salta al objetivo.
+  assert.equal(cam.userFramed, true);
+  assert.notEqual(cam.x, 3);
+  cam.resumeFollow();
+  assert.equal(cam.userFramed, false, 'resumeFollow() libera el encuadre');
+  cam.follow(3, 4, { smooth: 0 });
+  assert.equal(cam.x, 3, 'con smooth=0 el follow vuelve a ser instantáneo');
+});
+
+/* §17.3 — los 4 módulos con espacio infinito exponen getUnbounded. */
+test('17.3: dynamics exporta getUnbounded (botón de espacio infinito)', async () => {
+  const ctxSim = { engine: { reset() {} }, renderer: { resetCamera() {}, follow() {} }, ui: uiStub() };
+  const dynNs = await import(base.href + 'dynamics.js');
+  dynNs.init(ctxSim.engine, ctxSim.renderer, ctxSim.ui, {});
+  assert.equal(typeof dynNs.getUnbounded, 'function', 'dynamics: falta getUnbounded');
+  assert.equal(dynNs.getUnbounded(), true);
+
+  const gravNs = await import(base.href + 'gravity.js');
+  gravNs.init(ctxSim.engine, ctxSim.renderer, ctxSim.ui, {});
+  assert.equal(typeof gravNs.getUnbounded, 'function');
+  assert.equal(gravNs.getUnbounded(), true);
+});

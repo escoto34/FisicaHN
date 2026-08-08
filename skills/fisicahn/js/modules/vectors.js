@@ -20,6 +20,9 @@ const DEG = 180 / Math.PI;
 export default class VectorsModule extends SimModule {
   static viewport = { width: 22, height: 13 };
 
+  // Punto fijo del mecanismo en el origen del mundo (WAVE 17.1).
+  static anchor = { x: 0, y: 0 };
+
   static params = [
     {
       id: 'modo',

@@ -22,6 +22,9 @@ import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.
 export default class Induction extends SimModule {
   static viewport = { width: 24, height: 15 };
 
+  // Punto fijo del mecanismo en el origen del mundo (WAVE 17.1).
+  static anchor = { x: 0, y: 0 };
+
   static params = [
     {
       id: 'modo',
@@ -164,10 +167,12 @@ export default class Induction extends SimModule {
   _drawFaraday(scene) {
     const x = this.magnetX();
 
-    // Riel y bobina a la derecha.
-    scene.line(-9.5, -1.6, 8, -1.6, { color: 'textDim', width: 2 });
-    scene.label(8.4, -1.95, 'riel', { color: 'textDim', size: 11 });
-    this._coil(scene, 6.2, 0, 5, 1.15, 'energy');
+    // Riel y bobina centrados: el centro de la bobina es (0,0), el mismo
+    // origen que usa la física (`magnetX` oscila alrededor de 0). El imán
+    // cruza la bobina: Φ máximo en el centro, |ε| máximo en el cruce.
+    scene.line(-6.4, -1.6, 7.4, -1.6, { color: 'textDim', width: 2 });
+    scene.label(7.8, -1.95, 'riel', { color: 'textDim', size: 11 });
+    this._coil(scene, 0, 0, 5, 1.15, 'energy');
 
     // Imán (rojo N, azul S) sobre el riel.
     scene.rect(x - 1.5, -0.95, 1.5, 1.9, { color: 'force', width: 2 });
@@ -183,8 +188,8 @@ export default class Induction extends SimModule {
     const l = this.params.lamb;
     const fLines = 4;
     for (let i = 0; i < fLines; i++) {
-      const xp = 6.2 - ((6.2 - x - 1.6) * (i + 1)) / (fLines + 1);
-      const spread = 0.9 * (1 - Math.abs(xp - 6.2) / 7);
+      const xp = (x + 1.6) - ((x + 1.6) * (i + 1)) / (fLines + 1);
+      const spread = 0.9 * (1 - Math.abs(xp) / 7);
       scene.line(xp, -spread, xp, spread, { color: 'textDim', width: 1.2, alpha: 0.5 });
     }
 

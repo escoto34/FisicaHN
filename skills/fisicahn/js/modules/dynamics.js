@@ -96,6 +96,10 @@ export function setTool(toolId) {
   if (toolId === 'unbounded') setUnbounded(!unbounded);
 }
 
+export function getUnbounded() {
+  return unbounded;
+}
+
 export function getState() {
   return {
     pos: { x: pos.x, y: pos.y },
@@ -254,10 +258,12 @@ function updateData() {
 
 function renderParams() {
   if (!_ui) return;
+  const on = unbounded ? ' active' : '';
+  const txt = unbounded ? 'Espacio infinito: ON' : 'Espacio infinito: OFF';
   _ui.setParams(`
     <div class="control-group">
-      <button type="button" class="ctrl-btn unbounded-btn" id="param_unbounded" aria-pressed="false">
-        Espacio infinito: OFF
+      <button type="button" class="ctrl-btn unbounded-btn${on}" id="param_unbounded" aria-pressed="${unbounded}">
+        ${txt}
       </button>
     </div>
     ${paramControl({ id: 'mass', labelTex: 'm', labelRest: 'masa', min: 0.5, max: 10, step: 0.5, value: params.mass, unit: 'kg' })}

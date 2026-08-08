@@ -14,6 +14,9 @@ import {
   clearChallenges
 } from '../module-ui.js';
 
+/** El centro de la región de campo B es el origen del mundo (§17.1). */
+export const anchor = { x: 0, y: 0 };
+
 let _engine = null;
 let _renderer = null;
 let _ui = null;

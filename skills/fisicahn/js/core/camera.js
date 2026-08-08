@@ -51,6 +51,14 @@ export class Camera {
     this._target = null;
     this._smooth = 0.15;
 
+    /**
+     * true cuando el usuario pidió un encuadre manual (`reset()` desde
+     * `#resetViewBtn`): mientras está activa, `follow()` se suspende para que
+     * la cámara no salte otra vez al objeto (§17.2). Se realza con
+     * `resumeFollow()` al reiniciar la simulación o cargar otro módulo.
+     */
+    this._userFramed = false;
+
     /** Límites opcionales del pan: {minX, maxX, minY, maxY}. */
     this._bounds = null;
 
@@ -221,6 +229,8 @@ export class Camera {
    * @param {{smooth?: number}} [opts]
    */
   follow(wx, wy, opts = {}) {
+    // Encuadre manual del usuario: no seguimos hasta que se reinicie la simu.
+    if (this._userFramed) return this;
     const smooth = opts.smooth ?? this._smooth;
     if (smooth <= 0) return this.setPosition(wx, wy);
     if (!this._target) this._target = { x: wx, y: wy };
@@ -324,14 +334,34 @@ export class Camera {
     this.y = clamp(this.y, b.minY, b.maxY);
   }
 
-  /** Vuelve al encuadre inicial: centrada, sin zoom y sin seguimiento. */
+  /**
+   * Vuelve al encuadre inicial: centrada, sin zoom y sin seguimiento.
+   *
+   * Fija `_userFramed`: el usuario pidió este encuadre a propósito y
+   * `follow()` se suspende hasta que reanude la simulación (§17.2). Si el
+   * reset lo dispara la app (cargar módulo, reiniciar, parámetro), ella
+   * misma llama `resumeFollow()` justo después.
+   */
   reset() {
     this.x = 0;
     this.y = 0;
     this.zoom = 1;
     this._target = null;
+    this._userFramed = true;
     this._recomputeBaseScale();
     this._touch();
+    return this;
+  }
+
+  /** true si el encuadre está fijado por el usuario (botón «Encuadre»). */
+  get userFramed() {
+    return this._userFramed;
+  }
+
+  /** Reanuda el seguimiento tras un encuadre manual, sim de nuevo la app. */
+  resumeFollow() {
+    this._userFramed = false;
+    this._target = null;
     return this;
   }
 

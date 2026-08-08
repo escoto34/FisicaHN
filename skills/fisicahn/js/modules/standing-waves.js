@@ -20,6 +20,9 @@ import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.
 export default class StandingWaves extends SimModule {
   static viewport = { width: 24, height: 15 };
 
+  // Punto fijo del mecanismo en el origen del mundo (WAVE 17.1).
+  static anchor = { x: 0, y: 0 };
+
   static params = [
     {
       id: 'modo',
