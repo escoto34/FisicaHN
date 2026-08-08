@@ -8,6 +8,7 @@ import { Renderer } from './renderer.js';
 import { CATALOG, getById, getUnifiedCatalog, getSimulationCatalog, WORKS_MODULE, getCategory, buildEnginePaths } from './catalog.js';
 import { searchState, closestTerms, resultCardHtml } from './catalog-search.js';
 import { normalizeText, escapeHtml } from './core/text.js';
+import { iconFor, categoryIcon } from './core/icons.js';
 import { getSession, logAudit, ensureExamLivenessPolling } from './auth.js';
 import { saveWork, listWorks, getWork, initWorksStorage } from './works.js';
 import {
@@ -477,9 +478,12 @@ export function catalogCardHtml(mod, opts = {}) {
       : mod.status === 'ready'
         ? 'Disponible'
         : 'Pronto';
-  const glyph = mod.glyph
-    ? `<span class="catalog-card-glyph" aria-hidden="true">${escapeHtml(mod.glyph)}</span>`
-    : '';
+  const icon = iconFor(mod.id, mod.category);
+  const glyph = icon
+    ? `<span class="catalog-card-glyph" aria-hidden="true">${icon}</span>`
+    : mod.glyph
+      ? `<span class="catalog-card-glyph" aria-hidden="true">${escapeHtml(mod.glyph)}</span>`
+      : '';
   const mode = opts.mode ? ` data-catalog-mode="${escapeHtml(opts.mode)}"` : '';
   return `
     <button type="button" class="catalog-card${mod.special === 'works' ? ' catalog-card-works' : ''}${
@@ -526,9 +530,12 @@ function sectionHeaderHtml(catId, label, n, level) {
   const key = catalogSectionKey(catId);
   const isCollapsed = !!state.catalogCollapsed[key];
   const cat = getCategory(catId);
-  const glyph = cat?.glyph
-    ? `<span class="catalog-sec-glyph" aria-hidden="true">${escapeHtml(cat.glyph)}</span>`
-    : '';
+  const icon = categoryIcon(catId);
+  const glyph = icon
+    ? `<span class="catalog-sec-glyph" aria-hidden="true">${icon}</span>`
+    : cat?.glyph
+      ? `<span class="catalog-sec-glyph" aria-hidden="true">${escapeHtml(cat.glyph)}</span>`
+      : '';
   return `
     <button type="button" class="catalog-section-head" data-collapse-key="${escapeHtml(key)}"
       aria-expanded="${String(!isCollapsed)}">
@@ -980,9 +987,10 @@ function fillSidebarUnified() {
     head.type = 'button';
     head.className = 'sidebar-group-head';
     head.setAttribute('aria-expanded', String(activeHere));
+    const icon = categoryIcon(catId);
     head.innerHTML = `
       <span class="sidebar-group-chevron" aria-hidden="true">${activeHere ? '▾' : '▸'}</span>
-      ${cat?.glyph ? `<span class="sidebar-group-glyph" aria-hidden="true">${escapeHtml(cat.glyph)}</span>` : ''}
+      ${icon ? `<span class="sidebar-group-glyph" aria-hidden="true">${icon}</span>` : cat?.glyph ? `<span class="sidebar-group-glyph" aria-hidden="true">${escapeHtml(cat.glyph)}</span>` : ''}
       <span class="sidebar-group-title">${escapeHtml(cat?.keyword || cat?.label || catId)}</span>
     `;
     const body = document.createElement('div');

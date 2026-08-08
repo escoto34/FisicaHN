@@ -18,6 +18,7 @@ import {
   highlightText,
   escapeHtml
 } from './core/text.js';
+import { iconFor } from './core/icons.js';
 import { CATALOG, CATEGORIES, categoryLabel } from './catalog.js';
 
 /**
@@ -239,9 +240,12 @@ export function searchState(query) {
 export function resultCardHtml(res, queryTokens = null) {
   const mod = res.mod;
   const accent = mod.accent && /^[a-z0-9-]+$/i.test(mod.accent) ? mod.accent : '';
-  const glyph = mod.glyph
-    ? `<span class="catalog-card-glyph" aria-hidden="true">${escapeHtml(mod.glyph)}</span>`
-    : '';
+  const icon = iconFor(mod.id, mod.category);
+  const glyph = icon
+    ? `<span class="catalog-card-glyph" aria-hidden="true">${icon}</span>`
+    : mod.glyph
+      ? `<span class="catalog-card-glyph" aria-hidden="true">${escapeHtml(mod.glyph)}</span>`
+      : '';
   const title = queryTokens
     ? highlightFirst(mod.title, queryTokens)
     : escapeHtml(mod.title);

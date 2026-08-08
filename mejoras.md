@@ -1970,3 +1970,46 @@ Ninguna WAVE se ha implementado: el estado del repositorio no ha cambiado.
 
 > _Nota de ejecución: este párrafo quedó obsoleto. Las WAVEs 0–3 se implementaron en sus
 > commits correspondientes y el estado de cada una está en la tabla de la introducción._
+
+---
+
+# WAVE 10 — Auditoría de encuadre y corrección de los motores 5.1/5.2
+
+> ✅ **Hecha** — commit `4e48d5b`.
+
+Trabajo de fondo que desbloquea la migración: una auditoría geométrica con
+**matrices de transformación** (viewbox 900×700, `Camera → Scene → ctx` falso con
+los puntos proyectados por op) demostró que 8 motores de las tandas 5.1/5.2
+pintaban fuera de pantalla. Causa raíz ya documentada en §2.0: primitivas que
+recibían `viewport()` en px y `Surface.project` las interpretaba como mundo.
+
+- Corregidos: `mass-weight`, `fluids`, `inclined-plane`, `elasticity`,
+  `units-error`, `oscillatory`, `projectile`, `vectors` + `kinetic-theory`
+  (paredes centradas). Tras la corrección, la auditoría completa muestra los 40
+  motores `SimModule` dentro de ±3 px del viewbox.
+- `Scene.pickable(id, bounds)` reexpuesto (§2.6); sin él `vectors` se caía en el
+  `hitTest` (al uso de `scene.pickable` durante el `draw`).
+- **Espacio infinito por defecto**: `unbounded = true` en `kinematics`,
+  `dynamics` y `magnetic` (el botón global de la barra ya existía,
+  `app.js:1668`).
+- Nuevo módulo **Hipérbola** (`hyperbola.js`, categoría `medicion-vectores`,
+  nivel high): lugar geométrico |PF₁ − PF₂| = 2a con punto P arrastrable
+  (`onDrag` + enamorado de la rama), asíntotas y focos; `readout()` numérico.
+- Tests: `js/tests/smoke-55.test.mjs` — auditoría bbox de los 9 motores + rifle
+  de defaults. Suite completa: 32/32.
+
+# WAVE 11 — Iconos SVG en el catálogo y el tocador
+
+> ✅ **Hecha** — commit posterior.
+
+Los emojis de `glyph` se sustituyen por **iconos SVG inline** (`js/core/icons.js`,
+~2 KB, 24 × 24, `stroke="currentColor"`): cada categoría tiene un icono propio y
+cada módulo hereda el de su categoría salvo los que tienen el suyo
+(`hyperbola`, `momentum`, `vectors`, `whiteboard`, `projectile`). Cuatro puntos
+de render actualizados sin tocar `catalog.js`: tarjetas (`app.js`), cabeceras de
+sección, grupos laterales y resultados de búsqueda (`catalog-search.js`).
+Test `js/tests/icons.test.mjs`: todos los módulos y categorías resuelven icono,
+SVGs bien formados y sin emojis. Suite completa: 36/36.
+
+Todo esto entra en `skills/fisicahn/` y se propaga con los tres scripts de sync;
+ninguna dependencia nueva ni bundler (§0).

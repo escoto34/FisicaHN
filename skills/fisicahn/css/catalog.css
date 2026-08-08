@@ -718,3 +718,16 @@
   padding-top: 6px;
   margin: auto 0 0;
 }
+
+/* Iconos SVG del catálogo y del tocador (Wave: sustituyen emojis). */
+.catalog-card-glyph svg {
+  width: 21px;
+  height: 21px;
+  color: var(--accent, var(--text-secondary, inherit));
+}
+.catalog-sec-glyph svg,
+.sidebar-group-glyph svg {
+  width: 17px;
+  height: 17px;
+  vertical-align: -3px;
+}
