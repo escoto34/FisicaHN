@@ -27,7 +27,7 @@
 - [WAVE 11 — Iconos SVG en el catálogo y el tocador](#wave-11--iconos-svg-en-el-catálogo-y-el-tocador) ✅
 - [WAVE 12 — Paleta de la landing y catálogo sin secciones](#wave-12--paleta-de-la-landing-y-catálogo-sin-secciones) ✅
 - [WAVE 13 — Legibilidad visual de 16 módulos](#wave-13--legibilidad-visual-de-16-módulos) ✅
-- [WAVE 14 — Controles funcionales en todos los módulos](#wave-14--controles-funcionales-en-todos-los-módulos)
+- [WAVE 14 — Controles funcionales en todos los módulos](#wave-14--controles-funcionales-en-todos-los-módulos) ✅
 - [WAVE 15 — Las gráficas se dibujan en el motor](#wave-15--las-gráficas-se-dibujan-en-el-motor)
 - [WAVE 16 — Panel derecho: orden y estética](#wave-16--panel-derecho-orden-y-estética)
 - [WAVE 17 — Origen centrado, encuadre inicial y espacio infinito](#wave-17--origen-centrado-encuadre-inicial-y-espacio-infinito)
@@ -2198,7 +2198,25 @@ dos cajas de texto se intersecan o si alguna sale del viewbox 900×700.
 
 # WAVE 14 — Controles funcionales en todos los módulos
 
-> 🔜 **Pendiente.**
+> ✅ **Hecho.** Commit «Controles: auditoría de los 44 módulos y test automático
+> de esquema».
+>
+> Resumen: §14.1 — auditoría de los 44 módulos. Los 25 con esquema declarativo
+> (`static params`) se auditan con el nuevo `js/tests/controls.test.mjs`: por cada
+> param, aplica los dos extremos (min/max, opciones de un select, true/false de un
+> checkbox), corre ~3 s de simulación y exige que `readout()` o la firma de
+> `draw(scene)` cambien — probando además todas las combinaciones de los demás
+> selects del esquema (`modo`, `tipo`…), porque un param sólo relevante en una rama
+> parecía «inerte» si se probaba contra el modo por defecto. Encontró un bug real:
+> en `calorimetry` el modo Radiación tenía T_agua = T_ambiente = 20 °C por defecto,
+> así que ΔT⁴ = 0 y el slider de emisividad ε no cambiaba nada hasta que el usuario
+> también tocaba la temperatura — arreglado bajando el default de `Tamb` a 15 °C.
+> Los 16 módulos legacy restantes (funciones sueltas, sin esquema introspectable)
+> se auditaron a mano: cada `paramControl`/`<select>`/botón del panel tiene su
+> `bindParamControls`/`addEventListener` correspondiente y su valor se lee en
+> `update()`/`render()` — no se encontraron controles muertos nuevos. §14.2 — el bug
+> documentado (`dynamics.setUnbounded` sólo encendía) ya estaba corregido junto con
+> §17.3. 95/95 tests verdes.
 
 Diagnóstico: hay dos rutas de panel — la declarativa (`js/core/params-schema.js:125`
 `renderSchemaHtml` / `:144` `bindSchema`) y la legacy (`js/module-ui.js:518`

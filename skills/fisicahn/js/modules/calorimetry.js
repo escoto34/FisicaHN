@@ -58,7 +58,7 @@ export default class Calorimetry extends SimModule {
     { id: 'A', label: 'Sección', latex: 'A', unit: 'm²', min: 0.01, max: 2, step: 0.01, value: 0.05 },
     { id: 'L', label: 'Longitud', latex: 'L', unit: 'm', min: 0.2, max: 4, step: 0.1, value: 1 },
     { id: 'eps', label: 'Emisividad ε', latex: '\\varepsilon', min: 0.05, max: 1, step: 0.05, value: 0.9 },
-    { id: 'Tamb', label: 'T ambiente', latex: 'T_a', unit: '°C', min: -20, max: 40, step: 1, value: 20 }
+    { id: 'Tamb', label: 'T ambiente', latex: 'T_a', unit: '°C', min: -20, max: 40, step: 1, value: 15 }
   ];
 
   constructor(ctx) {
@@ -77,7 +77,7 @@ export default class Calorimetry extends SimModule {
       A: 0.05,
       L: 1,
       eps: 0.9,
-      Tamb: 20
+      Tamb: 15
     };
     /** Tiempo acumulado del proceso en curso (fase y transferencia). */
     this.t = 0;
