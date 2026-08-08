@@ -1405,6 +1405,97 @@ export const CATALOG = [
     ],
     topic:
       'Espectrómetro multi-especie. Intro de una carga: “Campos magnéticos”.'
+  },
+  {
+    id: 'de-broglie',
+    title: 'Dualidad onda-partícula',
+    titleEn: 'Wave-Particle Duality',
+    level: 'advanced',
+    category: 'fisica-moderna',
+    glyph: '🌊',
+    accent: 'lime',
+    blurb: 'Electrones uno a uno que forman un patrón de interferencia: λ = h/p.',
+    engineKey: 'de-broglie',
+    status: 'ready',
+    serves: [
+      'Dualidad onda-partícula',
+      'Longitud de onda de de Broglie',
+      'Difracción de electrones',
+      'Doble rendija con electrones',
+      'Interferencia cuántica'
+    ],
+    topic: 'Doble rendija con partículas individuales. La versión con luz está en “Interferencia y difracción”.'
+  },
+  {
+    id: 'nuclear-energy',
+    title: 'Fisión, fusión y E = mc²',
+    titleEn: 'Fission, Fusion and E = mc²',
+    level: 'advanced',
+    category: 'fisica-moderna',
+    glyph: '☢️',
+    accent: 'lime',
+    blurb: 'Curva de energía de enlace por nucleón: por qué fisión y fusión liberan energía.',
+    engineKey: 'nuclear-energy',
+    status: 'ready',
+    serves: [
+      'Fisión nuclear',
+      'Fusión nuclear',
+      'Energía de enlace',
+      'Defecto de masa',
+      'E = mc²',
+      'Reacción en cadena'
+    ],
+    modes: [
+      { id: 'fision', label: 'Fisión', param: 'proceso', value: 'fision', serves: ['Fisión nuclear', 'Reacción en cadena'] },
+      { id: 'fusion', label: 'Fusión', param: 'proceso', value: 'fusion', serves: ['Fusión nuclear'] }
+    ],
+    topic: 'Energía de enlace nuclear. El decaimiento de un solo isótopo está en “Decaimiento radiactivo”.'
+  },
+  {
+    id: 'special-relativity',
+    title: 'Relatividad especial',
+    titleEn: 'Special Relativity',
+    level: 'advanced',
+    category: 'fisica-moderna',
+    glyph: '🚀',
+    accent: 'lime',
+    blurb: 'Factor γ: dilatación temporal, contracción de longitud y relatividad de la simultaneidad.',
+    engineKey: 'special-relativity',
+    status: 'ready',
+    serves: [
+      'Relatividad especial',
+      'Factor de Lorentz',
+      'Dilatación temporal',
+      'Contracción de longitud',
+      'Relatividad de la simultaneidad'
+    ],
+    modes: [
+      { id: 'dilatacion', label: 'Dilatación temporal', param: 'modo', value: 'dilatacion', serves: ['Dilatación temporal'] },
+      { id: 'contraccion', label: 'Contracción de longitud', param: 'modo', value: 'contraccion', serves: ['Contracción de longitud'] },
+      { id: 'simultaneidad', label: 'Simultaneidad', param: 'modo', value: 'simultaneidad', serves: ['Relatividad de la simultaneidad'] }
+    ],
+    topic: 'Ningún motor existente aplica el factor γ: transformaciones de Lorentz.'
+  },
+  {
+    id: 'quantum-history',
+    title: 'Historia de la mecánica cuántica',
+    titleEn: 'History of Quantum Mechanics',
+    level: 'advanced',
+    category: 'fisica-moderna',
+    glyph: '📜',
+    accent: 'lime',
+    blurb: 'Línea de tiempo interactiva 1900-1935: los diez hitos que construyeron la física cuántica.',
+    engineKey: 'quantum-history',
+    status: 'ready',
+    serves: [
+      'Historia de la física cuántica',
+      'Línea de tiempo cuántica',
+      'Planck y el cuanto de energía',
+      'Principio de incertidumbre',
+      'Paradoja EPR'
+    ],
+    topic:
+      'Módulo narrativo, no un motor numérico nuevo: recorre y contextualiza photoelectric, atomic y tunneling.'
   }
 ];
 

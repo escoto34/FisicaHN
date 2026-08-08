@@ -18,7 +18,7 @@
 - [WAVE 2 — Rediseño del canvas ★](#wave-2--rediseño-del-canvas-) ✅ — [balance](#210-lo-que-quedó-hecho)
 - [WAVE 3 — Rendimiento y uso de recursos](#wave-3--rendimiento-y-uso-de-recursos) ✅ — [balance](#310-lo-que-quedó-hecho)
 - [WAVE 4 — Catálogo por categorías y navegación](#wave-4--catálogo-por-categorías-y-navegación) ✅ — [balance](#410-lo-que-quedó-hecho)
-- [WAVE 5 — Nuevos módulos de física](#wave-5--nuevos-módulos-de-física)
+- [WAVE 5 — Nuevos módulos de física](#wave-5--nuevos-módulos-de-física) ✅
 - [WAVE 6 — Base de datos y backend](#wave-6--base-de-datos-y-backend)
 - [WAVE 7 — Herramientas y calidad](#wave-7--herramientas-y-calidad)
 - [WAVE 8 — Capa pedagógica](#wave-8--capa-pedagógica)
@@ -93,7 +93,7 @@ migraciones completo; WAVE 5 llega a **46 módulos**.
 | 2 — Rediseño del canvas ★ | ✅ Hecha | `ae7d80a` |
 | 3 — Rendimiento | ✅ Hecha | — |
 | 4 — Catálogo y buscador | Pendiente | — |
-| 5 — Nuevos módulos | Pendiente | — |
+| 5 — Nuevos módulos | ✅ Hecha | — |
 | 6 — Base de datos | Pendiente | — |
 | 7 — Herramientas y calidad | Pendiente | — |
 | 8 — Capa pedagógica | Pendiente | — |
@@ -1278,11 +1278,31 @@ después. Con el nuevo contrato, cada módulo nuevo nace ya en su forma final.
 > área F–t en `momentum`, Hooke (spring) en `oscillatory` y Momento angular en
 > `rotational` (ver balance en [§5.8](#58-balance-de-la-tanda-52)).
 >
+> **Estado (tanda 5.3 — Térmica y ondas): ✅ entregada.** `calorimetry` (mezcla,
+> cambio de fase, conducción/convección/radiación), `kinetic-theory`,
+> `thermal-expansion` (lineal, superficial, volumétrica y tira bimetálica) y
+> `standing-waves` (con modo Batidos).
+>
 > **Estado (tanda 5.4 — Óptica y electromagnetismo): ✅ entregada.** `mirrors`
 > (espejos cóncavo/convexo), `induction` (Faraday-Lenz + transformador),
 > `optical-instruments` (ojo, lupa, microscopio, telescopio), migración de
 > `circuits` (modo RC con dieléctricos) y de `em-waves` (modo Polarización con la
 > ley de Malus) al contrato nuevo (ver balance en [§5.10](#510-balance-de-la-tanda-54)).
+>
+> **Estado (tanda 5.5 — Física moderna): ✅ entregada.** `de-broglie` (doble
+> rendija con electrones uno a uno, λ = h/p real vía V), `nuclear-energy` (curva
+> de energía de enlace semi-empírica de Weizsäcker; un solo deslizador `A`
+> describe fisión y fusión como procesos simétricos), `special-relativity`
+> (dilatación temporal, contracción de longitud y simultaneidad, los tres modos
+> de la misma transformación de Lorentz) y `quantum-history` (línea de tiempo de
+> 10 hitos 1900-1935, con bocetos propios en vez de incrustar de verdad
+> `photoelectric`/`atomic`/`tunneling` — el núcleo no soporta anidar escenas
+> todavía; ver nota en el archivo). **Con esto WAVE 5 llega a los 46 módulos +
+> «Mis trabajos» = 47 entradas de catálogo.** Fuera de alcance deliberado: el
+> criterio de «5 retos en el pack de ejemplo» de §5.6 no se aplicó porque
+> `CHALLENGE_ENGINES` sigue vacío y huérfano (§2.1) — escribir retos para un
+> registro que nada lee no cambia el comportamiento observable; se hace real en
+> la WAVE 8, que es la que decide qué hacer con ese registro.
 
 Las tandas están ordenadas por **valor curricular** (cobertura del currículo hondureño
 de secundaria primero) y por **reutilización de primitivas** de WAVE 2. Cada tanda es
