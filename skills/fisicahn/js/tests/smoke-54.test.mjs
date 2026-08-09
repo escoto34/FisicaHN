@@ -6,11 +6,11 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import path from 'node:path';
 
-const base = pathToFileURL(
-  '/home/escoto/Documentos/simulador fisica/skills/fisicahn/js/modules/'
-);
+const JS = path.dirname(fileURLToPath(import.meta.url)) + '/..';
+const base = pathToFileURL(path.join(JS, 'modules') + '/');
 
 const ESCENA = [
   'line', 'polyline', 'path', 'rect', 'arc', 'polygon', 'fill', 'body', 'vector',

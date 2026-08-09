@@ -11,14 +11,12 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import path from 'node:path';
 
-const base = pathToFileURL(
-  '/home/escoto/Documentos/simulador fisica/skills/fisicahn/js/modules/'
-);
-const CORE = pathToFileURL(
-  '/home/escoto/Documentos/simulador fisica/skills/fisicahn/js/core/'
-);
+const JS = path.dirname(fileURLToPath(import.meta.url)) + '/..';
+const base = pathToFileURL(path.join(JS, 'modules') + '/');
+const CORE = pathToFileURL(path.join(JS, 'core') + '/');
 
 globalThis.document = {
   getElementById: () => null,

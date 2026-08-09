@@ -10,15 +10,15 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import path from 'node:path';
 
-const CAT_URL = pathToFileURL(
-  '/home/escoto/Documentos/simulador fisica/skills/fisicahn/js/catalog.js'
-).href;
+const JS = path.dirname(fileURLToPath(import.meta.url)) + '/..';
+const CAT_URL = pathToFileURL(path.join(JS, 'catalog.js')).href;
 
 const { CATALOG, CATEGORIES } = await import(CAT_URL);
 const { iconFor, categoryIcon, CATEGORY_ICONS, MODULE_ICONS } = await import(
-  pathToFileURL('/home/escoto/Documentos/simulador fisica/skills/fisicahn/js/core/icons.js').href
+  pathToFileURL(path.join(JS, 'core/icons.js')).href
 );
 
 const EMOJI = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
