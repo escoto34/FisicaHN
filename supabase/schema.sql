@@ -637,7 +637,7 @@ end $$;
 
 -- Paso 2: el índice único. Si aún quedaran duplicados, falla a la vista.
 drop index if exists exams_code_active_idx;
-create unique index exams_code_active_uidx on public.exams (code) where active = true;
+create unique index if not exists exams_code_active_uidx on public.exams (code) where active = true;
 
 -- -------------------------------------------------------------------
 -- b) student_works.mode: CHECK a nivel de tabla
