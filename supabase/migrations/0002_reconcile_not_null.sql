@@ -66,7 +66,7 @@ declare n int;
 begin
   select count(*) into n from improvement_ideas where user_id is null;
   if n > 0 then
-    raise exception '0002: public.improvement_ideas.user_id tiene % filas NULL; resuélvelas a mano y re-aplica'
+    raise exception '0002: public.improvement_ideas.user_id tiene % filas NULL; resuélvelas a mano y re-aplica', n
       using hint = 'Asigna un user_id válido a esas filas o borra las huérfanas.';
   end if;
   execute('alter table public.improvement_ideas alter column user_id set not null');
