@@ -1,0 +1,18 @@
+{
+  "name": "fisicahn",
+  "version": "1.4.3",
+  "private": true,
+  "description": "Simulador de física FisicaHN — herramientas de desarrollo (no entran en el artefacto publicado)",
+  "scripts": {
+    "lint": "eslint . --max-warnings 48",
+    "types": "tsc -p skills/fisicahn/tsconfig.json",
+    "perf": "node scripts/perf-budget.mjs",
+    "test": "node --test skills/fisicahn/js/tests/*.test.mjs",
+    "check": "npm run lint && npm run types && npm test && npm run perf"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0",
+    "globals": "^15.0.0",
+    "typescript": "^7.0.2"
+  }
+}

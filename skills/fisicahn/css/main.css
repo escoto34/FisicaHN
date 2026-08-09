@@ -2674,3 +2674,93 @@ body.works-modal-open { overflow: hidden; }
     display: none;
   }
 }
+
+/* --- Demo (§9.1): grabación y reproducción --- */
+.ctrl-btn.ctrl-btn-small {
+  padding: 6px 9px;
+  font-size: 0.78rem;
+}
+
+#demoRecBtn.recording-active {
+  background: rgba(220, 38, 38, 0.25);
+  border-color: var(--danger, #dc2626);
+  color: #ff8f8f;
+}
+
+#demoPlayBtn.replaying {
+  background: rgba(30, 144, 255, 0.18);
+  border-color: #3b82f6;
+}
+
+.demo-timeline {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border-color);
+}
+
+.demo-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.demo-speed-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-ui);
+}
+
+.demo-speed-select {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 2px 6px;
+  font-size: 0.78rem;
+}
+
+.demo-gallery-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 40vh;
+  overflow: auto;
+}
+
+.demo-gallery-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background: var(--bg-tertiary);
+}
+
+.demo-gallery-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
+}
+
+.demo-gallery-meta {
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.demo-gallery-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}

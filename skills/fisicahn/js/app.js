@@ -34,6 +34,45 @@ import { getTheme, getThemeName, setTheme, cycleTheme, toggleProjector, onThemeC
 import { renderSchemaHtml, bindSchema, defaultValues, syncSchema } from './core/params-schema.js';
 import { exportPng, exportSvg } from './core/scene-export.js';
 import { ComparisonController } from './core/compare.js';
+import { initDemoUI } from './core/demo-ui.js';
+
+/* ============================================
+   PWA (§9.3): service worker con actualización controlada
+   ============================================ */
+
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  if (!/^https?:$/.test(location.protocol)) return; // file:// no SW
+  navigator.serviceWorker
+    .register('sw.js') // scope raíz: todo el simulador
+    .then((reg) => {
+      reg.addEventListener('updatefound', () => {
+        const sw = reg.installing;
+        if (!sw) return;
+        // Nunca relanzar un examen vivo: se avisa y el docente decide.
+        const inExam = getSession()?.mode === 'exam';
+        if (inExam) return;
+        sw.addEventListener('statechange', () => {
+          if (sw.state === 'installed' && navigator.serviceWorker.controller) {
+            const ok = confirm(
+              'Hay una versión nueva de FísicaHN.\nRecargar ahora para usarla.'
+            );
+            if (ok) {
+              sw.postMessage('SKIP_WAITING');
+              navigator.serviceWorker.addEventListener(
+                'controllerchange',
+                () => location.reload(),
+                { once: true }
+              );
+            }
+          }
+        });
+      });
+    })
+    .catch(() => {
+      /* sin SW: el simulador funciona igual en línea */
+    });
+}
 
 /* ============================================
    Estado
@@ -52,6 +91,9 @@ const state = {
 };
 
 const STORAGE_KEY = 'fisicahn_progress';
+/** Callback de las muestras de demo (§9.1): lo inyecta initDemoUI. */
+let demoTick = null;
+let demoUi = null;
 /** Estado de plegado de las secciones del catálogo (persistente). */
 const COLLAPSED_KEY = 'fisicahn_catalog_collapsed';
 
@@ -131,7 +173,10 @@ const READOUT_WALL_MIN_MS = 100;
 
 function bindEngineCallbacks() {
   if (!engine) return;
-  engine.onUpdate = onEngineUpdate;
+  engine.onUpdate = (dt) => {
+    onEngineUpdate(dt);
+    demoTick?.();
+  };
   engine.onRender = onEngineRender;
   engine.onPauseChanged = () => updatePlayPauseUI();
   engine.onResize = () => {
@@ -185,6 +230,20 @@ function ensureEngine() {
     });
     bindEngineCallbacks();
     applyStoredTheme();
+    // §9.1 — UI de demos: se engancha al bucle de física una vez.
+    if (!demoUi) {
+      demoUi = initDemoUI({
+        getModuleId: () => state.catalogId,
+        snapshot: () => collectModuleSnapshot(),
+        engine: () => engine,
+        openModule: (id) => openCatalogModule(id, { history: 'none' }),
+        getInstance: () => state.moduleInstances[state.currentModule],
+        setUiParams: (ui) => applyUiParams(ui),
+        isWhiteboard: () => isWhiteboardModule(),
+        onTransportChanged: () => updatePlayPauseUI()
+      });
+      demoTick = demoUi.tick;
+    }
     // Preferencias de rendimiento persistidas (30 FPS / batería, §3.3)
     applySettingsToEngine();
     return true;
@@ -2156,6 +2215,33 @@ function askWorkName(defaultName) {
   });
 }
 
+/**
+ * Aplica sliders/checkbox del panel de parámetros (fallback de §2.6 cuando el
+ * módulo no implementa setState, reutilizado por la reproducción de demos).
+ * @param {Record<string, number|boolean>} ui
+ */
+function applyUiParams(ui) {
+  for (const [id, val] of Object.entries(ui)) {
+    const range = document.getElementById(`param_${id}`);
+    const num = document.getElementById(`num_${id}`);
+    if (range && typeof val === 'number') {
+      range.value = String(val);
+      range.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    if (num && typeof val === 'number') {
+      num.value = String(val);
+      num.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    if (typeof val === 'boolean') {
+      const cb = document.getElementById(`param_${id}`);
+      if (cb && cb.type === 'checkbox') {
+        cb.checked = val;
+        cb.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+  }
+}
+
 async function handleSaveWork() {
   let session = getSession();
   if (!session) {
@@ -2254,25 +2340,7 @@ export async function openWorkInModule(workId) {
     }
   } else if (snap.uiParams && typeof snap.uiParams === 'object') {
     // Fallback: aplicar sliders del panel
-    for (const [id, val] of Object.entries(snap.uiParams)) {
-      const range = document.getElementById(`param_${id}`);
-      const num = document.getElementById(`num_${id}`);
-      if (range && typeof val === 'number') {
-        range.value = String(val);
-        range.dispatchEvent(new Event('input', { bubbles: true }));
-      }
-      if (num && typeof val === 'number') {
-        num.value = String(val);
-        num.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-      if (typeof val === 'boolean') {
-        const cb = document.getElementById(`param_${id}`);
-        if (cb && cb.type === 'checkbox') {
-          cb.checked = val;
-          cb.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-      }
-    }
+    applyUiParams(snap.uiParams);
   }
 
   if (snap.tools?.tool) {
@@ -2468,6 +2536,7 @@ async function init() {
 
   state.loaded = true;
   console.log('FísicaHN: listo —', CATALOG.length, 'módulos');
+  registerServiceWorker();
 }
 
 /** Atrás / Adelante del navegador. */

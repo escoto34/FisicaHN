@@ -118,7 +118,7 @@ export function update(dt) {
     }
     params.P = gasP(params.V, params.T);
   } else if (params.mode === 'isotherm') {
-    params.T = params.T; // fixed T from slider base
+    // isotherm: T fija (viene del slider base)
     params.V = 1.2 + 2.5 * (0.5 + 0.5 * Math.sin(t * 0.7));
     params.P = gasP(params.V, params.T);
   } else if (params.mode === 'isochoric') {
@@ -260,7 +260,7 @@ function renderParams() {
       <div class="slider-row"><input type="range" id="th_Th" class="custom-slider" min="320" max="600" step="5" value="${params.Th}"><span id="th_Thd">${params.Th}</span></div></div>
     <div class="control-group"><label class="control-label">$T_c$ (K)</label>
       <div class="slider-row"><input type="range" id="th_Tc" class="custom-slider" min="200" max="350" step="5" value="${params.Tc}"><span id="th_Tcd">${params.Tc}</span></div></div>
-    <div class="control-group"><label class="control-label">$\kappa$ difusión</label>
+    <div class="control-group"><label class="control-label">$\\kappa$ difusión</label>
       <div class="slider-row"><input type="range" id="th_k" class="custom-slider" min="0.1" max="2" step="0.05" value="${params.k}"><span id="th_kd">${params.k}</span></div></div>
   `);
   setTimeout(() => {
@@ -278,7 +278,6 @@ function renderParams() {
         params[key] = parseFloat(el.value);
         const disp = document.getElementById(d);
         if (disp) disp.textContent = String(params[key]);
-        if (key === 'T' && params.mode === 'isotherm') params.T = params.T;
         re();
       });
     };

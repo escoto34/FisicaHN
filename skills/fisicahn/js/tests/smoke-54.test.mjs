@@ -63,7 +63,6 @@ for (const [name, keyHint] of MODS) {
       engine: engineStub(), renderer: rendererStub(), ui: uiStub(), scene: makeScene()
     });
     inst.init({});
-    for (const mode of Object.keys(inst.params || {}).filter((k) => false)) void mode;
     inst.reset();
     for (let i = 0; i < 240; i++) inst.update(1 / 60);
     const readout = inst.readout();

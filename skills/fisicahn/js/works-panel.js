@@ -336,7 +336,11 @@ export function showWorkEvaluation(id) {
     w.notes ? `Notas: ${w.notes}` : null,
     w.cloudSynced ? 'Sincronizado en la nube: sí' : null,
     `ID: ${w.id}`,
-    w.integrity ? `Sello: ${String(w.integrity).slice(0, 40)}…` : null
+    w.integrity
+      ? String(w.integrity).startsWith('unsigned_')
+        ? 'Sello: débil (cliente, sin firma del servidor)'
+        : `Sello: ${String(w.integrity).slice(0, 40)}… (detección de edición accidental)`
+      : null
   ].filter(Boolean);
 
   if (w.snapshot && typeof w.snapshot === 'object') {

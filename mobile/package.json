@@ -1,6 +1,6 @@
 {
   "name": "fisicahn-android",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "FísicaHN — app Android (Capacitor) del simulador offline",
   "private": true,
   "scripts": {

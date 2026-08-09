@@ -1,0 +1,27 @@
+{
+  "name": "FísicaHN — Simulador Interactivo de Física",
+  "short_name": "FísicaHN",
+  "description": "Laboratorio virtual de física para ESO, Bachillerato y universidad: mecánica, electromagnetismo, ondas y más, sin conexión.",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0c0f14",
+  "theme_color": "#0c0f14",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "assets/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

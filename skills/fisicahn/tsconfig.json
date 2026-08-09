@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": false,
+    "strict": false,
+    "noImplicitAny": false,
+    "noImplicitThis": false,
+    "noImplicitOverride": false,
+    "noUnusedLocals": false,
+    "types": []
+  },
+  "include": ["js/**/*.js"],
+  "exclude": ["js/tests/**"]
+}

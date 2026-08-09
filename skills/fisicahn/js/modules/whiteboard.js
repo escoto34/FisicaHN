@@ -56,10 +56,9 @@ function pointer(e) {
 /** Tamaño del lienzo en píxeles CSS. */
 function cssSize() {
   if (_renderer?.viewport) return _renderer.viewport();
-  const dpr = Math.max(window.devicePixelRatio || 1, 1);
   return {
-    w: canvas?.clientWidth || (canvas?.width || 800) / dpr,
-    h: canvas?.clientHeight || (canvas?.height || 600) / dpr
+    w: canvas?.clientWidth || canvas?.offsetWidth || 800,
+    h: canvas?.clientHeight || canvas?.offsetHeight || 600
   };
 }
 

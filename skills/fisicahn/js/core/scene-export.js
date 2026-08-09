@@ -468,7 +468,6 @@ export async function captureFrames(canvas, count, step) {
   const frames = [];
   for (let i = 0; i < count; i++) {
     step();
-    // eslint-disable-next-line no-await-in-loop
     const blob = await new Promise((res) => canvas.toBlob(res, 'image/png'));
     if (blob) frames.push(blob);
   }

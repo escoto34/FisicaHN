@@ -131,6 +131,19 @@ export async function sha256(text) {
   return sha256Fallback(str);
 }
 
+/**
+ * WAVE 6 §6.6 — Sello del registro LOCAL (fuera de línea).
+ *
+ * ⚠️ Esto NO es una credencial de seguridad. Es un SHA-256 de una pasada con
+ * sal constante y compartida, calculado en el cliente: un diccionario típico
+ * se prueba a millones de intentos por segundo, y dos docentes del mismo
+ * colegio con la misma contraseña producen el mismo hash. Sirve solo para
+ * que el dispositivo recuerde la sesión local del docente; la autenticación
+ * real es Supabase Auth.
+ *
+ * Si mañana este hash protegiera algo con valor, migrarlo a PBKDF2/Argon2id
+ * vía WebCrypto (y mantenerlo en el cliente, nunca en localStorage plano).
+ */
 export async function hashPassword(password, schoolName) {
   const school = normalizeSchool(schoolName);
   return sha256(`${SALT}|${school}|${password}`);

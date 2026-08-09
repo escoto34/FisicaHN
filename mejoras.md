@@ -94,10 +94,10 @@ migraciones completo; WAVE 5 llega a **46 módulos**.
 | 3 — Rendimiento | ✅ Hecha | — |
 | 4 — Catálogo y buscador | ✅ Hecha | `49b558d` |
 | 5 — Nuevos módulos | ✅ Hecha | — |
-| 6 — Base de datos | Pendiente | — |
-| 7 — Herramientas y calidad | Pendiente | — |
+| 6 — Base de datos | ✅ Hecha | — |
+| 7 — Herramientas y calidad | ✅ Hecha | — |
 | 8 — Capa pedagógica | ✅ Hecha | — |
-| 9 — Funciones docentes | Pendiente | — |
+| 9 — Funciones docentes | ✅ Hecha | — |
 | 10 — Auditoría de encuadre 5.1/5.2 | ✅ Hecha | `4e48d5b` |
 | 11 — Iconos SVG | ✅ Hecha | `3a4a2e2` |
 | 12 — Paleta de la landing y catálogo sin secciones | ✅ Hecha | — |
@@ -1727,6 +1727,38 @@ lo refleje sin ambigüedad.
 vivo (expulsar alumno, terminar examen) esté respaldada por RLS y no sólo por
 `auth.js`/`works-panel.js`.
 
+### 6.7 Lo que quedó hecho
+
+> ✅ **Hecha.** Migraciones 0001–0006 idempotentes + carril de verificación.
+> La base de datos **no se aplicó ni verificó en un Postgres real** (el entorno de
+> desarrollo no tiene `psql`/motor): el contrato queda descrito en `supabase/README.md`
+> («migración cero»: `pg_dump --schema-only` + diff antes de la primera aplicación).
+
+- **`supabase/migrations/0001_initial_schema.sql`** — copia congelada del esquema
+  histórico al momento de la WAVE 6 (el `schema.sql` de los WAVEs 0–5, que ya creaba
+  7 tablas). Registra `schema_migrations` versión 1.
+- **0002_reconcile_not_null** — crea `schema_migrations`, rellena valores por defecto
+  para los `NOT NULL` (text → `''`, jsonb → `'{}'`, booleans, timestamps → `now()`) y
+  levanta excepción si algo no tiene backfill razonable (p. ej. `user_id`). Crea la
+  vista de salud `public.schema_health` que reporta columnas esperadas NOT NULL
+  que no lo son.
+- **0003_exams_code_unique** — `exams.code` único entre exámenes activos (desactiva
+  duplicados previos con `row_number()`), `check_contra (student_works_mode_check)`,
+  índice parcial `exams_code_active_uidx`.
+- **0004_updated_at_triggers** — `set_updated_at()` + triggers en
+  `teacher_profiles` y `exam_challenge_packs`.
+- **0005_audit_log_policy_index** — índice `audit_log (school_key, created_at desc)`,
+  política `audit_select_teacher` (solo el propio colegio), RPC `purge_audit_log`
+  SECURITY DEFINER sin exposición a `anon`, índice de `improvement_ideas`.
+- **0006_exams_canonical** — se eliminó `exams.school_id` (la FK muerta del §6.5):
+  `school_key` es la clave de negocio. Incluye REVERSIÓN.
+- **`scripts/regen-schema.mjs`** regenera `supabase/schema.sql` (768 líneas
+  acumuladas) desde las migraciones, con la cabecera de «no editar a mano».
+- **§6.6 aplicado en el cargo:** `works-panel.js` muestra explícitamente
+  «Sello: débil (cliente, sin firma del servidor)» vs hash completo; `auth.js`
+  documenta que `hashPassword` **no es una credencial** (una pasada de SHA-256 con
+  sal constante; migrar a PBKDF2/Argon2id vía WebCrypto si protege algo real).
+
 ---
 
 # WAVE 7 — Herramientas y calidad
@@ -1811,6 +1843,32 @@ decidirlas más adelante:
 | **Autoevaluación con retroalimentación** por error frecuente | Alto | Medio |
 | **Exportar informe PDF** del trabajo del alumno | Medio | Medio |
 | **i18n es/en** — `titleEn` ya existe en las 27 entradas | Medio | Medio |
+
+### 7.6 Lo que quedó hecho
+
+> ✅ **Hecha.** `npm run check` = lint + tipos + tests + presupuesto de rendimiento.
+
+- **ESLint 9 (flat)** — `eslint.config.mjs` en la raíz. Tres invariantes bloqueadas
+  como error: lectura/escritura de `canvas.width/height` fuera de los chokepoints
+  (renderer, core/layers, physics-engine, core/screen-recorder), construcción DOM en
+  `js/modules/**` (`innerHTML`), y `setTimeout(…)` sin delay en módulos. Como
+  checklist de migración, el import legacy de `module-ui.js` queda como warning.
+  Resultado: **0 errores, 48 warnings** (capa de módulos pendiente de §1.1).
+- **TypeScript con JSDoc opt-in** — `tsconfig.json` en `skills/fisicahn` +
+  `// @ts-check` en `js/core/sim-module.js` (el contrato modular). `npm run types`
+  limpio (escaneo real de `PhysicsEngine`, `createModuleInstance`, `legacy`).
+- **Presupuesto de rendimiento** — `scripts/perf-budget.mjs` + `perf-baseline.json`.
+  Mide `update()` de los 46 módulos con stubs de DOM sin navegador; falla si alguien
+  rebasa ×1.5 la línea base. `npm run perf` → OK.
+- **Tests** — `node --test` nativo (0 dependencias nuevas). `js/tests/invariants.test.mjs`:
+  7 invariantes (MRU/MRUA exacto, conservación de momento en colisión elástica,
+  contrato de módulos 46/46, round-trip `getState/setState`, sincronía catálogo↔retos,
+  integridad de `computeIntegrity/verifyWork`). **115/115 verdes** (108 + 7 de §9.1).
+- **CI** — job `verify` (lint, types, tests, perf) antes de build/deploy en
+  `.github/workflows/deploy-pages.yml`.
+- **Bugs reales corregidos por el lint** — auto-asignaciones de `params` en
+  `thermodynamics.js`, escapes LaTeX rotos, lectura de `canvas.width` como CSS en
+  `whiteboard.js`, imports sin usar.
 
 ---
 
@@ -1972,8 +2030,63 @@ cuatro (web, ZIP, Electron, APK) porque no añade empaquetado.
 servido desde caché rompería la integridad del examen. Regla: todo lo que vaya a
 `supabase.co` queda fuera del service worker.
 
----
+## 9.4 Lo que quedó hecho
 
+> ✅ **Hecha.** Las tres piezas en `js/core/` + PWA, con verificación de navegador
+> pendiente solo en la parte de captura (MediaRecorder no es testeable en `node --test`).
+
+### §9.1 — Demos (formato decidido durante la implementación)
+
+El diseño original (§9.1 arriba) proponía **eventos de entrada** (`{action: 'param',
+value}`). Se implementa un formato **de muestras** `fisicahn-demo-v1` que conserva las
+propiedades que motivaban la decisión (JSON de KB, reproducible, determinista) con una
+forma más robusta:
+
+```json
+{ "format": "fisicahn-demo-v1", "moduleId": "pendulum", "sampleRate": 15,
+  "duration": 1.5, "samples": [
+    { "t": 0,      "params": { "L": 1.5, "theta": 30 }, "moduleState": {…} },
+    { "t": 0.0667, "params": { "L": 1.5, "theta": 30 }, "moduleState": {…} } ] }
+```
+
+Racional: `radioactivity` y `kinetic-theory` son aleatorios (la reproducción por
+eventos de entrada no es determinista sin semilla servida); con muestras de
+`getState/setState` el mismo t muestra siempre el mismo estado — «en tiempo, no según
+FPS» (§9.1). Las **anotaciones temporizadas** (`action: 'annotate'`) quedan fuera del
+v1 (pendientes de una v2).
+
+- `core/demo-recorder.js` — `DemoRecorder` (muestreo en grid, `start/tick/stop`),
+  `DemoStore` (localStorage, máx. 50), `validateDemo`, `replayDemo` (rAF o timeouts,
+  `speed`, `onProgress/onDone`, pause/resume), `demoToJson/demoFromJson`,
+  `downloadDemo`. Sin DOM ni timer del navegador → **7 tests** con reloj artificial.
+- `core/demo-ui.js` — sección «Demo» del panel: grabar/parar, reproducir (0,5×–4×
+  con barra de progreso), exportar JSON, importar desde archivo, «Mis demos»
+  (galería con reutilización), y la fila de vídeo (§9.2). La reproducción pausa la
+  física y aplica `setState` por muestra (o sliders en módulos legacy).
+- En `app.js`, el tick del grabador se engancha al bucle real
+  (`engine.onUpdate` → `demoTick`), junto a `applyUiParams` como helper reutilizado
+  también para abrir trabajos.
+
+### §9.2 — Vídeo y PNG
+
+- `core/screen-recorder.js` — `recordWebm(canvas)` (captureStream + MediaRecorder,
+  sin dependencias), `downloadBlob`, `exportPngSequence`. Botones 🎬 Vídeo (parada
+  manual, descarga `.webm`) y PNG ×12 en la UI.
+- GIF: fuera del runtime (regla de cero dependencias del artefacto), anotado para
+  un generador dev en `scripts/` (mejoras §9.2).
+
+### §9.3 — PWA
+
+- `manifest.webmanifest` (nombre, tema `#0c0f14`, `display: standalone`, iconos
+  SVG), `<link rel="manifest">` en `index.html`.
+- `sw.js` en la raíz del sim (scope raíz): shell precacheado, estáticos cache-first
+  con rellenado al vuelo, navegaciones network-first con respaldo `index.html` en
+  caché, y la regla §9.3 escrita — **nada cross-origin ni `supabase.*` se cachea**.
+- Registro en `app.js` (`registerServiceWorker`) con actualización **controlada**:
+  `SKIP_WAITING` solo tras confirmación del usuario, y nunca durante un examen vivo
+  (un estado de examen servido desde caché rompería la integridad del examen).
+
+---
 # Anexo A — Métricas de referencia
 
 Medir antes y después de cada WAVE.

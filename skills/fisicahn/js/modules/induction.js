@@ -85,7 +85,7 @@ export default class Induction extends SimModule {
       items: [
         { name: 'Flujo magnético', formula: '\\Phi = B A \\cos\\theta' },
         { name: 'Ley de Faraday', formula: '\\mathcal{E} = -N \\dfrac{d\\Phi}{dt}' },
-        { name: 'Ley de Lenz', formula: 'I_\\text{ind}\ \\text{se opone al cambio de flujo}' },
+        { name: 'Ley de Lenz', formula: 'I_{\\text{ind}}\\ \\text{se opone al cambio de flujo}' },
         {
           name: 'Transformador',
           formula: '\\dfrac{V_2}{V_1} = \\dfrac{N_2}{N_1}',

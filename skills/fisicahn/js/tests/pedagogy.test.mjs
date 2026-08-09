@@ -102,7 +102,7 @@ test('escenarios guiados: checkParamsMatch con tolerancia relativa', async () =>
 });
 
 test('escenarios integrados: esquema y cobertura de módulos', async () => {
-  const { BUILTIN_SCENARIOS, scenariosForModule } = await import(
+  const { BUILTIN_SCENARIOS } = await import(
     '../scenario-manager.js'
   );
   assert.ok(BUILTIN_SCENARIOS.length >= 5, 'semilla con ≥5 escenarios');

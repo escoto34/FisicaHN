@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * @fileoverview Núcleo compartido — contrato de módulo para FísicaHN.
  *
@@ -30,9 +31,10 @@ export class SimModule {
 
   /**
    * @param {object} ctx — contexto de host.
-   * @param {PhysicsEngine} ctx.engine
+   * @param {import('../physics-engine.js').PhysicsEngine} ctx.engine
    * @param {object} ctx.renderer
    * @param {object} ctx.ui
+   * @param {object} [ctx.scene] - escena declarativa (WAVE 2); por defecto el renderer.
    */
   constructor(ctx) {
     this.engine = ctx.engine;
@@ -138,12 +140,16 @@ function createLegacyAdapter(mod) {
  * El adaptador mantiene el estado a nivel de módulo del código viejo hasta que
  * se migra; los módulos nuevos guardan su estado en la instancia.
  *
- * @param {object} mod - Namespace devuelto por `import()`.
+ * @param {{ default?: typeof SimModule | undefined }} mod - Namespace devuelto por `import()`.
  * @param {object} ctx - Contexto de host { engine, renderer, scene, ui }.
+ * @param {import('../physics-engine.js').PhysicsEngine} ctx.engine - Motor físico del host.
+ * @param {object} ctx.renderer - Renderer del host.
+ * @param {object} ctx.ui - Servicios UI del host.
+ * @param {object} [ctx.scene] - Escena declarativa (opcional; el renderer por defecto).
  * @returns {object} Instancia lista para llamar `init(meta)`.
  */
 export function createModuleInstance(mod, ctx) {
-  const Ctor = mod?.default;
+  const Ctor = mod.default;
   if (Ctor instanceof Function && Ctor.prototype instanceof SimModule) {
     return new Ctor(ctx);
   }
@@ -160,7 +166,7 @@ export function createModuleInstance(mod, ctx) {
  * `kinematics`— daría `true` y el anfitrión lo mandaría a la implementación
  * vacía, dejando el lienzo en blanco.
  *
- * @param {object} instance
+ * @param {object & { legacy?: boolean }} instance
  * @param {string} method
  * @returns {boolean}
  */

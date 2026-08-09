@@ -16,6 +16,7 @@ mkdir -p "$DEST"
 rsync -a --delete \
   --exclude '.git' \
   --exclude 'node_modules' \
+  --exclude 'package.json' \
   "$SRC/" "$DEST/"
 
 # Config en línea (opcional) para login docente / códigos desde Electron

@@ -168,7 +168,7 @@ function renderParams() {
       <div class="slider-row"><input type="range" id="we_m" class="custom-slider" min="0.5" max="10" step="0.5" value="${params.m}"><span id="we_md">${params.m}</span></div></div>
     <div class="control-group"><label class="control-label">$F$ (N)</label>
       <div class="slider-row"><input type="range" id="we_F" class="custom-slider" min="0" max="40" step="0.5" value="${params.F}"><span id="we_Fd">${params.F}</span></div></div>
-    <div class="control-group"><label class="control-label">$\mu_k$</label>
+    <div class="control-group"><label class="control-label">$\\mu_k$</label>
       <div class="slider-row"><input type="range" id="we_mu" class="custom-slider" min="0" max="1" step="0.02" value="${params.mu_k}"><span id="we_mud">${params.mu_k}</span></div></div>
     <div class="control-group"><label class="control-label">$\theta$ de $F$ (°)</label>
       <div class="slider-row"><input type="range" id="we_th" class="custom-slider" min="-30" max="60" step="1" value="${params.theta}"><span id="we_thd">${params.theta}</span></div></div>
