@@ -710,6 +710,101 @@ button.sidebar-brand-btn:hover .sidebar-title {
   box-shadow: 0 0 0 3px rgba(62, 207, 191, 0.25);
 }
 
+/* --- Escenarios guiados (§8.3) --- */
+.scenario-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 16px 16px;
+  max-width: 760px;
+}
+
+.scenario-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.scenario-head .scenario-select {
+  width: auto;
+  min-width: 220px;
+  flex-shrink: 0;
+}
+
+.scenario-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.scenario-meta {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin-left: auto;
+}
+
+.scenario-progress {
+  height: 6px;
+  background: var(--bg-tertiary);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.scenario-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent, #3ecfbf);
+  transition: width 0.3s ease;
+}
+
+.scenario-step {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.scenario-step-n {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  margin: 0 0 6px;
+}
+
+.scenario-step-text {
+  margin: 0 0 10px;
+  color: var(--text-primary);
+  line-height: 1.45;
+}
+
+.scenario-step-expected {
+  margin: 0 0 10px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  background: rgba(62, 207, 191, 0.08);
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+
+.scenario-controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.scenario-feedback {
+  margin: 10px 0 0;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.scenario-empty {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
 /* --- Buttons --- */
 .btn-row {
   display: flex;

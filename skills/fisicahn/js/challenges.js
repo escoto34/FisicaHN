@@ -3,14 +3,16 @@
  */
 
 import { buildChallengeLabels } from './catalog.js';
+import { BUILTIN_CHALLENGES } from './builtin-challenges.js';
 
 const STORAGE_KEY = 'fisicahn_challenges';
 
 /**
- * Rutas legacy de retos de ejemplo (ya no se cargan en la app).
- * Solo se muestran retos del pack de examen activo.
+ * Retos incorporados por módulo (WAVE 8.1). Se muestran en la pestaña «Retos»
+ * cuando NO hay examen activo; se regeneran con
+ * `node scripts/gen-builtin-challenges.mjs` (§8.1).
  */
-export const CHALLENGE_ENGINES = {};
+export const CHALLENGE_ENGINES = BUILTIN_CHALLENGES;
 
 /** Etiquetas por motor, derivadas del catálogo (§4.5): una sola fuente. */
 export const CHALLENGE_MODULE_LABELS = buildChallengeLabels();
@@ -106,29 +108,55 @@ export function exportChallengePackJSON(pack, filename) {
   return { filename: name, modules: Object.keys(normalized.modules).length };
 }
 
-export function engineHasBuiltInChallenges(_engineKey) {
-  // Los retos de ejemplo del repo están desactivados.
-  return false;
+export function engineHasBuiltInChallenges(engineKey) {
+  return Array.isArray(CHALLENGE_ENGINES[engineKey]) && CHALLENGE_ENGINES[engineKey].length > 0;
 }
 
 /**
- * Carga retos del módulo solo en modo examen y solo del pack del docente.
- * Sin examen → lista vacía (la pestaña Retos se oculta).
- * Reintenta bajar el pack de la nube si la caché local está vacía.
+ * Tolerancia relativa configurable por reto (§8.2).
+ * `challenge.tolerance` (fracción, por defecto 0.05 = 5 %) se compara contra
+ * |n − ans|, con piso absoluto para respuestas cercanas a cero: con la
+ * tolerancia absoluta fija de antes, un reto de 29,4 m/s exigía 4 cifras
+ * exactas y uno de 0,005 era imposible de fallar.
+ *
+ * @param {number} value
+ * @param {number} expected
+ * @param {number} [tolerance=0.05] - fracción (5 % → 0.05)
+ * @returns {boolean}
+ */
+export function checkNumericAnswer(value, expected, tolerance = 0.05) {
+  const n = Number.parseFloat(value);
+  const ans = Number.parseFloat(expected);
+  if (!Number.isFinite(n) || !Number.isFinite(ans)) return false;
+  // Margen de 1e-9 relativo para absorber el redondeo en el límite mismo de la
+  // tolerancia (29,4·1,05 vs 30,87−29,4 difieren en el último bit del doble).
+  const rel = (tolerance ?? 0.05) * Math.abs(ans) * (1 + 1e-9);
+  const floor = 1e-9;
+  return Math.abs(n - ans) <= Math.max(rel, floor);
+}
+
+/**
+ * Carga retos del módulo. Prioridad:
+ *   1. En modo examen: solo el pack del docente (nada de retos incorporados).
+ *   2. Sin examen: retos incorporados del motor (§8.1);
+ *      si el docente además llevaba un pack local, se anexan al final.
  */
 export async function loadChallengeDataForEngine(engineKey) {
   if (!engineKey) return [];
+  const builtIn = CHALLENGE_ENGINES[engineKey] || [];
 
   let examCode = null;
   try {
     const { getSession } = await import('./auth.js');
     const session = getSession();
-    if (!session || session.mode !== 'exam' || !session.examCode) {
+    if (session && session.mode === 'exam' && session.examCode) {
+      examCode = session.examCode;
+      // En examen, solo responden los retos del docente; los incorporados
+      // quedarían a la vista para quien no estuviera atento (integridad).
       return [];
     }
-    examCode = session.examCode;
   } catch {
-    return [];
+    /* sin sesión */
   }
 
   let examPack = getCachedExamChallengePack();
@@ -150,13 +178,15 @@ export async function loadChallengeDataForEngine(engineKey) {
     }
   }
 
-  if (!examPack?.modules) return [];
-
-  const fromExam =
-    examPack.modules[engineKey] ||
-    examPack.modules[engineKey?.replace(/-/g, '_')] ||
-    [];
-  return Array.isArray(fromExam) ? fromExam.slice() : [];
+  const out = [...builtIn];
+  if (examPack?.modules) {
+    const fromExam =
+      examPack.modules[engineKey] ||
+      examPack.modules[engineKey?.replace(/-/g, '_')] ||
+      [];
+    if (Array.isArray(fromExam)) out.push(...fromExam);
+  }
+  return out;
 }
 
 export class ChallengeEngine {
@@ -262,9 +292,12 @@ export class ChallengeEngine {
 
     let correct = false;
     if (challenge.type === 'numeric') {
-      const n = parseFloat(userAnswer);
-      const ans = parseFloat(challenge.answer);
-      correct = Number.isFinite(n) && Number.isFinite(ans) && Math.abs(n - ans) < 0.01;
+      // §8.2: tolerancia relativa configurable por reto (5 % por defecto).
+      correct = checkNumericAnswer(
+        userAnswer,
+        challenge.answer,
+        challenge.tolerance ?? 0.05
+      );
     } else if (challenge.type === 'multiple' || challenge.type === 'select') {
       correct =
         parseInt(userAnswer, 10) === parseInt(challenge.answer, 10) ||

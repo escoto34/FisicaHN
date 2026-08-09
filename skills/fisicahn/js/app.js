@@ -23,6 +23,7 @@ import { bindUserMenu } from './user-menu.js';
 import { initNetworkStatusUI } from './network-status.js';
 import { initPanelResize } from './panel-resize.js';
 import { ChallengeEngine, loadChallengeDataForEngine } from './challenges.js';
+import { ScenarioRunner, ScenarioStore, BUILTIN_SCENARIOS } from './scenario-manager.js';
 import { enhanceParamsPanel, typesetMath, ensureChallengesCss, ensureKatex } from './module-ui.js';
 import { createModuleInstance, implementsMethod } from './core/sim-module.js';
 import { Camera } from './core/camera.js';
@@ -95,6 +96,7 @@ const bottomContent = document.getElementById('bottomContent');
 const toolBtns = document.querySelectorAll('.tool-btn');
 /** @type {ChallengeEngine|null} */
 let challengeEngine = null;
+let scenarioRunner = null;
 
 /** Motor / renderer: lazy al entrar al laboratorio (el menú no crea canvas loop) */
 let engine = null;
@@ -338,6 +340,32 @@ const ui = {
     const engineKey = data.engineKey || state.currentModule || '';
     challengeEngine.loadChallenges(engineKey, data.challenges || []);
   },
+  /**
+   * @param {null|{ engineKey: string, scenarios: Array }} data
+   * null → oculta pestaña Escenarios; objeto → monta `ScenarioRunner`.
+   */
+  setScenarios(data) {
+    const tabBtn = document.querySelector('.bottom-tab[data-tab="scenarios"]');
+    const panel = document.getElementById('tab-scenarios');
+    if (!tabBtn || !panel) return;
+    scenarioRunner?.destroy?.();
+    scenarioRunner = null;
+
+    if (!data || !Array.isArray(data.scenarios) || !data.scenarios.length) {
+      tabBtn.hidden = true;
+      panel.hidden = true;
+      panel.innerHTML = '';
+      return;
+    }
+
+    tabBtn.hidden = false;
+    panel.hidden = false;
+    scenarioRunner = new ScenarioRunner(panel, data, {
+      getParams: () => state.moduleInstances[data.engineKey]?.params || {},
+      setParams: (partial) => applyScenarioParams(data.engineKey, partial)
+    });
+    scenarioRunner.render();
+  },
   showTab(tabId) {
     const tabs = document.querySelectorAll('.bottom-tab');
     tabs.forEach((btn) => {
@@ -351,11 +379,16 @@ const ui = {
       if (p.id === 'tab-challenges' && tabId !== 'challenges') {
         /* keep panel.hidden as set by setChallenges */
       }
+      // idem para escenarios
+      if (p.id === 'tab-scenarios' && tabId !== 'scenarios') {
+        /* keep panel.hidden as set by setScenarios */
+      }
     });
     const target = document.getElementById(`tab-${tabId}`);
     if (target) {
       target.classList.add('active');
       if (tabId === 'challenges') target.hidden = false;
+      if (tabId === 'scenarios') target.hidden = false;
     }
   }
 };
@@ -386,6 +419,58 @@ async function setupChallengesForEngine(engineKey) {
     console.warn('setupChallengesForEngine', e);
     ui.setChallenges(null);
   }
+}
+
+/**
+ * Tras init del módulo: escenario y registro de escenarios del docente.
+ *
+ * Regla de examen (§8.3): durante un examen en vivo la pestaña Escenarios no
+ * se muestra — el escenario es una herramienta de práctica, no de control.
+ */
+async function setupScenariosForEngine(engineKey) {
+  if (!engineKey || engineKey === 'whiteboard' || engineKey === 'placeholder') {
+    ui.setScenarios(null);
+    return;
+  }
+  if (getSession()?.mode === 'exam') {
+    ui.setScenarios(null);
+    return;
+  }
+  try {
+    const store = new ScenarioStore();
+    const scenarios = [
+      ...BUILTIN_SCENARIOS.filter((s) => s.module === engineKey),
+      ...store.allForModule(engineKey)
+    ];
+    ui.setScenarios(scenarios.length ? { engineKey, scenarios } : null);
+  } catch (e) {
+    console.warn('setupScenariosForEngine', e);
+    ui.setScenarios(null);
+  }
+}
+
+/**
+ * Aplica un subconjunto de parámetros pedido por un escenario guiado.
+ * Mutar `instance.params` y volcar con `syncSchema` es el mismo camino que
+ * usan el enlace profundo del catálogo y la restauración de trabajos; el
+ * reset devuelve la simulación al estado inicial con los nuevos valores.
+ */
+function applyScenarioParams(engineKey, partial) {
+  const instance = state.moduleInstances[engineKey];
+  const schema = state.currentModuleNamespace?.default?.params;
+  if (!instance?.params || !partial || !schema) return;
+  try {
+    for (const [k, v] of Object.entries(partial)) {
+      if (k in instance.params) instance.params[k] = v;
+    }
+    syncSchema(paramsPanel, schema, instance.params);
+    instance.reset?.();
+    engine?.reset?.();
+  } catch (err) {
+    console.error('Error al aplicar escenario:', err);
+  }
+  camera?.resumeFollow?.();
+  engine?.requestPaint?.();
 }
 
 /**
@@ -1045,6 +1130,9 @@ async function destroyCurrentEngine() {
     }
     delete state.moduleInstances[key];
   }
+  // El panel de escenarios pertenece al módulo: se desmonta con él.
+  scenarioRunner?.destroy?.();
+  scenarioRunner = null;
 }
 
 /**
@@ -1124,6 +1212,8 @@ async function loadEngineModule(engineKey, catalogEntry = null, initialMode = nu
     }
     // Retos en barra inferior (solo motores con casos de uso o pack de examen)
     await setupChallengesForEngine(resolvedKey).catch(() => ui.setChallenges(null));
+    // Escenarios guiados (§8.3): incorporados del módulo + guardados del docente
+    await setupScenariosForEngine(resolvedKey).catch(() => ui.setScenarios(null));
     // Arrancar loop (pizarra sin pausa/velocidad: el dibujo depende del RAF)
     if (engine && !engine.isRunning?.()) engine.start();
     ensureRunning();

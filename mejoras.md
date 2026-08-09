@@ -21,7 +21,7 @@
 - [WAVE 5 — Nuevos módulos de física](#wave-5--nuevos-módulos-de-física) ✅
 - [WAVE 6 — Base de datos y backend](#wave-6--base-de-datos-y-backend)
 - [WAVE 7 — Herramientas y calidad](#wave-7--herramientas-y-calidad)
-- [WAVE 8 — Capa pedagógica](#wave-8--capa-pedagógica)
+- [WAVE 8 — Capa pedagógica](#wave-8--capa-pedagógica) ✅
 - [WAVE 9 — Funciones docentes y distribución](#wave-9--funciones-docentes-y-distribución)
 - [WAVE 10 — Auditoría de encuadre de los motores 5.1/5.2](#wave-10--auditoría-de-encuadre-y-corrección-de-los-motores-5152) ✅
 - [WAVE 11 — Iconos SVG en el catálogo y el tocador](#wave-11--iconos-svg-en-el-catálogo-y-el-tocador) ✅
@@ -29,9 +29,9 @@
 - [WAVE 13 — Legibilidad visual de 16 módulos](#wave-13--legibilidad-visual-de-16-módulos) ✅
 - [WAVE 14 — Controles funcionales en todos los módulos](#wave-14--controles-funcionales-en-todos-los-módulos) ✅
 - [WAVE 15 — Las gráficas se dibujan en el motor](#wave-15--las-gráficas-se-dibujan-en-el-motor) ✅
-- [WAVE 16 — Panel derecho: orden y estética](#wave-16--panel-derecho-orden-y-estética)
-- [WAVE 17 — Origen centrado, encuadre inicial y espacio infinito](#wave-17--origen-centrado-encuadre-inicial-y-espacio-infinito)
-- [WAVE 18 — Cámara lenta real: velocidad desacoplada de los FPS](#wave-18--cámara-lenta-real-velocidad-desacoplada-de-los-fps)
+- [WAVE 16 — Panel derecho: orden y estética](#wave-16--panel-derecho-orden-y-estética) ✅
+- [WAVE 17 — Origen centrado, encuadre inicial y espacio infinito](#wave-17--origen-centrado-encuadre-inicial-y-espacio-infinito) ✅
+- [WAVE 18 — Cámara lenta real: velocidad desacoplada de los FPS](#wave-18--cámara-lenta-real-velocidad-desacoplada-de-los-fps) ✅
 - [Anexo A — Métricas de referencia](#anexo-a--métricas-de-referencia)
 - [Anexo B — Decisiones tomadas](#anexo-b--decisiones-tomadas)
 
@@ -92,15 +92,21 @@ migraciones completo; WAVE 5 llega a **46 módulos**.
 | 1 — Contrato de módulo | ✅ Hecha | `4f34fb3` |
 | 2 — Rediseño del canvas ★ | ✅ Hecha | `ae7d80a` |
 | 3 — Rendimiento | ✅ Hecha | — |
-| 4 — Catálogo y buscador | Pendiente | — |
+| 4 — Catálogo y buscador | ✅ Hecha | `49b558d` |
 | 5 — Nuevos módulos | ✅ Hecha | — |
 | 6 — Base de datos | Pendiente | — |
 | 7 — Herramientas y calidad | Pendiente | — |
-| 8 — Capa pedagógica | Pendiente | — |
+| 8 — Capa pedagógica | ✅ Hecha | — |
 | 9 — Funciones docentes | Pendiente | — |
 | 10 — Auditoría de encuadre 5.1/5.2 | ✅ Hecha | `4e48d5b` |
 | 11 — Iconos SVG | ✅ Hecha | `3a4a2e2` |
 | 12 — Paleta de la landing y catálogo sin secciones | ✅ Hecha | — |
+| 13 — Legibilidad visual de 16 módulos | ✅ Hecha | `bc4fe88` |
+| 14 — Controles funcionales en todos los módulos | ✅ Hecha | `ca8b8f5` |
+| 15 — Las gráficas se dibujan en el motor | ✅ Hecha | `b6007e7` |
+| 16 — Panel derecho: orden y estética | ✅ Hecha | `16497ca` |
+| 17 — Origen centrado, encuadre inicial y espacio infinito | ✅ Hecha | `95cc2f0` |
+| 18 — Cámara lenta real y panel de datos en tiempo simulado | ✅ Hecha | `c7c34b6` |
 
 Tres de los cinco problemas dominantes están cerrados: el **#1** (archivos generados
  versionados) en la WAVE 0, el **#4** (sin contrato de módulo) en la WAVE 1 y el **#3**
@@ -1302,7 +1308,9 @@ después. Con el nuevo contrato, cada módulo nuevo nace ya en su forma final.
 > criterio de «5 retos en el pack de ejemplo» de §5.6 no se aplicó porque
 > `CHALLENGE_ENGINES` sigue vacío y huérfano (§2.1) — escribir retos para un
 > registro que nada lee no cambia el comportamiento observable; se hace real en
-> la WAVE 8, que es la que decide qué hacer con ese registro.
+> la WAVE 8, que es la que decide qué hacer con ese registro. **Resuelto en la
+> WAVE 8**: el registro nace relleno (46 motores ≥5 retos) y el catálogo pasa a
+> 46 módulos con retos propios (ver §8).
 
 Las tandas están ordenadas por **valor curricular** (cobertura del currículo hondureño
 de secundaria primero) y por **reutilización de primitivas** de WAVE 2. Cada tanda es
@@ -1808,7 +1816,45 @@ decidirlas más adelante:
 
 # WAVE 8 — Capa pedagógica
 
+> ✅ **Hecho.** Commits «Controles: auditoría…» (parte §8.2) y el trabajo de esta
+> sesión: registro de retos incorporados, tolerancia relativa, cobertura 5+/módulo,
+> escenarios guiados y `topic` (este último ya había entrado con el rediseño del
+> catálogo, `app.js:511`).
+>
+> Resumen:
+> - **§8.1** — `challenges.js` reemplaza `CHALLENGE_ENGINES = {}` por el registro
+>   generado `js/builtin-challenges.js` (46 motores —los 46 del catálogo—, 266
+>   retos, ≥5 por motor). Se regenera con `node scripts/gen-builtin-challenges.mjs`,
+>   que fusiona los 4 JSON legacy de `data/challenges/`, el pack de ejemplo y los
+>   retos nuevos de la WAVE 8. Sin examen, la pestaña «Retos» ofrece los del motor
+>   y anexa al final el pack del docente si lo hay; en examen, solo responde el
+>   pack del docente (integridad).
+> - **§8.2** — tolerancia relativa configurable por reto
+>   (`challenge.tolerance`, 5 % por defecto) en `checkNumericAnswer()`
+>   (`challenges.js`), con piso absoluto `1e-9` para respuestas cercanas a cero y
+>   margen de 1e-9 relativo para absorber el redondeo en el límite de la
+>   tolerancia. Reemplaza la tolerancia absoluta `< 0.01`.
+> - **§8.3** — nuevos escenarios guiados: `js/scenario-manager.js`, con
+>   `BUILTIN_SCENARIOS` (5 escenarios para `projectile`, `pendulum`,
+>   `calorimetry`, `mirrors`, `thermal-expansion`), `checkParamsMatch()` (números
+>   con la tolerancia de §8.2, strings/booleanos exactos, arrays elemento a
+>   elemento), `ScenarioStore` (localStorage `fisicahn_scenarios`, export/import
+>   JSON validado) y un `ScenarioRunner` DOM. Pestaña inferior «Escenarios»
+>   (`index.html`, `#tab-scenarios`); la app le inyecta `{ getParams(), setParams() }`
+>   y `applyScenarioParams()` muta `instance.params` + `syncSchema()` + `reset()`
+>   — el mismo camino que los enlaces profundos. Los pasos declaran
+>   `expectedParams` (y `validator` opcional). En modo examen la pestaña se oculta.
+> - **§8.3.5** — el campo `topic` ya se renderiza en las tarjetas del catálogo
+>   al `app.js:511` (`catalog-card-topic`), así que el punto solo queda
+>   verificado, no había trabajo pendiente.
+> - Tests: `js/tests/pedagogy.test.mjs` (registro, tolerancia, descubrimiento y
+>   escenarios) cubre la capa nueva; suite completa 101/101 verdes.
+
 ### 8.1 El sistema de retos está desconectado
+
+> ✅ **Hecho.** `builtin-challenges.js` regenerado (46 motores / 266 retos);
+> `CHALLENGE_ENGINES` deja de ser `{}` y `engineHasBuiltInChallenges()` devuelve
+> el estado real; la pestaña «Retos» aparece sin esperar un examen.
 
 - **`CHALLENGE_ENGINES = {}` está vacío** (`challenges.js:11`), comentado como «rutas
   legacy … ya no se cargan». Los 4 JSON de `data/challenges/` son **código muerto**:
@@ -1819,6 +1865,9 @@ decidirlas más adelante:
 
 ### 8.2 Divergencia documentación ↔ código
 
+> ✅ **Hecho.** `checkNumericAnswer()` con tolerancia relativa configurable
+> (5 % por defecto, `challenge.tolerance`), piso `1e-9` y margen de redondeo.
+
 `checkAnswer` (`challenges.js:291`) usa **tolerancia absoluta fija** `< 0.01`, mientras
 `skills/06-capa-pedagogica.md:105,160-162` especifica **5 % relativo**. Con la
 tolerancia absoluta, un reto cuya respuesta sea 29,4 m/s exige cuatro cifras exactas, y
@@ -1827,13 +1876,17 @@ tolerancia relativa es la correcta.
 
 ### 8.3 Trabajo
 
+> ✅ **Hecho.** Los cinco puntos, con la salvedad de que el punto 5 (topic)
+> ya estaba cerrado en el rediseño del catálogo y el punto 4 se construyó en
+> `js/scenario-manager.js` + pestaña «Escenarios».
+
 1. Reactivar los retos incorporados por módulo, con los 4 JSON existentes como semilla.
 2. Corregir la tolerancia a relativa configurable por reto.
-3. Extender a los 42 módulos (mínimo 5 retos, §5.6).
+3. Extender a los 46 módulos del catálogo (mínimo 5 retos, §5.6).
 4. Implementar los **escenarios guiados** de `skills/06-capa-pedagogica.md`
    (`steps[]`, `expectedParams`, `validator`) — especificados y nunca construidos.
 5. Renderizar el campo `topic` del catálogo, que hoy documenta muy bien las diferencias
-   entre módulos vecinos y **no se muestra en ninguna parte**.
+   entre módulos vecinos y no se muestra en ninguna parte.
 
 ---
 
@@ -2448,11 +2501,23 @@ engañoso.
 
 # WAVE 18 — Cámara lenta real: velocidad desacoplada de los FPS
 
-> 🔜 **Pendiente.**
+> ✅ **Hecho.** Commit «Cámara lenta real: subpaso variable y panel de datos en
+> tiempo simulado».
+>
+> Resumen: §18.1 — `physics-engine.js` escala el propio subpaso con
+> `stepDt = DEFAULT_DT * Math.min(1, this._speed)` (`:471`), así que a 0.1× sale un
+> subpaso de 1/600 por frame y el movimiento se ve continuo a 60 FPS de render con la
+> física diez veces más lenta; `this._maxSubsteps` sigue acotando el peor caso y a 1×
+> el comportamiento es idéntico al anterior. §18.2 — el throttle de la pestaña Datos
+> pasa a reloj **simulado**: `pumpReadout()` publica cada `READOUT_MIN_SIM_S = 0.1`
+> de `engine.getElapsed()` con techo de wall-clock `READOUT_WALL_MIN_MS = 100`
+> (`app.js:118-128`, `:1184-1208`) y detecta el retroceso del reloj en resets para
+> publicar al instante. El único indicador de reloj real que queda en la UI es
+> `#fpsCounter`. 95/95 tests verdes.
 
 Diagnóstico verificado en el código: el multiplicador de velocidad ya escala el
 **tiempo**, no el render — `physics-engine.js:462` hace
-`this._accumulator += frameTime * this._speed`, pero el bucle de subpasos usa
+`this._accumulator += frameTime * this._speed`, pero el bucle de subpases usa
 **siempre** `DEFAULT_DT = 1/60` (`:465-474`). El efecto es justo el que describe el
 usuario: a 0.1× el acumulador crece 1.67 ms por frame y tarda 16.7 ms en completar un
 paso de 1/60 s, así que `onUpdate` dispara solo ~6 veces por segundo. El render sigue a
@@ -2460,6 +2525,10 @@ paso de 1/60 s, así que `onUpdate` dispara solo ~6 veces por segundo. El render
 tirones**, como si fuera a 6 FPS.
 
 ## 18.1 Arreglo — paso variable acotado
+
+> ✅ **Hecho.** `physics-engine.js:471-478`: `stepDt` variable con `Math.min(1, speed)`
+> y `this._maxSubsteps` intacto; el corte de acumulador residual (`:479-481`) se
+> conserva.
 
 Escalar el propio subpaso cuando la velocidad baja de 1×, en vez de escalar solo el
 acumulador:
@@ -2485,13 +2554,19 @@ integración, sin riesgo numérico nuevo. Se revisa que `MAX_SUBSTEPS`
 
 ## 18.2 Coherencia con Datos: todo en tiempo simulado
 
-Segunda mitad de lo pedido («si la velocidad está en 0.1× y hay una aceleración
+> ✅ **Hecho.** `app.js:127-128` define `READOUT_MIN_SIM_S = 0.1` y
+> `READOUT_WALL_MIN_MS = 100`; `pumpReadout()` (`:1184-1208`) decide publicación con
+> `simElapsed = engine.getElapsed()` y `simWentBack = simElapsed < _lastReadoutSimAt`,
+> publicando ya si el reloj volvió atrás (reset/moduleState). `#fpsCounter` queda como
+> único reloj real.
+
+Segunda parte de lo pedido («si la velocidad está en 0.1× y hay una aceleración
 equivalente a 10 veces por segundo, que acelere 1 vez por segundo»). Los valores del
 `readout()` ya son tiempo **simulado** — cada módulo integra `this.t += dt` con dt
 fijo; no hay ningún `performance.now()`/`Date.now()` dentro de la física ni de los
 `readout()` en `js/modules/`. Lo que sí es wall-clock es la **cadencia de
-publicación**: `app.js:1250-1256` con `READOUT_MIN_MS = 100` (`app.js:120`, ~10 Hz de
-reloj real). Consecuencia hoy: a 5× se saltan muestras de tiempo simulado y a 0.1× se
+publicación**: `app.js:1180-1184` antes usaba solo `READOUT_MIN_MS` (~10 Hz de
+reloj real). Consecuencia: a 5× se saltan muestras de tiempo simulado y a 0.1× se
 repite el mismo valor varias veces.
 
 Arreglo: cambiar el throttle de publicación a tiempo **simulado** (publicar cada
@@ -2499,7 +2574,7 @@ Arreglo: cambiar el throttle de publicación a tiempo **simulado** (publicar cad
 techo adicional de wall-clock para no saturar el DOM a 5×.
 
 **Regla nueva — reloj simulado, no reloj real:** todo lo que se muestra en la pestaña
-Datos se mide en segundos de simulación; el único indicador de reloj real que
+Datos se mide en segundos de simulador; el único indicador de reloj real que
 sobrevive en la UI es `#fpsCounter`. Cualquier módulo nuevo que quiera reportar una
 frecuencia (ej. Doppler en `sound.js`, EM en `em-waves.js`) la calcula sobre
 `this._elapsed`, nunca sobre `performance.now()`.
