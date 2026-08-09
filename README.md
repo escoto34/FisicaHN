@@ -4,8 +4,8 @@
 
 <h1 align="center">FísicaHN</h1>
 <p align="center">
-  <strong>Laboratorio virtual de física para el aula</strong><br>
-  En el navegador, en USB, en la computadora o en la tablet
+  <strong>Laboratorio virtual de física interactivo para el aula</strong><br>
+  En el navegador, PWA offline, en USB, en la computadora o en la tablet/celular
 </p>
 
 <p align="center">
@@ -16,109 +16,87 @@
 
 ## ¿Qué es?
 
-FísicaHN es un laboratorio de física pensado para clase. Los alumnos y docentes abren simulaciones, miden, guardan trabajos y pueden hacer prácticas o exámenes con un código compartido.
+FísicaHN es un laboratorio de física educativo en **JavaScript ES modules nativo (sin bundler, sin dependencias y sin build step en el runtime)**. Los alumnos y docentes abren simulaciones interactivas, miden magnitudes en tiempo simulado, prueban escenarios guiados, graban demos y realizan eximentes o exámenes en vivo respaldados por Supabase.
 
-Funciona **online**, en un **ZIP** (USB o carpeta compartida), como **app de escritorio** (si el lab bloquea el navegador) o como **app Android** en tablets y celulares.
+Se distribuye en 5 formatos desde una única fuente de verdad (`skills/fisicahn`):
+- **Web online**
+- **PWA instalable offline** (Service Worker con precaché)
+- **ZIP offline** (USB o NetSupport en PCs sin internet)
+- **App de escritorio** (Electron para Windows y Linux)
+- **App Android** (Capacitor APK para tablets y celulares)
 
-Versión actual: **1.3.0**.
+Versión actual: **1.4.3** (Hoja de ruta WAVEs 0 a 18 completada al 100%).
 
 ---
 
 ## Cómo usarlo
 
-| Forma | Para quién | Cómo empezar |
-|-------|------------|--------------|
-| **En la web** | Cualquiera con internet | Abre el sitio y entra al laboratorio |
-| **ZIP** | USB, NetSupport, PCs sin instalar | Descarga `fisicahn.zip`, descomprime y abre el lab |
-| **Escritorio** | Windows o Linux | Descarga el instalador o el portable desde [Releases](https://github.com/escoto34/FisicaHN/releases) |
-| **Android** | Tablets y celulares | Instala el APK (permite “orígenes desconocidos” si el sistema lo pide) |
+| Plataforma | Para quién | Cómo empezar |
+|------------|------------|--------------|
+| **Web / PWA** | Cualquiera con o sin internet | Abre el sitio web, instálalo como PWA para uso sin conexión |
+| **ZIP Offline** | USB, NetSupport, laboratorios bloqueados | Descarga `fisicahn.zip`, descomprime y abre `index.html` |
+| **Escritorio** | Windows (Instalador / Portable) o Linux (AppImage / DEB) | Descarga los binarios desde [Releases v1.4.3](https://github.com/escoto34/FisicaHN/releases/tag/v1.4.3) |
+| **Android** | Tablets y teléfonos | Instala `FisicaHN-1.4.3-release.apk` |
 
-### Linux (archivo AppImage)
+### Linux (AppImage)
 
 ```bash
-chmod +x FisicaHN-1.3.0.AppImage
-./FisicaHN-1.3.0.AppImage
+chmod +x FisicaHN-1.4.3.AppImage
+./FisicaHN-1.4.3.AppImage
 ```
-
-### Android
-
-Copia el APK al dispositivo y ábrelo, o instálalo desde la computadora con la herramienta de tu equipo.
 
 ---
 
 ## Alumnos y docentes
 
-Al abrir el laboratorio te piden identificarte.
-
-| Quién | Qué necesita | Qué puede hacer |
-|-------|--------------|-----------------|
-| **Alumno** | Nombre y colegio | Practicar, unirse a un examen con el código del docente, guardar trabajos |
-| **Docente** | Email, contraseña y colegio (con internet) | Crear códigos de examen, ver trabajos de la clase, finalizar el examen |
-
-Toca el **nombre de la sesión** en la parte superior (por ejemplo *DOCENTE · ITEE · Práctica*) para cambiar de usuario, unirte a un código o cerrar el examen.
-
-Cuando el docente **finaliza el examen**, el código deja de valer en todos los dispositivos conectados. Los trabajos quedan guardados para revisarlos.
+| Rol | Requisitos | Capacidades |
+|-----|------------|-------------|
+| **Alumno** | Nombre y colegio | Practicar, resolver retos integrados por módulo (tolerancia relativa del 5%), seguir escenarios guiados paso a paso, unirse a un examen con código del docente y guardar trabajos con sello de integridad |
+| **Docente** | Cuenta registrada | Crear códigos de examen en vivo, publicar packs de retos, supervisar resultados de clase en tiempo real, grabar/reproducir demos de simulación y exportar sesiones |
 
 ---
 
 ## Qué hay en el laboratorio
 
-### Módulos
+El catálogo cuenta con **46 módulos de física interactivos + Pizarra docente + Mis trabajos** organizados en 12 categorías curriculares con búsqueda instantánea y enlace profundo por modo (`#/m/momentum?mode=impulse`):
 
-Simulaciones por temas, con controles, datos y fórmulas en pantalla.
-
-**Mecánica y fuerzas**
-
-- Cinemática (cómo se mueve un objeto)
-- Fuerzas y movimiento
-- **Fuerza cinética** — cómo un empujón acelera y da “energía de movimiento”
-- **Fricción** — un muñeco empuja una caja: a veces no arranca, a veces desliza
-- **Estática** — un peso colgado de dos cuerdas en equilibrio
-- Momentum y colisiones
-- Trabajo y energía
-- Rotación y oscilaciones
-
-**Otras áreas**
-
-- Termodinámica, sonido y ondas  
-- Campo eléctrico, circuitos, magnetismo  
-- Gravedad y órbitas  
-- Lentes, luz e interferencia  
-- Física atómica, efecto fotoeléctrico, radiactividad y más  
-
-### Pizarra
-
-Para dibujar ejemplos en clase (líneas, formas, texto), sin simulación.
-
-### Mis trabajos
-
-Guarda, reabre, importa o exporta lo que hiciste. Puedes ordenar por fecha y filtrar por el examen actual. **Abrir en módulo** recupera los parámetros con los que trabajaste.
+1. **Medición y vectores:** Dimensiones, unidades y error (`units-error`), Vectores (`vectors`), Hipérbola (`hyperbola`).
+2. **Cinemática:** Cinemática (`kinematics`), Tiro parabólico (`projectile`).
+3. **Dinámica y fuerzas:** Fuerzas y movimiento (`forces-motion`), Fuerza cinética (`kinetic-force`), Fricción (`friction`), Plano inclinado y poleas (`inclined-plane`), Estática (`statics`), Masa y peso (`mass-weight`), Elasticidad y deformación (`elasticity`).
+4. **Trabajo, energía y momento:** Trabajo, energía y potencia (`work-energy`), Cantidad de movimiento e impulso (`momentum`), Colisiones multicuerpo 2D (`collisions-2d`).
+5. **Rotación y gravitación:** Circular y rotacional (`rotational`), Gravedad universal (`universal-gravity`), Kepler y maniobras orbitales (`kepler-orbits`).
+6. **Fluidos:** Arquímedes, empuje y Ecuación de Bernoulli (`fluids`).
+7. **Térmica:** Termodinámica (`thermodynamics`), Calorimetría y fases (`calorimetry`), Teoría cinética de gases (`kinetic-theory`), Dilatación térmica (`thermal-expansion`).
+8. **Oscilaciones y ondas:** Oscilaciones y resorte (`oscillatory-energy`), Péndulo simple y doble armónico/caótico (`pendulum`), Sonido y Doppler (`sound-waves`), Ondas estacionarias y batidos (`standing-waves`).
+9. **Óptica:** Luz y reflexión/refracción (`geometric-optics`), Lentes delgadas (`thin-lenses`), Espejos esféricos (`mirrors`), Interferencia y difracción (`interference-diffraction`), Instrumentos ópticos (`optical-instruments`).
+10. **Electricidad y magnetismo:** Campo eléctrico (`electric-field`), Circuitos DC/AC y RC (`circuits-dc-ac`), Campos magnéticos (`magnetic-fields`), Inducción electromagnética y transformadores (`induction`), Ondas EM y polarización (`em-waves`).
+11. **Física moderna:** Efecto fotoeléctrico (`photoelectric`), Física atómica Bohr (`atomic-physics`), Decaimiento radiactivo (`radioactivity`), Túnel cuántico (`quantum-tunneling`), Partículas en campo B (`particle-physics`), Dualidad de-Broglie (`de-broglie`), Fisión y fusión nuclear (`nuclear-energy`), Relatividad especial Lorentz (`special-relativity`), Historia de la cuántica (`quantum-history`).
+12. **Herramientas docentes:** Pizarra interactiva (`whiteboard`), Mis trabajos (`my-works`).
 
 ---
 
-## Sitio web
+## Características clave (Arquitectura & Calidad)
 
-| Página | Para qué sirve |
-|--------|----------------|
-| Inicio | Presentación, descargas y entrada rápida del alumno |
-| Laboratorio | Todas las simulaciones |
-| Acceso docente | Cuenta del profesor y códigos de examen |
-
----
-
-## Descargas (versión 1.3.0)
-
-Publicadas en [GitHub Releases](https://github.com/escoto34/FisicaHN/releases):
-
-- Windows: instalador y versión portable  
-- Linux: AppImage y paquete `.deb`  
-- Android: APK  
-
-En el sitio también puedes bajar el **ZIP** del laboratorio y el **APK** para móvil.
+- **Núcleo Declarativo y Cámara:** Escena 2D con primitivas físicas/geométricas, cámara isotrópica con zoom anclado, pan y encuadre inteligente.
+- **Rendimiento:** Throttling a 10 Hz del panel de lectura, sub-stepping adaptativo y desacoplamiento de velocidad simulada vs FPS (cámara lenta continua sin tirones a 60 FPS).
+- **Legibilidad Anticolisión:** Motor de layout automático de etiquetas, chips y llamadas para evitar solapes dentro del lienzo (viewbox 900×700).
+- **Demos y Grabación:** Grabación y reproducción determinista de muestras en tiempo simulado (`fisicahn-demo-v1`) y exportación a video WebM / fotogramas PNG.
+- **Pruebas de Calidad:** Suite de pruebas automatizada con 115 tests (`npm test`: invariantes físicos, contrato de módulos, legibilidad, controles y esquemas).
 
 ---
 
-## Ideas y contacto
+## Descargas (Versión 1.4.3)
 
-Los docentes con sesión pueden enviar ideas de mejora desde la página de inicio.  
+Publicadas en [GitHub Releases v1.4.3](https://github.com/escoto34/FisicaHN/releases/tag/v1.4.3):
+
+- **Windows:** `FisicaHN Setup 1.4.3.exe` (Instalador NSIS) y `FisicaHN-Portable-1.4.3.exe` (Portable)
+- **Linux:** `FisicaHN-1.4.3.AppImage` y `fisicahn-desktop_1.4.3_amd64.deb`
+- **Android:** `FisicaHN-1.4.3-release.apk`
+- **PWA / Web:** Disponible en el sitio web de la aplicación.
+
+---
+
+## Licencia y contacto
+
+Licencia MIT. Desarrollado para laboratorios escolares e instituciones educativas.  
 Código y novedades: [github.com/escoto34/FisicaHN](https://github.com/escoto34/FisicaHN).
