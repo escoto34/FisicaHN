@@ -11,7 +11,6 @@
 
 import { SimModule } from '../core/sim-module.js';
 import { roundTo } from '../utils/math-helpers.js';
-import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 const G = 9.8;
 const DEG = Math.PI / 180;
@@ -38,7 +37,7 @@ export default class InclinedPlane extends SimModule {
 
   init(meta = null) {
     this.reset();
-    setModuleInfo(this.ui, {
+    this.setModuleInfo({
       title: 'Plano inclinado',
       blurb: 'Descomposición del peso, fricción y polea con contrapeso.',
       story:
@@ -49,7 +48,7 @@ export default class InclinedPlane extends SimModule {
         'Contrapeso que sube al bloque: comparar la aceleración de dos cuerpos.'
       ]
     });
-    setModuleFormulas(this.ui, {
+    this.setModuleFormulas({
       title: 'Plano inclinado',
       items: [
         {
@@ -74,7 +73,7 @@ export default class InclinedPlane extends SimModule {
         }
       ]
     });
-    clearChallenges(this.ui);
+    this.clearChallenges();
   }
 
   reset() {
@@ -168,8 +167,8 @@ export default class InclinedPlane extends SimModule {
       ],
       { color: 'spring', fill: true, alpha: 0.12, width: 2 }
     );
-    // Suelo horizontal y pared vertical del triángulo.
-    scene.line(Math.max(x0 - 1, w.left + 0.05), yb, Math.min(baseEndX + 1, w.right - 0.05), yb, { color: 'textDim', width: 2 });
+    // Suelo horizontal (con rayado de apoyo) y pared vertical del triángulo.
+    scene.ground(Math.max(x0 - 1, w.left + 0.05), Math.min(baseEndX + 1, w.right - 0.05), yb, { width: 2 });
     scene.polyline([{ x: baseEndX, y: yb }, { x: topX, y: topY }], { color: 'textDim', dash: [3, 4], alpha: 0.6 });
 
     // Ángulo en la base.

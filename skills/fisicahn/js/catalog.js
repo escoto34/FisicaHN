@@ -439,6 +439,54 @@ export const CATALOG = [
       'Cuerpos en reposo bajo fuerzas equilibradas. Partícula con dos tensiones y peso. No es dinámica con aceleración.'
   },
   {
+    id: 'simple-machines',
+    title: 'Máquinas simples',
+    titleEn: 'Simple Machines',
+    level: 'middle',
+    category: 'dinamica-fuerzas',
+    glyph: '⚖️',
+    accent: 'red',
+    blurb:
+      'Palanca, poleas, plano inclinado y torno: ventaja mecánica VM, fuerza necesaria, eficiencia η y trabajo de entrada vs salida.',
+    engineKey: 'simple-machines',
+    status: 'ready',
+    serves: [
+      'Máquinas simples',
+      'Palanca',
+      'Poleas y polipasto',
+      'Plano inclinado como máquina',
+      'Torno (rueda y eje)',
+      'Ventaja mecánica',
+      'Eficiencia de una máquina',
+      'Torque y equilibrio de rotación'
+    ],
+    modes: [
+      {
+        id: 'palanca',
+        label: 'Palanca',
+        param: 'modo',
+        value: 'palanca',
+        serves: ['Palanca de 1.ª, 2.ª y 3.ª clase', 'Torque', 'Ventaja mecánica']
+      },
+      {
+        id: 'poleas',
+        label: 'Poleas',
+        param: 'modo',
+        value: 'poleas',
+        serves: ['Polea fija', 'Polea móvil', 'Polipasto']
+      },
+      {
+        id: 'plano-torno',
+        label: 'Plano inclinado y torno',
+        param: 'modo',
+        value: 'plano-torno',
+        serves: ['Plano inclinado como máquina', 'Torno (rueda y eje)']
+      }
+    ],
+    topic:
+      'Ventaja mecánica ideal y real (η), F necesaria y W entrada vs salida. Se diferencia de “Estática” (partícula con tensiones) y de “Plano inclinado” (dinámica con fricción): aquí el foco es multiplicar fuerza a costa de distancia.'
+  },
+  {
     id: 'momentum',
     title: 'Cantidad de movimiento',
     titleEn: 'Momentum',
@@ -730,6 +778,53 @@ export const CATALOG = [
       'Estática y dinámica de líquidos. La presión y la velocidad intercambian valores en el Venturi; flotación por densidad relativa.'
   },
   {
+    id: 'hydraulics',
+    title: 'Presión y prensa hidráulica',
+    titleEn: 'Pressure and Hydraulic Press',
+    level: 'middle',
+    category: 'fluidos',
+    glyph: '🛢️',
+    accent: 'teal',
+    blurb: 'Presión hidrostática con sonda arrastrable, prensa de Pascal y vasos comunicantes.',
+    engineKey: 'hydraulics',
+    status: 'ready',
+    serves: [
+      'Presión',
+      'Presión hidrostática',
+      'Principio de Pascal',
+      'Prensa hidráulica',
+      'Ventaja mecánica',
+      'Vasos comunicantes',
+      'Manómetro',
+      'Densidad'
+    ],
+    modes: [
+      {
+        id: 'hidrostatica',
+        label: 'Hidrostática',
+        param: 'modo',
+        value: 'hidrostatica',
+        serves: ['Presión hidrostática', 'Manómetro', 'Densidad']
+      },
+      {
+        id: 'pascal',
+        label: 'Prensa hidráulica',
+        param: 'modo',
+        value: 'pascal',
+        serves: ['Principio de Pascal', 'Prensa hidráulica', 'Ventaja mecánica']
+      },
+      {
+        id: 'vasos',
+        label: 'Vasos comunicantes',
+        param: 'modo',
+        value: 'vasos',
+        serves: ['Vasos comunicantes', 'Densidad']
+      }
+    ],
+    topic:
+      'Presión en líquidos en reposo. Arquímedes y Bernoulli están en “Fluidos”; aquí P = P₀ + ρgh, Pascal y el tubo en U.'
+  },
+  {
     id: 'thermodynamics',
     title: 'Termodinámica',
     titleEn: 'Thermodynamics',
@@ -1018,6 +1113,53 @@ export const CATALOG = [
       }
     ],
     topic: 'Mallas resistivas y RLC forzado. No es el mapa de Coulomb.'
+  },
+  {
+    id: 'capacitors',
+    title: 'Condensadores y dieléctricos',
+    titleEn: 'Capacitors and Dielectrics',
+    level: 'high',
+    category: 'electricidad-magnetismo',
+    glyph: '🔋',
+    accent: 'pink',
+    blurb: 'Placas paralelas con dieléctrico animado, carga y descarga RC, y asociación serie/paralelo.',
+    engineKey: 'capacitors',
+    status: 'ready',
+    serves: [
+      'Capacitores',
+      'Condensadores',
+      'Dieléctricos',
+      'Capacidad',
+      'Energía almacenada',
+      'Campo eléctrico uniforme',
+      'Circuitos RC',
+      'Condensadores en serie y paralelo'
+    ],
+    modes: [
+      {
+        id: 'placas',
+        label: 'Placas y dieléctrico',
+        param: 'modo',
+        value: 'placas',
+        serves: ['Capacidad', 'Dieléctricos', 'Campo eléctrico uniforme', 'Energía almacenada']
+      },
+      {
+        id: 'carga-rc',
+        label: 'Carga y descarga RC',
+        param: 'modo',
+        value: 'carga-rc',
+        serves: ['Circuitos RC', 'Constante de tiempo', 'Carga exponencial']
+      },
+      {
+        id: 'asociacion',
+        label: 'Serie / paralelo',
+        param: 'modo',
+        value: 'asociacion',
+        serves: ['Condensadores en serie y paralelo', 'Capacidad equivalente']
+      }
+    ],
+    topic:
+      'El condensador como componente: C = κε₀A/d, Q = CV y U = ½CV². El RC con resistencias y el RLC están en “Circuitos DC/AC”.'
   },
   {
     id: 'magnetic-fields',
@@ -1343,6 +1485,53 @@ export const CATALOG = [
       'Física cuántica'
     ],
     topic: 'Cuantos de luz e electrones emitidos; intensidad vs K_max.'
+  },
+  {
+    id: 'blackbody',
+    title: 'Cuerpo negro y espectro térmico',
+    titleEn: 'Blackbody Radiation',
+    level: 'advanced',
+    category: 'fisica-moderna',
+    glyph: '🔥',
+    accent: 'lime',
+    blurb:
+      'Espectro de Planck B(λ,T), ley de Wien λ_max = b/T, Stefan–Boltzmann P = σAT⁴ y el color de un cuerpo caliente.',
+    engineKey: 'blackbody',
+    status: 'ready',
+    serves: [
+      'Radiación de cuerpo negro',
+      'Ley de Planck',
+      'Ley de Wien',
+      'Ley de Stefan–Boltzmann',
+      'Catástrofe ultravioleta',
+      'Clasificación espectral de estrellas',
+      'Espectro térmico'
+    ],
+    modes: [
+      {
+        id: 'espectro',
+        label: 'Espectro de Planck',
+        param: 'modo',
+        value: 'espectro',
+        serves: ['Ley de Planck', 'Ley de Wien', 'Ley de Stefan–Boltzmann']
+      },
+      {
+        id: 'clasico-vs-planck',
+        label: 'Clásico vs Planck',
+        param: 'modo',
+        value: 'clasico-vs-planck',
+        serves: ['Catástrofe ultravioleta', 'Rayleigh–Jeans']
+      },
+      {
+        id: 'estrellas',
+        label: 'Estrellas',
+        param: 'modo',
+        value: 'estrellas',
+        serves: ['Clasificación espectral de estrellas', 'Color y temperatura de las estrellas']
+      }
+    ],
+    topic:
+      'Radiación térmica de un cuerpo en función de T. Origen histórico de la cuantización (Planck, 1900); el fotoeléctrico es el paso siguiente y está en su propio módulo.'
   },
   {
     id: 'radioactivity',

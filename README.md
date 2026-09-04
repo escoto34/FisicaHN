@@ -25,7 +25,7 @@ Se distribuye en 5 formatos desde una única fuente de verdad (`skills/fisicahn`
 - **App de escritorio** (Electron para Windows y Linux)
 - **App Android** (Capacitor APK para tablets y celulares)
 
-Versión actual: **1.5.0** (Hoja de ruta WAVEs 0 a 18 completada al 100%).
+Versión actual: **1.6.0** (Hoja de ruta WAVEs 0 a 18 completada al 100%; los 50 motores en el contrato declarativo `SimModule` + `draw(scene)`).
 
 ---
 
@@ -35,14 +35,14 @@ Versión actual: **1.5.0** (Hoja de ruta WAVEs 0 a 18 completada al 100%).
 |------------|------------|--------------|
 | **Web / PWA** | Cualquiera con o sin internet | Abre el sitio web, instálalo como PWA para uso sin conexión |
 | **ZIP Offline** | USB, NetSupport, laboratorios bloqueados | Descarga `fisicahn.zip`, descomprime y abre `index.html` |
-| **Escritorio** | Windows (Instalador / Portable) o Linux (AppImage / DEB) | Descarga los binarios desde [Releases v1.5.0](https://github.com/escoto34/FisicaHN/releases/tag/v1.5.0) |
-| **Android** | Tablets y teléfonos | Instala `FisicaHN-1.5.0-release.apk` |
+| **Escritorio** | Windows (Instalador / Portable) o Linux (AppImage / DEB) | Descarga los binarios desde [Releases v1.6.0](https://github.com/escoto34/FisicaHN/releases/tag/v1.6.0) |
+| **Android** | Tablets y teléfonos | Instala `FisicaHN-1.6.0-release.apk` |
 
 ### Linux (AppImage)
 
 ```bash
-chmod +x FisicaHN-1.5.0.AppImage
-./FisicaHN-1.5.0.AppImage
+chmod +x FisicaHN-1.6.0.AppImage
+./FisicaHN-1.6.0.AppImage
 ```
 
 ---
@@ -58,19 +58,19 @@ chmod +x FisicaHN-1.5.0.AppImage
 
 ## Qué hay en el laboratorio
 
-El catálogo cuenta con **46 módulos de física interactivos + Pizarra docente + Mis trabajos** organizados en 12 categorías curriculares con búsqueda instantánea y enlace profundo por modo (`#/m/momentum?mode=impulse`):
+El catálogo cuenta con **50 módulos de física interactivos + Pizarra docente + Mis trabajos** organizados en 12 categorías curriculares con búsqueda instantánea y enlace profundo por modo (`#/m/momentum?mode=impulse`):
 
 1. **Medición y vectores:** Dimensiones, unidades y error (`units-error`), Vectores (`vectors`), Hipérbola (`hyperbola`).
 2. **Cinemática:** Cinemática (`kinematics`), Tiro parabólico (`projectile`).
-3. **Dinámica y fuerzas:** Fuerzas y movimiento (`forces-motion`), Fuerza cinética (`kinetic-force`), Fricción (`friction`), Plano inclinado y poleas (`inclined-plane`), Estática (`statics`), Masa y peso (`mass-weight`), Elasticidad y deformación (`elasticity`).
+3. **Dinámica y fuerzas:** Fuerzas y movimiento (`forces-motion`), Fuerza cinética (`kinetic-force`), Fricción (`friction`), Plano inclinado y poleas (`inclined-plane`), Estática (`statics`), Máquinas simples (`simple-machines`), Masa y peso (`mass-weight`), Elasticidad y deformación (`elasticity`).
 4. **Trabajo, energía y momento:** Trabajo, energía y potencia (`work-energy`), Cantidad de movimiento e impulso (`momentum`), Colisiones multicuerpo 2D (`collisions-2d`).
 5. **Rotación y gravitación:** Circular y rotacional (`rotational`), Gravedad universal (`universal-gravity`), Kepler y maniobras orbitales (`kepler-orbits`).
-6. **Fluidos:** Arquímedes, empuje y Ecuación de Bernoulli (`fluids`).
+6. **Fluidos:** Arquímedes, empuje y Ecuación de Bernoulli (`fluids`), Presión y prensa hidráulica (`hydraulics`).
 7. **Térmica:** Termodinámica (`thermodynamics`), Calorimetría y fases (`calorimetry`), Teoría cinética de gases (`kinetic-theory`), Dilatación térmica (`thermal-expansion`).
 8. **Oscilaciones y ondas:** Oscilaciones y resorte (`oscillatory-energy`), Péndulo simple y doble armónico/caótico (`pendulum`), Sonido y Doppler (`sound-waves`), Ondas estacionarias y batidos (`standing-waves`).
 9. **Óptica:** Luz y reflexión/refracción (`geometric-optics`), Lentes delgadas (`thin-lenses`), Espejos esféricos (`mirrors`), Interferencia y difracción (`interference-diffraction`), Instrumentos ópticos (`optical-instruments`).
-10. **Electricidad y magnetismo:** Campo eléctrico (`electric-field`), Circuitos DC/AC y RC (`circuits-dc-ac`), Campos magnéticos (`magnetic-fields`), Inducción electromagnética y transformadores (`induction`), Ondas EM y polarización (`em-waves`).
-11. **Física moderna:** Efecto fotoeléctrico (`photoelectric`), Física atómica Bohr (`atomic-physics`), Decaimiento radiactivo (`radioactivity`), Túnel cuántico (`quantum-tunneling`), Partículas en campo B (`particle-physics`), Dualidad de-Broglie (`de-broglie`), Fisión y fusión nuclear (`nuclear-energy`), Relatividad especial Lorentz (`special-relativity`), Historia de la cuántica (`quantum-history`).
+10. **Electricidad y magnetismo:** Campo eléctrico (`electric-field`), Circuitos DC/AC y RC (`circuits-dc-ac`), Condensadores y dieléctricos (`capacitors`), Campos magnéticos (`magnetic-fields`), Inducción electromagnética y transformadores (`induction`), Ondas EM y polarización (`em-waves`).
+11. **Física moderna:** Efecto fotoeléctrico (`photoelectric`), Física atómica Bohr (`atomic-physics`), Cuerpo negro y espectro térmico (`blackbody`), Decaimiento radiactivo (`radioactivity`), Túnel cuántico (`quantum-tunneling`), Partículas en campo B (`particle-physics`), Dualidad de-Broglie (`de-broglie`), Fisión y fusión nuclear (`nuclear-energy`), Relatividad especial Lorentz (`special-relativity`), Historia de la cuántica (`quantum-history`).
 12. **Herramientas docentes:** Pizarra interactiva (`whiteboard`), Mis trabajos (`my-works`).
 
 ---
@@ -81,17 +81,17 @@ El catálogo cuenta con **46 módulos de física interactivos + Pizarra docente 
 - **Rendimiento:** Throttling a 10 Hz del panel de lectura, sub-stepping adaptativo y desacoplamiento de velocidad simulada vs FPS (cámara lenta continua sin tirones a 60 FPS).
 - **Legibilidad Anticolisión:** Motor de layout automático de etiquetas, chips y llamadas para evitar solapes dentro del lienzo (viewbox 900×700).
 - **Demos y Grabación:** Grabación y reproducción determinista de muestras en tiempo simulado (`fisicahn-demo-v1`) y exportación a video WebM / fotogramas PNG.
-- **Pruebas de Calidad:** Suite de pruebas automatizada con 115 tests (`npm test`: invariantes físicos, contrato de módulos, legibilidad, controles y esquemas).
+- **Pruebas de Calidad:** Suite de pruebas automatizada con 244 tests (`npm test`: invariantes físicos, contrato de módulos, legibilidad, controles y esquemas).
 
 ---
 
-## Descargas (Versión 1.5.0)
+## Descargas (Versión 1.6.0)
 
-Publicadas en [GitHub Releases v1.5.0](https://github.com/escoto34/FisicaHN/releases/tag/v1.5.0):
+Publicadas en [GitHub Releases v1.6.0](https://github.com/escoto34/FisicaHN/releases/tag/v1.6.0):
 
-- **Windows:** `FisicaHN Setup 1.5.0.exe` (Instalador NSIS) y `FisicaHN-Portable-1.5.0.exe` (Portable)
-- **Linux:** `FisicaHN-1.5.0.AppImage` y `fisicahn-desktop_1.5.0_amd64.deb`
-- **Android:** `FisicaHN-1.5.0-release.apk`
+- **Windows:** `FisicaHN Setup 1.6.0.exe` (Instalador NSIS) y `FisicaHN-Portable-1.6.0.exe` (Portable)
+- **Linux:** `FisicaHN-1.6.0.AppImage` y `fisicahn-desktop_1.6.0_amd64.deb`
+- **Android:** `FisicaHN-1.6.0-release.apk`
 - **PWA / Web:** Disponible en el sitio web de la aplicación.
 
 ---

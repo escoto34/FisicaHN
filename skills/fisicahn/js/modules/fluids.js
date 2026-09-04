@@ -15,7 +15,6 @@
 
 import { SimModule } from '../core/sim-module.js';
 import { roundTo } from '../utils/math-helpers.js';
-import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 const G = 9.8;
 const P_ATM = 101325;
@@ -66,7 +65,7 @@ export default class Fluids extends SimModule {
 
   init(meta = null) {
     this.reset();
-    setModuleInfo(this.ui, {
+    this.setModuleInfo({
       title: 'Fluidos',
       blurb: 'Principio de Arquímedes y ecuación de Bernoulli con tubo de Venturi.',
       story:
@@ -78,7 +77,7 @@ export default class Fluids extends SimModule {
         'El caudal Q = A·v se conserva a lo largo del tubo.'
       ]
     });
-    setModuleFormulas(this.ui, {
+    this.setModuleFormulas({
       title: 'Fluidos',
       items: [
         {
@@ -103,7 +102,7 @@ export default class Fluids extends SimModule {
         }
       ]
     });
-    clearChallenges(this.ui);
+    this.clearChallenges();
   }
 
   reset() {

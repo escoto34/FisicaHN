@@ -1,49 +1,47 @@
 /**
- * Luz y óptica geométrica — reflexión, refracción (Snell) y RTI.
- * Visual pensada para clase: medios coloreados, normal, ángulos y leyenda.
+ * @fileoverview Luz y óptica geométrica — reflexión, refracción (Snell) y
+ * reflexión total interna sobre una interfaz plana.
+ *
+ * Migrado al contrato `SimModule` + `draw(scene)`: el estado vive en la
+ * instancia, los parámetros son un esquema declarativo y los colores son
+ * tokens del tema. Geometría estándar de libro:
+ *
+ *  - Interfaz horizontal en y = 0; medio 1 arriba (y > 0), medio 2 abajo.
+ *  - Normal vertical por el punto de impacto (0, 0), que es el `anchor`.
+ *  - Ángulos medidos desde la normal.
+ *
+ * Además del diagrama de rayos, la gráfica θ₂(θ₁) del HUD muestra de un
+ * vistazo dónde se acaba la refracción (ángulo crítico) — el «porqué» de la
+ * fibra óptica.
  */
 
-import { Vector2D } from '../utils/vector2d.js';
-import {
-  setModuleInfo,
-  setModuleFormulas,
-  paramControl,
-  bindParamControls,
-  clearChallenges
-} from '../module-ui.js';
-import { toRad, toDeg, roundTo } from '../utils/math-helpers.js';
+import { SimModule } from '../core/sim-module.js';
+import { toRad, toDeg, roundTo, clamp } from '../core/geometry.js';
 
-let isRunning = false;
-let _engine = null;
-let _renderer = null;
-let _ui = null;
-
-/** Materiales típicos (índice de refracción aprox.) */
+/** Materiales típicos (índice de refracción aprox.). */
 const MATERIALS = [
-  { id: 'air', label: 'Aire', n: 1.0, tint: 'rgba(79, 195, 247, 0.08)' },
-  { id: 'water', label: 'Agua', n: 1.33, tint: 'rgba(41, 121, 255, 0.14)' },
-  { id: 'glass', label: 'Vidrio', n: 1.5, tint: 'rgba(100, 181, 246, 0.18)' },
-  { id: 'diamond', label: 'Diamante', n: 2.42, tint: 'rgba(186, 104, 200, 0.16)' }
+  { id: 'air', label: 'Aire', n: 1.0 },
+  { id: 'water', label: 'Agua', n: 1.33 },
+  { id: 'glass', label: 'Vidrio', n: 1.5 },
+  { id: 'diamond', label: 'Diamante', n: 2.42 }
 ];
 
-const PRESETS = [
-  { id: 'air-water', label: 'Aire → agua', n1: 1.0, n2: 1.33, angle: 40 },
-  { id: 'air-glass', label: 'Aire → vidrio', n1: 1.0, n2: 1.5, angle: 35 },
-  { id: 'water-air', label: 'Agua → aire', n1: 1.33, n2: 1.0, angle: 40 },
-  { id: 'glass-air', label: 'Vidrio → aire', n1: 1.5, n2: 1.0, angle: 50 },
-  { id: 'diamond-air', label: 'Diamante → aire', n1: 2.42, n2: 1.0, angle: 30 }
-];
-
-const params = {
-  angle: 40,
-  n1: 1.0,
-  n2: 1.33
+/** Parejas de medios de ejemplo: fijan n₁, n₂ y θ₁ mientras estén activas. */
+const PRESETS = {
+  'air-water': { label: 'Aire → agua', n1: 1.0, n2: 1.33, angle: 40 },
+  'air-glass': { label: 'Aire → vidrio', n1: 1.0, n2: 1.5, angle: 35 },
+  'water-air': { label: 'Agua → aire', n1: 1.33, n2: 1.0, angle: 40 },
+  'glass-air': { label: 'Vidrio → aire', n1: 1.5, n2: 1.0, angle: 50 },
+  'diamond-air': { label: 'Diamante → aire', n1: 2.42, n2: 1.0, angle: 30 }
 };
 
-/** @type {ReturnType<typeof computeOptics>|null} */
-let lastOptics = null;
+/** Longitud dibujada de cada rayo, en unidades de mundo. */
+const RAY_LEN = 6.2;
+/** Puntos de la curva θ₂(θ₁) del HUD. */
+const CURVE_N = 90;
 
-function materialFor(n) {
+/** Nombre del material más cercano a un índice, o genérico si no coincide. */
+function materialLabel(n) {
   let best = MATERIALS[0];
   let d = Infinity;
   for (const m of MATERIALS) {
@@ -53,515 +51,323 @@ function materialFor(n) {
       best = m;
     }
   }
-  // Si no coincide casi exacto, genérico
-  if (d > 0.08) {
-    return { id: 'custom', label: `n = ${roundTo(n, 2)}`, n, tint: 'rgba(158, 158, 158, 0.12)' };
-  }
-  return best;
+  return d > 0.08 ? `n = ${roundTo(n, 2)}` : best.label;
 }
 
-/**
- * Geometría estándar:
- * - Interfaz horizontal y = 0
- * - Medio 1 arriba (y > 0), medio 2 abajo (y < 0)
- * - Normal vertical (+y)
- * - θ medido desde la normal
- */
-function computeOptics() {
-  const theta1 = Math.max(0, Math.min(89.5, params.angle));
-  const n1 = Math.max(1, params.n1);
-  const n2 = Math.max(1, params.n2);
-  const th1 = toRad(theta1);
+export default class OpticsModule extends SimModule {
+  /** Interfaz apaisada: los rayos se abren a ambos lados de la normal. */
+  static viewport = { width: 20, height: 14 };
 
-  const hit = new Vector2D(0, 0);
-  const L = 6.2;
+  /** Punto de impacto del rayo sobre la interfaz: fijo en el origen (§17.1). */
+  static anchor = { x: 0, y: 0 };
 
-  // Incidente: desde arriba-izquierda hacia el punto de impacto
-  const incidentDir = new Vector2D(Math.sin(th1), -Math.cos(th1));
-  const incidentStart = hit.subtract(incidentDir.scale(L));
-
-  // Reflejado: espejo respecto a la normal → (sin θ, +cos θ)
-  const reflectedDir = new Vector2D(Math.sin(th1), Math.cos(th1));
-  const reflectedEnd = hit.add(reflectedDir.scale(L));
-
-  let criticalDeg = null;
-  if (n1 > n2) {
-    criticalDeg = toDeg(Math.asin(n2 / n1));
-  }
-
-  const sin2 = (n1 / n2) * Math.sin(th1);
-  let isTIR = false;
-  let theta2Deg = null;
-  let refractedEnd = null;
-
-  if (sin2 > 1 + 1e-9) {
-    isTIR = true;
-  } else {
-    const th2 = Math.asin(Math.min(1, Math.max(-1, sin2)));
-    theta2Deg = toDeg(th2);
-    const refractedDir = new Vector2D(Math.sin(th2), -Math.cos(th2));
-    refractedEnd = hit.add(refractedDir.scale(L));
-  }
-
-  return {
-    theta1,
-    theta2Deg,
-    n1,
-    n2,
-    hit,
-    incidentStart,
-    reflectedEnd,
-    refractedEnd,
-    isTIR,
-    criticalDeg,
-    m1: materialFor(n1),
-    m2: materialFor(n2)
-  };
-}
-
-export function init(engine, renderer, ui, meta = null) {
-  _engine = engine;
-  _renderer = renderer;
-  _ui = ui;
-
-  isRunning = true;
-  lastOptics = computeOptics();
-
-  setModuleInfo(ui, {
-    title: meta?.title || 'Luz y óptica geométrica',
-    blurb:
-      meta?.blurb ||
-      'La luz como rayos: al chocar con una frontera se refleja y, si puede, se refracta (cambia de dirección).',
-    story:
-      'Óptica geométrica = dibujar rayos (no ondas con interferencia). Snell: n₁ sen θ₁ = n₂ sen θ₂. Si vas de un medio “denso” a uno “raro” con mucho ángulo, el rayo no sale: reflexión total interna (fibra óptica).',
-    cases: [
-      'Espejo: el rayo rebota con el mismo ángulo (θi = θr).',
-      'Lápiz en un vaso: el rayo se “quiebra” al pasar aire ↔ agua.',
-      'Fibra óptica: luz atrapada por reflexión total interna.'
-    ]
-  });
-  setModuleFormulas(ui, {
-    items: [
-      {
-        name: 'Reflexión',
-        formula: 'θ<sub>i</sub> = θ<sub>r</sub>',
-        note: 'Ángulos medidos desde la normal (línea punteada vertical).'
-      },
-      {
-        name: 'Ley de Snell',
-        formula: 'n₁ · sen θ₁ = n₂ · sen θ₂',
-        note: 'n grande = medio ópticamente más denso (la luz “va más lenta”).'
-      },
-      {
-        name: 'Ángulo crítico',
-        formula: 'θ<sub>c</sub> = arcsen(n₂ / n₁)',
-        note: 'Solo si n₁ > n₂. Si θ₁ ≥ θc → reflexión total interna.'
-      }
-    ]
-  });
-  clearChallenges(ui);
-  renderParams();
-  updateDataPanel();
-}
-
-export function destroy() {
-  isRunning = false;
-  _engine = _renderer = _ui = null;
-  lastOptics = null;
-}
-
-export function reset(engine) {
-  params.angle = 40;
-  params.n1 = 1.0;
-  params.n2 = 1.33;
-  lastOptics = computeOptics();
-  engine?.reset?.();
-  renderParams();
-  updateDataPanel();
-}
-
-export function setTool() {}
-
-export function update() {
-  if (!isRunning) return;
-  lastOptics = computeOptics();
-  updateDataPanel();
-}
-
-function drawArrow(ctx, from, to, color, width = 2.5) {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  const len = Math.hypot(dx, dy) || 1;
-  const ux = dx / len;
-  const uy = dy / len;
-  const ah = 11;
-  const aw = 6;
-
-  ctx.strokeStyle = color;
-  ctx.fillStyle = color;
-  ctx.lineWidth = width;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  ctx.moveTo(from.x, from.y);
-  ctx.lineTo(to.x - ux * ah * 0.6, to.y - uy * ah * 0.6);
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.moveTo(to.x, to.y);
-  ctx.lineTo(to.x - ux * ah - uy * aw, to.y - uy * ah + ux * aw);
-  ctx.lineTo(to.x - ux * ah + uy * aw, to.y - uy * ah - ux * aw);
-  ctx.closePath();
-  ctx.fill();
-}
-
-/** Etiqueta tipo píldora. Fuera de `render` para no re-crear la clausura
- *  cada frame (§3.2). */
-function drawChip(ctx, text, x, y, fill) {
-  const padX = 10;
-  const tw = ctx.measureText(text).width;
-  ctx.fillStyle = 'rgba(12, 15, 20, 0.55)';
-  ctx.beginPath();
-  if (ctx.roundRect) {
-    ctx.roundRect(x, y - 12, tw + padX * 2, 24, 8);
-    ctx.fill();
-  } else {
-    ctx.fillRect(x, y - 12, tw + padX * 2, 24);
-  }
-  ctx.fillStyle = fill;
-  ctx.fillText(text, x + padX, y);
-}
-
-function drawAngleArc(ctx, cx, cy, radius, fromA, toA, color, label) {
-  ctx.save();
-  ctx.strokeStyle = color;
-  ctx.fillStyle = color;
-  ctx.lineWidth = 1.6;
-  ctx.globalAlpha = 0.85;
-  ctx.beginPath();
-  ctx.arc(cx, cy, radius, fromA, toA, fromA > toA);
-  ctx.stroke();
-
-  const mid = (fromA + toA) / 2;
-  const lx = cx + Math.cos(mid) * (radius + 14);
-  const ly = cy + Math.sin(mid) * (radius + 14);
-  ctx.globalAlpha = 1;
-  ctx.font = '600 12px system-ui, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  const tw = ctx.measureText(label).width;
-  ctx.fillStyle = 'rgba(12, 15, 20, 0.72)';
-  ctx.fillRect(lx - tw / 2 - 5, ly - 9, tw + 10, 18);
-  ctx.fillStyle = color;
-  ctx.fillText(label, lx, ly);
-  ctx.restore();
-}
-
-export function render(ctx) {
-  if (!_renderer) return;
-  const r = _renderer;
-  const o = lastOptics || computeOptics();
-  // px CSS: `r.canvas.width` es el buffer de dispositivo y con DPR 1,75
-  // mandaba la leyenda fuera de pantalla y estiraba los medios (§2.0).
-  const { w, h } = r.viewport();
-
-  const left = r.worldToCanvas(-10, 0);
-  const right = r.worldToCanvas(10, 0);
-  const top = r.worldToCanvas(0, 7);
-  const bottom = r.worldToCanvas(0, -7);
-  const interfaceY = left.y;
-
-  // —— Medios (mitades de color) ——
-  ctx.save();
-  // Medio 1 (arriba)
-  ctx.fillStyle = o.m1.tint;
-  ctx.fillRect(0, 0, w, interfaceY);
-  // Medio 2 (abajo)
-  ctx.fillStyle = o.m2.tint;
-  ctx.fillRect(0, interfaceY, w, h - interfaceY);
-
-  // Interfaz
-  ctx.strokeStyle = 'rgba(255,255,255,0.45)';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(0, interfaceY);
-  ctx.lineTo(w, interfaceY);
-  ctx.stroke();
-
-  // Etiquetas de medios
-  ctx.font = '600 13px system-ui, sans-serif';
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'middle';
-  drawChip(ctx, `Medio 1 · ${o.m1.label} · n₁ = ${roundTo(o.n1, 2)}`, 16, Math.max(28, interfaceY * 0.35), '#81d4fa');
-  drawChip(ctx, `Medio 2 · ${o.m2.label} · n₂ = ${roundTo(o.n2, 2)}`, 16, Math.min(h - 28, interfaceY + (h - interfaceY) * 0.55), '#a5d6a7');
-
-  const pHit = r.worldToCanvas(o.hit.x, o.hit.y);
-  const pInc = r.worldToCanvas(o.incidentStart.x, o.incidentStart.y);
-  const pRefl = r.worldToCanvas(o.reflectedEnd.x, o.reflectedEnd.y);
-
-  // —— Normal (perpendicular a la interfaz) ——
-  ctx.setLineDash([5, 5]);
-  ctx.strokeStyle = 'rgba(255,255,255,0.55)';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(pHit.x, pHit.y - 90);
-  ctx.lineTo(pHit.x, pHit.y + 90);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.fillStyle = 'rgba(255,255,255,0.7)';
-  ctx.font = '11px system-ui, sans-serif';
-  ctx.textAlign = 'left';
-  ctx.fillText('normal', pHit.x + 8, pHit.y - 78);
-
-  // Punto de impacto
-  ctx.fillStyle = '#fff';
-  ctx.beginPath();
-  ctx.arc(pHit.x, pHit.y, 4.5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(0,0,0,0.35)';
-  ctx.lineWidth = 1;
-  ctx.stroke();
-
-  // —— Rayos ——
-  // Incidente
-  drawArrow(ctx, pInc, pHit, '#4fc3f7', 3);
-
-  // Reflejado
-  ctx.save();
-  if (o.isTIR) {
-    drawArrow(ctx, pHit, pRefl, '#ff7043', 3);
-  } else {
-    ctx.globalAlpha = 0.75;
-    ctx.setLineDash([7, 5]);
-    drawArrow(ctx, pHit, pRefl, '#ffb74d', 2.2);
-    ctx.setLineDash([]);
-  }
-  ctx.restore();
-
-  // Refractado
-  if (!o.isTIR && o.refractedEnd) {
-    const pRefr = r.worldToCanvas(o.refractedEnd.x, o.refractedEnd.y);
-    drawArrow(ctx, pHit, pRefr, '#66bb6a', 3);
-  }
-
-  // —— Arcos de ángulo (desde la normal) ——
-  // En canvas, el eje Y crece hacia abajo; la normal “hacia arriba” es ángulo -π/2 en sentido canvas.
-  // Incidente: desde normal hacia el rayo (lado izquierdo-arriba)
-  const th1 = toRad(o.theta1);
-  // Ángulo del rayo incidente en pantalla: atan2 de (pInc - pHit)
-  const angInc = Math.atan2(pInc.y - pHit.y, pInc.x - pHit.x);
-  const angNormalUp = -Math.PI / 2;
-  drawAngleArc(
-    ctx,
-    pHit.x,
-    pHit.y,
-    38,
-    angNormalUp,
-    angInc,
-    '#4fc3f7',
-    `θ₁ ${roundTo(o.theta1, 0)}°`
-  );
-
-  if (!o.isTIR && o.theta2Deg != null && o.refractedEnd) {
-    const pRefr = r.worldToCanvas(o.refractedEnd.x, o.refractedEnd.y);
-    const angRefr = Math.atan2(pRefr.y - pHit.y, pRefr.x - pHit.x);
-    const angNormalDown = Math.PI / 2;
-    drawAngleArc(
-      ctx,
-      pHit.x,
-      pHit.y,
-      38,
-      angNormalDown,
-      angRefr,
-      '#66bb6a',
-      `θ₂ ${roundTo(o.theta2Deg, 1)}°`
-    );
-  }
-
-  // —— Leyenda ——
-  const legend = [
-    { c: '#4fc3f7', t: 'Incidente' },
-    { c: o.isTIR ? '#ff7043' : '#ffb74d', t: o.isTIR ? 'Reflejado (total)' : 'Reflejado' },
-    { c: '#66bb6a', t: 'Refractado', hide: o.isTIR }
-  ].filter((x) => !x.hide);
-
-  let lx = w - 16;
-  const ly0 = 18;
-  ctx.font = '12px system-ui, sans-serif';
-  ctx.textAlign = 'right';
-  ctx.textBaseline = 'middle';
-  legend.forEach((item, i) => {
-    const y = ly0 + i * 22;
-    const tw = ctx.measureText(item.t).width;
-    ctx.fillStyle = 'rgba(12,15,20,0.55)';
-    ctx.fillRect(lx - tw - 28, y - 10, tw + 24, 20);
-    ctx.strokeStyle = item.c;
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(lx - tw - 20, y);
-    ctx.lineTo(lx - tw - 6, y);
-    ctx.stroke();
-    ctx.fillStyle = item.c;
-    ctx.fillText(item.t, lx - 4, y);
-  });
-
-  ctx.restore();
-}
-
-function updateDataPanel() {
-  if (!_ui) return;
-  const o = lastOptics || computeOptics();
-  const rows = [
-    ['Ángulo de incidencia θ₁', `${roundTo(o.theta1, 1)}°`],
-    ['Ángulo reflejado θr', `${roundTo(o.theta1, 1)}°  (= θ₁)`],
-    [
-      'Ángulo refractado θ₂',
-      o.isTIR ? '— (no hay refracción)' : `${roundTo(o.theta2Deg, 2)}°`
-    ],
-    ['n₁ · sen θ₁', `${roundTo(o.n1 * Math.sin(toRad(o.theta1)), 4)}`],
-    [
-      'n₂ · sen θ₂',
-      o.isTIR ? '—' : `${roundTo(o.n2 * Math.sin(toRad(o.theta2Deg)), 4)}`
-    ],
-    [
-      'Ángulo crítico θc',
-      o.criticalDeg != null ? `${roundTo(o.criticalDeg, 2)}°` : 'No aplica (n₁ ≤ n₂)'
-    ],
-    ['Estado', o.isTIR ? 'Reflexión total interna' : 'Hay rayo refractado']
+  static params = [
+    {
+      id: 'preset',
+      type: 'select',
+      label: 'Par de medios',
+      value: 'manual',
+      options: [
+        { value: 'manual', label: 'Manual (deslizadores)' },
+        ...Object.entries(PRESETS).map(([value, p]) => ({ value, label: p.label }))
+      ]
+    },
+    { id: 'angle', label: 'Ángulo de incidencia', latex: '\\theta_1', unit: '°', min: 0, max: 89, step: 1, value: 40 },
+    { id: 'n1', label: 'Índice del medio 1 (arriba)', latex: 'n_1', min: 1, max: 2.5, step: 0.01, value: 1.0 },
+    { id: 'n2', label: 'Índice del medio 2 (abajo)', latex: 'n_2', min: 1, max: 2.5, step: 0.01, value: 1.33 }
   ];
 
-  _ui.setData(`
-    <div class="optics-data">
-      <p class="tab-text optics-data-lead">
-        ${
-          o.isTIR
-            ? 'El rayo intenta pasar a un medio menos denso con un ángulo demasiado grande: <strong>rebota por completo</strong>.'
-            : 'Parte de la luz se <strong>refleja</strong> y parte se <strong>refracta</strong> (cambia de dirección al entrar al medio 2).'
+  constructor(ctx) {
+    super(ctx);
+    this.params = { preset: 'manual', angle: 40, n1: 1.0, n2: 1.33 };
+    this.t = 0;
+    /** Resultado de Snell para el estado actual (se reescribe, no se re-crea). */
+    this.o = {
+      theta1: 40,
+      theta2: null,
+      n1: 1,
+      n2: 1.33,
+      isTIR: false,
+      critical: null,
+      sinLeft: 0,
+      sinRight: 0
+    };
+    /** Curva θ₂(θ₁) para la gráfica del HUD; se regenera sólo si cambian n₁/n₂. */
+    this.curve = [];
+    this._curveKey = '';
+    /** Punto actual sobre la curva (serie de un solo punto). */
+    this._dot = [{ x: 0, y: 0 }];
+    /** Línea vertical del ángulo crítico en la gráfica. */
+    this._critLine = [
+      { x: 0, y: 0 },
+      { x: 0, y: 90 }
+    ];
+  }
+
+  init(meta = null) {
+    this.reset();
+    this.setModuleInfo({
+      title: meta?.title || 'Luz y óptica geométrica',
+      blurb:
+        meta?.blurb ||
+        'La luz como rayos: al chocar con una frontera se refleja y, si puede, se refracta (cambia de dirección).',
+      story:
+        'Óptica geométrica = dibujar rayos (no ondas con interferencia). Snell: n₁ sen θ₁ = n₂ sen θ₂. Si vas de un medio «denso» a uno «raro» con mucho ángulo, el rayo no sale: reflexión total interna (fibra óptica).',
+      cases: [
+        'Espejo: el rayo rebota con el mismo ángulo (θi = θr).',
+        'Lápiz en un vaso: el rayo se «quiebra» al pasar aire ↔ agua.',
+        'Fibra óptica: luz atrapada por reflexión total interna.'
+      ]
+    });
+    this.setModuleFormulas({
+      items: [
+        {
+          name: 'Reflexión',
+          formula: 'θ<sub>i</sub> = θ<sub>r</sub>',
+          note: 'Ángulos medidos desde la normal (línea punteada vertical).'
+        },
+        {
+          name: 'Ley de Snell',
+          formula: 'n₁ · sen θ₁ = n₂ · sen θ₂',
+          note: 'n grande = medio ópticamente más denso (la luz «va más lenta»).'
+        },
+        {
+          name: 'Ángulo crítico',
+          formula: 'θ<sub>c</sub> = arcsen(n₂ / n₁)',
+          note: 'Solo si n₁ > n₂. Si θ₁ ≥ θc → reflexión total interna.'
         }
-      </p>
-      <table class="optics-table">
-        <tbody>
-          ${rows
-            .map(
-              ([k, v]) => `
-            <tr>
-              <th>${k}</th>
-              <td>${v}</td>
-            </tr>`
-            )
-            .join('')}
-        </tbody>
-      </table>
-    </div>
-  `);
-}
+      ]
+    });
+    this.clearChallenges();
+  }
 
-function applyPreset(presetId) {
-  const p = PRESETS.find((x) => x.id === presetId);
-  if (!p) return;
-  params.n1 = p.n1;
-  params.n2 = p.n2;
-  params.angle = p.angle;
-  lastOptics = computeOptics();
-  renderParams();
-  updateDataPanel();
-}
+  reset() {
+    this.t = 0;
+    this._recompute();
+    this.engine?.reset?.();
+  }
 
-function renderParams() {
-  if (!_ui) return;
-  const o = lastOptics || computeOptics();
-  const critHint =
-    o.criticalDeg != null
-      ? `<p class="optics-hint">Con n₁ &gt; n₂ el ángulo crítico es <strong>θc ≈ ${roundTo(o.criticalDeg, 1)}°</strong>. Si subes θ₁ por encima, verás reflexión total.</p>`
-      : `<p class="optics-hint">Aquí n₁ ≤ n₂: la luz siempre puede refractarse (no hay ángulo crítico).</p>`;
+  /** Valores efectivos: el par de medios elegido manda sobre los deslizadores. */
+  effective() {
+    const p = PRESETS[this.params.preset];
+    if (p) return { angle: p.angle, n1: p.n1, n2: p.n2 };
+    return { angle: this.params.angle, n1: this.params.n1, n2: this.params.n2 };
+  }
 
-  _ui.setParams(`
-    <div class="optics-params">
-      <p class="optics-guide">
-        <strong>Cómo leer el dibujo</strong><br>
-        Azul = rayo que llega · Naranja = rebote · Verde = se mete al otro medio · Línea vertical = normal
-      </p>
+  /** Snell para el estado actual; escribe en `this.o` sin allocar. */
+  _recompute() {
+    const e = this.effective();
+    const o = this.o;
+    o.theta1 = clamp(e.angle, 0, 89.5);
+    o.n1 = Math.max(1, e.n1);
+    o.n2 = Math.max(1, e.n2);
+    o.critical = o.n1 > o.n2 ? toDeg(Math.asin(o.n2 / o.n1)) : null;
+    const sin2 = (o.n1 / o.n2) * Math.sin(toRad(o.theta1));
+    o.sinLeft = o.n1 * Math.sin(toRad(o.theta1));
+    if (sin2 > 1 + 1e-9) {
+      o.isTIR = true;
+      o.theta2 = null;
+      o.sinRight = null;
+    } else {
+      o.isTIR = false;
+      o.theta2 = toDeg(Math.asin(clamp(sin2, -1, 1)));
+      o.sinRight = o.n2 * Math.sin(toRad(o.theta2));
+    }
 
-      <div class="optics-presets" role="group" aria-label="Ejemplos">
-        ${PRESETS.map(
-          (p) => `
-          <button type="button" class="optics-preset-btn" data-preset="${p.id}">
-            ${p.label}
-          </button>`
-        ).join('')}
-      </div>
-
-      ${paramControl({
-        id: 'angle',
-        labelTex: '\\theta_1',
-        labelRest: 'ángulo de incidencia (desde la normal)',
-        min: 0,
-        max: 89,
-        step: 1,
-        value: params.angle,
-        unit: '°'
-      })}
-      ${paramControl({
-        id: 'n1',
-        labelTex: 'n_1',
-        labelRest: `índice (arriba · ${o.m1.label})`,
-        min: 1,
-        max: 2.5,
-        step: 0.01,
-        value: params.n1
-      })}
-      ${paramControl({
-        id: 'n2',
-        labelTex: 'n_2',
-        labelRest: `índice (abajo · ${o.m2.label})`,
-        min: 1,
-        max: 2.5,
-        step: 0.01,
-        value: params.n2
-      })}
-
-      ${critHint}
-
-      <div class="optics-status ${o.isTIR ? 'is-tir' : 'is-ok'}">
-        ${
-          o.isTIR
-            ? '⚡ Reflexión total interna'
-            : `✓ Refracta · θ₂ ≈ ${roundTo(o.theta2Deg, 1)}°`
-        }
-      </div>
-    </div>
-  `);
-
-  setTimeout(() => {
-    bindParamControls(['angle', 'n1', 'n2'], (id, value) => {
-      params[id] = value;
-      lastOptics = computeOptics();
-      updateDataPanel();
-      // refrescar etiquetas de material / estado sin reescribir todo el panel si no hace falta
-      const status = document.querySelector('.optics-status');
-      if (status) {
-        const o2 = lastOptics;
-        status.className = 'optics-status ' + (o2.isTIR ? 'is-tir' : 'is-ok');
-        status.textContent = o2.isTIR
-          ? '⚡ Reflexión total interna'
-          : `✓ Refracta · θ₂ ≈ ${roundTo(o2.theta2Deg, 1)}°`;
+    const key = `${o.n1}|${o.n2}`;
+    if (key !== this._curveKey) {
+      this._curveKey = key;
+      this.curve = [];
+      for (let i = 0; i <= CURVE_N; i++) {
+        const th1 = (90 * i) / CURVE_N;
+        const s = (o.n1 / o.n2) * Math.sin(toRad(th1));
+        if (s > 1) break;
+        this.curve.push({ x: th1, y: toDeg(Math.asin(s)) });
       }
+    }
+    this._dot[0].x = o.theta1;
+    this._dot[0].y = o.isTIR ? 90 : o.theta2;
+    if (o.critical != null) {
+      this._critLine[0].x = o.critical;
+      this._critLine[1].x = o.critical;
+    }
+  }
+
+  update(dt) {
+    this.t += dt;
+    this._recompute();
+  }
+
+  /* ---------- dibujo declarativo ---------- */
+
+  draw(scene) {
+    const o = this.o;
+    const b = scene.world();
+    const th1 = toRad(o.theta1);
+
+    // —— Medios: dos bandas cuya opacidad crece con n (más denso, más oscuro).
+    const tint = (n) => 0.05 + 0.07 * clamp((n - 1) / 1.5, 0, 1);
+    scene.rect((b.left + b.right) / 2, b.top / 2, b.right - b.left, b.top, {
+      fill: 'rayAlt',
+      stroke: false,
+      alpha: tint(o.n1)
+    });
+    scene.rect((b.left + b.right) / 2, b.bottom / 2, b.right - b.left, -b.bottom, {
+      fill: 'field',
+      stroke: false,
+      alpha: tint(o.n2)
+    });
+    scene.label(b.left + 0.4, 0.55, `Medio 1 · ${materialLabel(o.n1)} · n₁ = ${roundTo(o.n1, 2)}`, {
+      align: 'left',
+      baseline: 'bottom',
+      color: 'rayAlt',
+      weight: '600',
+      avoid: true
+    });
+    scene.label(b.left + 0.4, -0.55, `Medio 2 · ${materialLabel(o.n2)} · n₂ = ${roundTo(o.n2, 2)}`, {
+      align: 'left',
+      baseline: 'top',
+      color: 'field',
+      weight: '600',
+      avoid: true
     });
 
-    document.querySelectorAll('.optics-preset-btn').forEach((btn) => {
-      btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
+    // —— Interfaz y normal.
+    scene.line(b.left, 0, b.right, 0, { color: 'text', width: 2, alpha: 0.6 });
+    scene.line(0, -3.2, 0, 3.2, { color: 'textDim', width: 1.5, dash: [5, 5] });
+    scene.label(0.2, 3.25, 'normal', { align: 'left', baseline: 'bottom', color: 'textDim', size: 11, avoid: true });
+
+    // —— Rayos (vector = segmento con punta de flecha).
+    const sx = RAY_LEN * Math.sin(th1);
+    const cy = RAY_LEN * Math.cos(th1);
+    // Incidente: baja desde arriba-izquierda hasta el punto de impacto.
+    scene.body(-sx, cy, { shape: 'circle', r: 0.2, color: 'ray', glow: true });
+    scene.label(-sx, cy + 0.35, 'fuente', { color: 'ray', size: 11, avoid: true });
+    scene.vector(-sx, cy, sx, -cy, { color: 'ray', width: 3 });
+    // Reflejado: espejo respecto a la normal. En RTI se lleva toda la luz (trazo
+    // continuo); si hay refracción, va discontinuo y más tenue.
+    scene.vector(0, 0, sx, cy, {
+      color: o.isTIR ? 'danger' : 'warn',
+      width: o.isTIR ? 3 : 2.2,
+      dash: o.isTIR ? undefined : [7, 5],
+      alpha: o.isTIR ? 1 : 0.8
     });
-  }, 0);
-}
+    // Refractado: sólo si Snell tiene solución.
+    if (!o.isTIR) {
+      const th2 = toRad(o.theta2);
+      scene.vector(0, 0, RAY_LEN * Math.sin(th2), -RAY_LEN * Math.cos(th2), { color: 'rayAlt', width: 3 });
+    }
 
-export function getState() {
-  return { params: { ...params } };
-}
+    // Punto de impacto encima de los rayos.
+    scene.body(0, 0, { shape: 'circle', r: 0.11, color: 'text', glow: false });
 
-export function setState(s) {
-  if (!s?.params) return;
-  Object.assign(params, s.params);
-  lastOptics = computeOptics();
-  renderParams();
-  updateDataPanel();
+    // —— Arcos de ángulo (desde la normal). Radios distintos para que las
+    // etiquetas θ₁ y θr no compitan cuando θ₁ → 0.
+    if (o.theta1 > 0.5) {
+      this._angleMark(scene, Math.PI / 2, Math.PI / 2 + th1, 1.25, `θ₁ = ${roundTo(o.theta1, 0)}°`, 'ray');
+      this._angleMark(scene, Math.PI / 2 - th1, Math.PI / 2, 1.75, `θr = ${roundTo(o.theta1, 0)}°`, o.isTIR ? 'danger' : 'warn');
+    }
+    if (!o.isTIR && o.theta2 > 0.5) {
+      const th2 = toRad(o.theta2);
+      this._angleMark(scene, -Math.PI / 2, -Math.PI / 2 + th2, 1.25, `θ₂ = ${roundTo(o.theta2, 1)}°`, 'rayAlt');
+    }
+    // Ángulo crítico: marca discontinua del límite de la refracción.
+    if (o.critical != null) {
+      const thc = toRad(o.critical);
+      scene.line(0, 0, -2.6 * Math.sin(thc), 2.6 * Math.cos(thc), { color: 'danger', width: 1.2, dash: [3, 4], alpha: 0.7 });
+      scene.label(-2.75 * Math.sin(thc), 2.75 * Math.cos(thc), `θc = ${roundTo(o.critical, 1)}°`, {
+        color: 'danger',
+        size: 11,
+        align: 'right',
+        avoid: true
+      });
+    }
+
+    // —— HUD.
+    const hud = scene.hud;
+    hud.chip(
+      o.isTIR ? 'Reflexión total interna: el rayo no sale' : `Refracta · θ₂ = ${roundTo(o.theta2, 1)}°`,
+      'top-left',
+      { color: o.isTIR ? 'danger' : 'ok' }
+    );
+    const preset = PRESETS[this.params.preset];
+    if (preset) hud.chip(`Par de medios: ${preset.label}`, 'top-left');
+    else if (o.critical == null) hud.chip('n₁ ≤ n₂: siempre hay refracción', 'top-left', { color: 'textDim' });
+    else hud.chip(`Por encima de θc = ${roundTo(o.critical, 1)}° hay reflexión total`, 'top-left', { color: 'textDim' });
+
+    hud.readout(
+      [
+        { label: 'n₁·sen θ₁', value: o.sinLeft, unit: '' },
+        { label: 'n₂·sen θ₂', value: o.isTIR ? '—' : o.sinRight, unit: '' },
+        { label: 'θc', value: o.critical == null ? 'no aplica' : roundTo(o.critical, 1), unit: o.critical == null ? '' : '°' }
+      ],
+      'bottom-left',
+      { decimals: 3 }
+    );
+    hud.legend(
+      [
+        { color: 'ray', label: 'Incidente', dash: [] },
+        { color: o.isTIR ? 'danger' : 'warn', label: o.isTIR ? 'Reflejado (total)' : 'Reflejado', dash: o.isTIR ? [] : [6, 4] },
+        ...(o.isTIR ? [] : [{ color: 'rayAlt', label: 'Refractado', dash: [] }])
+      ],
+      'bottom-right'
+    );
+
+    // Gráfica θ₂(θ₁): la curva termina de golpe en el ángulo crítico.
+    const vp = scene.viewport();
+    if (vp.w > 420 && this.curve.length > 1) {
+      const series = [{ points: this.curve, color: 'rayAlt', label: 'θ₂', dash: [] }];
+      if (o.critical != null) series.push({ points: this._critLine, color: 'danger', dash: [4, 3], width: 1.2 });
+      series.push({ points: this._dot, color: 'ray', pointSize: 4 });
+      hud.plot(
+        { x: vp.x + vp.w - 210, y: vp.y + 12, w: 195, h: 116 },
+        { title: 'θ₂ frente a θ₁ (grados)', series, xRange: [0, 90], yRange: [0, 90] }
+      );
+    }
+  }
+
+  /** Arco de ángulo con etiqueta apartada de las demás (§13.1). */
+  _angleMark(scene, a0, a1, r, text, color) {
+    scene.arc(0, 0, r, a0, a1, { color, width: 1.6, alpha: 0.9 });
+    const mid = (a0 + a1) / 2;
+    scene.label(Math.cos(mid) * (r + 0.55), Math.sin(mid) * (r + 0.55), text, {
+      color,
+      size: 11,
+      weight: '600',
+      baseline: 'middle',
+      avoid: true
+    });
+  }
+
+  /* ---------- datos numéricos ---------- */
+
+  readout() {
+    const o = this.o;
+    return {
+      'θ₁ (incidencia)': { value: roundTo(o.theta1, 1), unit: '°' },
+      'θr (reflejado)': { value: roundTo(o.theta1, 1), unit: '°' },
+      'θ₂ (refractado)': { value: o.isTIR ? null : roundTo(o.theta2, 2), unit: '°' },
+      'n₁': { value: roundTo(o.n1, 2), unit: '' },
+      'n₂': { value: roundTo(o.n2, 2), unit: '' },
+      'n₁·sen θ₁': { value: roundTo(o.sinLeft, 4), unit: '' },
+      'n₂·sen θ₂': { value: o.isTIR ? null : roundTo(o.sinRight, 4), unit: '' },
+      'θc (crítico)': { value: o.critical == null ? null : roundTo(o.critical, 2), unit: '°' },
+      'Reflexión total': { value: o.isTIR ? 1 : 0, unit: '(1 = sí)' }
+    };
+  }
+
+  getState() {
+    return { t: this.t, params: { ...this.params } };
+  }
+
+  setState(s) {
+    if (!s || typeof s !== 'object') return;
+    if (s.params) Object.assign(this.params, s.params);
+    if (Number.isFinite(s.t)) this.t = s.t;
+    this._recompute();
+  }
+
+  destroy() {
+    this.curve = [];
+  }
 }

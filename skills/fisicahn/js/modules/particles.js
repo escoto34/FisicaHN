@@ -15,7 +15,6 @@ import { SimModule } from '../core/sim-module.js';
 import { Vector2D } from '../utils/vector2d.js';
 import { TrailBuffer } from '../core/trail-buffer.js';
 import { roundTo } from '../utils/math-helpers.js';
-import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 const SPECIES = [
   { name: 'e⁻', q: -1, m: 0.3, color: 'field' },
@@ -48,7 +47,7 @@ export default class Particles extends SimModule {
 
   init(meta = null) {
     this.reset();
-    setModuleInfo(this.ui, {
+    this.setModuleInfo({
       title: meta?.title || 'Cargas en campo B (partículas)',
       blurb: meta?.blurb || 'Varias especies (e⁻, p⁺, α…) en B: curvatura y r = mv/|q|B.',
       story:
@@ -59,14 +58,14 @@ export default class Particles extends SimModule {
         'Comparar e⁻ vs p⁺: mismo |q| pero distinta masa → distinto r.'
       ]
     });
-    setModuleFormulas(this.ui, {
+    this.setModuleFormulas({
       items: [
         { name: 'Fuerza de Lorentz', formula: 'F = q \\cdot (v \\times B)', note: 'Perpendicular a v y a B; no cambia |v| (solo dirección).' },
         { name: 'Radio de Larmor', formula: 'r = m v_\\perp / |q| B', note: 'Mayor momento o menor |q|B → curva más abierta.' },
         { name: 'Periodo ciclotrón', formula: 'T = 2\\pi m / |q| B', note: 'Independiente de la velocidad (no relativista).' }
       ]
     });
-    clearChallenges(this.ui);
+    this.clearChallenges();
   }
 
   reset() {

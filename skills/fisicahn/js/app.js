@@ -24,7 +24,14 @@ import { initNetworkStatusUI } from './network-status.js';
 import { initPanelResize } from './panel-resize.js';
 import { ChallengeEngine, loadChallengeDataForEngine } from './challenges.js';
 import { ScenarioRunner, ScenarioStore, BUILTIN_SCENARIOS } from './scenario-manager.js';
-import { enhanceParamsPanel, typesetMath, ensureChallengesCss, ensureKatex } from './module-ui.js';
+import {
+  enhanceParamsPanel,
+  typesetMath,
+  ensureChallengesCss,
+  ensureKatex,
+  setModuleInfo,
+  setModuleFormulas
+} from './module-ui.js';
 import { createModuleInstance, implementsMethod } from './core/sim-module.js';
 import { Camera } from './core/camera.js';
 import { LayerStack } from './core/layers.js';
@@ -359,6 +366,19 @@ const ui = {
       panel.innerHTML = html;
       typesetMath(panel);
     }
+  },
+  /**
+   * Vía declarativa (§3.1): el módulo describe su información como datos y la
+   * capa de presentación la convierte en HTML. Es lo que usa
+   * `SimModule#setModuleInfo`; así ningún módulo importa `module-ui.js`.
+   * @param {{ title: string, blurb: string, story?: string, cases?: string[], sections?: object[] }} content
+   */
+  setModuleInfo(content) {
+    setModuleInfo(ui, content);
+  },
+  /** @param {{ title?: string, items: { name: string, formula?: string, latex?: string, note?: string }[] }} data */
+  setModuleFormulas(data) {
+    setModuleFormulas(ui, data);
   },
   setData(html) {
     const panel = document.getElementById('tab-data');

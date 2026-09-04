@@ -131,12 +131,19 @@ function extremesFor(p) {
 
 /* Módulos migrados a `SimModule` con `static params` (§2.7) — auto-descubiertos. */
 const CANDIDATE_MODULES = [
-  'calorimetry', 'circuits', 'elasticity', 'em-waves', 'fluids', 'hyperbola',
-  'inclined-plane', 'induction', 'kinetic-theory', 'mass-weight', 'mirrors',
-  'momentum', 'optical-instruments', 'oscillatory', 'particles', 'pendulum',
-  'projectile', 'rotational', 'sound', 'standing-waves', 'statics',
-  'thermal-expansion', 'units-error', 'vectors', 'wave-optics'
+  'atomic', 'blackbody', 'calorimetry', 'capacitors', 'circuits', 'collisions-2d',
+  'de-broglie', 'dynamics', 'elasticity', 'electricity', 'em-waves', 'fluids',
+  'force-kinetic', 'friction', 'gravity', 'hydraulics', 'hyperbola', 'inclined-plane',
+  'induction', 'kepler', 'kinematics', 'kinetic-theory', 'lenses', 'magnetic',
+  'mass-weight', 'mirrors', 'momentum', 'nuclear-energy', 'optical-instruments', 'optics',
+  'oscillatory', 'particles', 'pendulum', 'photoelectric', 'projectile', 'quantum-history',
+  'radioactivity', 'rotational', 'simple-machines', 'sound', 'special-relativity', 'standing-waves',
+  'statics', 'thermal-expansion', 'thermodynamics', 'tunneling', 'units-error', 'vectors',
+  'wave-optics', 'work-energy'
 ];
+/* Override para verificar un subconjunto: FISICAHN_MODULES=a,b node --test … */
+const CANDIDATE_MODULES_SEL = (process.env.FISICAHN_MODULES || '').split(',').map((s) => s.trim()).filter(Boolean);
+const CANDIDATE_MODULES_RUN = CANDIDATE_MODULES_SEL.length ? CANDIDATE_MODULES_SEL : CANDIDATE_MODULES;
 
 const { Camera } = await import(new URL('camera.js', CORE).href);
 const { Scene } = await import(new URL('scene.js', CORE).href);
@@ -173,7 +180,7 @@ function cartesian(paramsList) {
   }, [{}]);
 }
 
-for (const name of CANDIDATE_MODULES) {
+for (const name of CANDIDATE_MODULES_RUN) {
   test(`controls 14: ${name} — cada param del esquema tiene efecto observable`, async () => {
     const mod = await import(base.href + name + '.js');
     const Ctor = mod.default;

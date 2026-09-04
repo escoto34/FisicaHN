@@ -22,7 +22,6 @@
 import { SimModule } from '../core/sim-module.js';
 import { TrailBuffer } from '../core/trail-buffer.js';
 import { roundTo } from '../core/geometry.js';
-import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 /** Altura del riel en el mundo. Todo el módulo es 1D sobre esta recta. */
 const RAIL_Y = 0;
@@ -94,7 +93,7 @@ export default class MomentumModule extends SimModule {
   init() {
     this.reset();
 
-    setModuleInfo(this.ui, {
+    this.setModuleInfo({
       title: 'Cantidad de movimiento',
       blurb: 'Momento lineal, impulso y choques en una dimensión.',
       story:
@@ -107,7 +106,7 @@ export default class MomentumModule extends SimModule {
       ]
     });
 
-    setModuleFormulas(this.ui, {
+    this.setModuleFormulas({
       items: [
         { name: 'Momento lineal', formula: 'p = m · v' },
         {
@@ -128,7 +127,7 @@ export default class MomentumModule extends SimModule {
       ]
     });
 
-    clearChallenges(this.ui);
+    this.clearChallenges();
   }
 
   reset() {

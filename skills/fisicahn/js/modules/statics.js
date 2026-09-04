@@ -10,7 +10,6 @@
 
 import { SimModule } from '../core/sim-module.js';
 import { roundTo } from '../utils/math-helpers.js';
-import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 export default class Statics extends SimModule {
   static viewport = { width: 16, height: 12 };
@@ -36,7 +35,7 @@ export default class Statics extends SimModule {
 
   init(meta = null) {
     this.reset();
-    setModuleInfo(this.ui, {
+    this.setModuleInfo({
       title: meta?.title || 'Estática',
       blurb: meta?.blurb || 'Equilibrio de fuerzas: una masa colgada de dos cuerdas. ΣFₓ = 0 y ΣFᵧ = 0.',
       story:
@@ -49,7 +48,7 @@ export default class Statics extends SimModule {
         'Puente colgante: cables principales en equilibrio con el tablero.'
       ]
     });
-    setModuleFormulas(this.ui, {
+    this.setModuleFormulas({
       items: [
         { name: 'Equilibrio', formula: '\\sum \\vec F = 0' },
         { name: 'Componentes', formula: '\\sum F_x = 0,\\quad \\sum F_y = 0' },
@@ -57,7 +56,7 @@ export default class Statics extends SimModule {
         { name: 'Vertical', formula: 'T_1\\sin\\theta_1 + T_2\\sin\\theta_2 = mg' }
       ]
     });
-    clearChallenges(this.ui);
+    this.clearChallenges();
   }
 
   reset() {
@@ -133,8 +132,7 @@ export default class Statics extends SimModule {
 
     // Viga fija: rayado de apoyo (§13.2) bajo la línea de techo — reemplaza
     // el rectángulo relleno a mano de la versión legacy.
-    scene.line(left.x - 1, 0.35, right.x + 1, 0.35, { color: 'textDim', width: 2 });
-    scene.hatch(left.x - 1, 0.35, right.x + 1, 0.35, { spacing: 9, length: 11, side: 1 });
+    scene.ceiling(left.x - 1, right.x + 1, 0.35, { width: 2, spacing: 9, length: 11 });
 
     // Anclajes
     scene.body(left.x, left.y, { shape: 'circle', r: 0.16, color: 'textDim', glow: false });

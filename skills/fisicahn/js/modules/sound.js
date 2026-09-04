@@ -12,8 +12,8 @@
  */
 
 import { SimModule } from '../core/sim-module.js';
+import { TrailBuffer } from '../core/trail-buffer.js';
 import { roundTo } from '../utils/math-helpers.js';
-import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 const I0 = 1e-12; // umbral de audición, W/m²
 
@@ -50,12 +50,13 @@ export default class SoundWaves extends SimModule {
     };
     this.t = 0;
     this.sourceX = -8;
-    this.waves = [];
+    /** Frentes emitidos: anillo de 40 (el más antiguo se descarta sin `shift()`). */
+    this.waves = new TrailBuffer(40);
   }
 
   init(meta = null) {
     this.reset();
-    setModuleInfo(this.ui, {
+    this.setModuleInfo({
       title: 'Sonido y ondas',
       blurb: 'Efecto Doppler con frentes móviles e intensidad sonora en decibelios.',
       story:
@@ -67,7 +68,7 @@ export default class SoundWaves extends SimModule {
         'Pasar de 1 mW a 1000 mW (×1000) son +30 dB: de susurro a taladro.'
       ]
     });
-    setModuleFormulas(this.ui, {
+    this.setModuleFormulas({
       title: 'Sonido',
       items: [
         {
@@ -97,13 +98,13 @@ export default class SoundWaves extends SimModule {
         }
       ]
     });
-    clearChallenges(this.ui);
+    this.clearChallenges();
   }
 
   reset() {
     this.t = 0;
     this.sourceX = -8;
-    this.waves.length = 0;
+    this.waves.clear();
     this.engine?.reset?.();
   }
 
@@ -116,13 +117,14 @@ export default class SoundWaves extends SimModule {
     if (this.sourceX < -12) this.sourceX = 10;
 
     const period = 1 / Math.max(this.params.f, 0.1);
-    if (this.waves.length === 0 || this.t - this.waves[this.waves.length - 1].born >= period) {
-      this.waves.push({ x: this.sourceX, born: this.t });
-      if (this.waves.length > 40) this.waves.shift();
+    if (this.waves.length === 0 || this.t - this.waves.last().born >= period) {
+      this.waves.push({ x: this.sourceX, born: this.t, r: 0 });
     }
 
     const v = this.soundSpeed();
-    for (const w of this.waves) w.r = (this.t - w.born) * v * 0.15;
+    this.waves.forEach((w) => {
+      w.r = (this.t - w.born) * v * 0.15;
+    });
   }
 
   soundSpeed() {
@@ -172,9 +174,7 @@ export default class SoundWaves extends SimModule {
 
   _drawDoppler(scene) {
     // Frentes emitidos por la fuente en movimiento.
-    for (const w of this.waves) {
-      scene.wavefront(w.x, 0, w.r, { color: 'field', maxR: 16 });
-    }
+    this.waves.forEach((w) => scene.wavefront(w.x, 0, w.r, { color: 'field', maxR: 16 }));
     scene.body(this.sourceX, 0, { shape: 'triangle', r: 0.5, color: 'force', label: 'fuente', labelColor: 'force' });
     scene.body(6, 0, { shape: 'circle', r: 0.4, color: 'mass', label: 'observador', labelColor: 'mass' });
 
@@ -225,17 +225,13 @@ export default class SoundWaves extends SimModule {
     // Curva I(r) ∝ 1/r² con el punto vivo.
     const vp = scene.viewport();
     if (vp.w > 430) {
-      const pts = [];
       const rmax = 14;
-      for (let i = 0; i <= 60; i++) {
-        const rr = 0.3 + ((rmax - 0.3) * i) / 60;
-        pts.push({ x: rr, y: (this.params.P * 1e-3) / (4 * Math.PI * rr * rr) });
-      }
+      const Pw = this.params.P * 1e-3;
       scene.hud.plot(
         { x: vp.x + vp.w - 250, y: vp.y + vp.h - 128, w: 235, h: 116 },
         {
           title: 'Intensidad I(r) ∝ 1/r²',
-          series: [{ points: pts, color: 'mass', label: 'I' }],
+          series: [{ fn: (rr) => Pw / (4 * Math.PI * rr * rr), samples: 60, color: 'mass', label: 'I' }],
           xRange: [0.3, rmax],
           yRange: [0, (this.params.P * 1e-3) / (4 * Math.PI * 0.3 * 0.3) * 1.1],
           xLabel: 'r (m)',
@@ -271,10 +267,10 @@ export default class SoundWaves extends SimModule {
     if (s.params) Object.assign(this.params, s.params);
     if (Number.isFinite(s.t)) this.t = s.t;
     if (Number.isFinite(s.sourceX)) this.sourceX = s.sourceX;
-    this.waves.length = 0;
+    this.waves.clear();
   }
 
   destroy() {
-    this.waves.length = 0;
+    this.waves.clear();
   }
 }

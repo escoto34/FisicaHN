@@ -1,58 +1,71 @@
-import { clearChallenges, setModuleInfo, setModuleFormulas } from '../module-ui.js';
-import { getTheme } from '../core/theme.js';
 /**
- * Módulo placeholder para entradas del catálogo aún sin simulación dedicada.
+ * @fileoverview Módulo «Próximamente» — entradas del catálogo sin motor propio.
+ *
+ * `SimModule` mínimo: sin parámetros, sin física; `draw(scene)` presenta el
+ * título de la entrada y un aviso de «en desarrollo» con el vocabulario de la
+ * escena (nada de `ctx` ni de DOM). El anfitrión pasa `{ title, blurb }` en
+ * `init(meta)`.
  */
 
-let title = 'Próximamente';
-let blurb = '';
-let t = 0;
-let _renderer = null;
+import { SimModule } from '../core/sim-module.js';
 
-export function init(engine, renderer, ui, meta = {}) {
-  _renderer = renderer;
-  title = meta.title || title;
-  blurb = meta.blurb || '';
-  t = 0;
+export default class PlaceholderModule extends SimModule {
+  static viewport = { width: 20, height: 14 };
 
-  ui.setParams(`
-    <p class="placeholder-text">Esta simulación está en el catálogo pero aún no tiene motor propio.</p>
-    <p class="placeholder-text" style="margin-top:8px;opacity:.8">Mientras tanto puedes explorar módulos marcados como <strong>Disponible</strong> en el catálogo.</p>
-  `);
-  ui.setChart('<text x="150" y="90" text-anchor="middle" fill="var(--text-secondary)" font-size="11">Sin gráfica</text>');
-  ui.setInfo(`<strong>${title}</strong><br>${blurb}<br><br>Estado: <em>próximamente</em>.`);
-  ui.setFormulas('<p class="tab-text placeholder-text">Fórmulas cuando la simulación esté implementada.</p>');
-  ui.setData('<p class="tab-text placeholder-text">Sin datos en vivo.</p>');
-  clearChallenges(ui);
-}
+  static anchor = { x: 0, y: 0 };
 
-export function update(dt) {
-  t += dt;
-}
+  static params = [];
 
-export function render(ctx) {
-  // El renderer da px CSS; antes este módulo recalculaba su propio DPR, que
-  // era el tercero de los parches divergentes al mismo bug (§2.0).
-  const { w, h } = _renderer?.viewport?.() || { w: 320, h: 240 };
-  const theme = getTheme();
-  ctx.save();
-  ctx.fillStyle = theme.dark ? 'rgba(12, 15, 20, 0.35)' : 'rgba(255, 255, 255, 0.35)';
-  ctx.fillRect(0, 0, w, h);
-  ctx.fillStyle = theme.text;
-  ctx.font = '600 18px system-ui, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(title, w / 2, h / 2 - 12);
-  ctx.font = '14px system-ui, sans-serif';
-  ctx.fillStyle = theme.textDim;
-  ctx.fillText('Simulación en desarrollo', w / 2, h / 2 + 16);
-  ctx.restore();
-}
+  constructor(ctx) {
+    super(ctx);
+    this.params = {};
+    this.t = 0;
+    this.title = 'Próximamente';
+    this.blurb = '';
+  }
 
-export function reset() {
-  t = 0;
-}
+  init(meta = null) {
+    this.title = meta?.title || 'Próximamente';
+    this.blurb = meta?.blurb || '';
+    this.reset();
+    this.setModuleInfo({
+      title: this.title,
+      blurb: `${this.blurb}${this.blurb ? ' ' : ''}Esta simulación está en el catálogo pero aún no tiene motor propio.`,
+      story: 'Mientras tanto puedes explorar los módulos marcados como «Disponible» en el catálogo.',
+      cases: []
+    });
+    this.setModuleFormulas({ items: [] });
+    this.clearChallenges();
+  }
 
-export function destroy() {
-  _renderer = null;
+  reset() {
+    this.t = 0;
+  }
+
+  update(dt) {
+    this.t += dt;
+  }
+
+  draw(scene) {
+    // Anillo que respira lentamente: señal de «vivo, pero en construcción».
+    const r = 2.6 + 0.15 * Math.sin(this.t * 1.5);
+    scene.circle(0, 0, r, { color: 'textDim', width: 1.5, dash: [8, 6], alpha: 0.6 });
+    scene.circle(0, 0, 0.18, { fill: 'mass', color: 'mass' });
+    scene.label(0, 0.55, this.title, { size: 20, weight: '600', color: 'text', baseline: 'bottom' });
+    scene.label(0, -0.55, 'Simulación en desarrollo', { size: 14, color: 'textDim', baseline: 'top' });
+    scene.hud.chip('Próximamente', 'top-left', { color: 'textDim' });
+  }
+
+  readout() {
+    return {};
+  }
+
+  getState() {
+    return { t: this.t, params: {} };
+  }
+
+  setState(s) {
+    if (!s || typeof s !== 'object') return;
+    if (Number.isFinite(s.t)) this.t = s.t;
+  }
 }

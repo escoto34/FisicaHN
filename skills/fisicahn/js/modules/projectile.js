@@ -11,7 +11,6 @@
 import { SimModule } from '../core/sim-module.js';
 import { TrailBuffer } from '../core/trail-buffer.js';
 import { roundTo } from '../utils/math-helpers.js';
-import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 const G = 9.8;
 const DEG = Math.PI / 180;
@@ -36,12 +35,15 @@ export default class ProjectileModule extends SimModule {
     this.launched = false;
     this.landed = false;
     this.trail = new TrailBuffer(400);
-    this.samples = [];
+    /** Muestras (t, y) para la gráfica: anillo acotado, antes crecía sin límite. */
+    this.samples = new TrailBuffer(600);
+    /** Búfer plano reutilizable para la estela proyectada a la escena. */
+    this._trailBuf = new Float64Array(800);
   }
 
   init(meta = null) {
     this.reset();
-    setModuleInfo(this.ui, {
+    this.setModuleInfo({
       title: 'Proyectil',
       blurb: 'Tiro parabólico: alcance, altura máxima y tiempo de vuelo.',
       story:
@@ -52,7 +54,7 @@ export default class ProjectileModule extends SimModule {
         'Lanzar desde un acantilado (h₀ > 0): alargar la parábola y medir el tiempo.'
       ]
     });
-    setModuleFormulas(this.ui, {
+    this.setModuleFormulas({
       title: 'Tiro parabólico',
       items: [
         {
@@ -72,7 +74,7 @@ export default class ProjectileModule extends SimModule {
         }
       ]
     });
-    clearChallenges(this.ui);
+    this.clearChallenges();
   }
 
   reset() {
@@ -85,7 +87,7 @@ export default class ProjectileModule extends SimModule {
     this.launched = true;
     this.landed = false;
     this.trail.clear();
-    this.samples = [];
+    this.samples.clear();
     this.engine?.reset?.();
   }
 
@@ -98,7 +100,7 @@ export default class ProjectileModule extends SimModule {
     this.y += this.vy * dt;
     this.t += dt;
     this.trail.push({ x: this.x, y: this.y });
-    this.samples.push({ t: this.t, x: this.x, y: this.y });
+    this.samples.push({ x: this.t, y: this.y });
 
     if (this.y <= 0) {
       this.landed = true;
@@ -134,18 +136,19 @@ export default class ProjectileModule extends SimModule {
     const { X, Y, span, yMax } = this._sceneMap(scene);
     const k = 0.075; // escala de los vectores de velocidad
 
-    // Suelo.
-    scene.rect((w.left + w.right) / 2, Y(0) - 0.18, w.right - w.left - 1, 0.12, { color: 'textDim', fill: true });
-    scene.label(w.right - 0.3, Y(0) - 0.9, 'suelo (y = 0)', { color: 'textDim' });
-
-    // Ejes.
-    scene.line(w.left + 0.2, Y(0), w.right - 0.2, Y(0), { color: 'textDim', width: 1.5 });
+    // Suelo (con rayado de apoyo) y eje vertical en el origen.
+    scene.ground(w.left + 0.2, w.right - 0.2, Y(0), { width: 1.5 });
+    scene.label(w.right - 0.4, Y(0) + 0.25, 'suelo (y = 0)', { color: 'textDim', align: 'right' });
     scene.line(X(0), Y(0), X(0), Y(0) + 0.5, { color: 'textDim', width: 1.5 });
 
-    // Trayectoria (estela) + puntos muestreados para el plot.
+    // Trayectoria (estela) proyectada a la escena sobre un búfer plano reutilizado.
     if (this.trail.length > 1) {
-      const mapped = this.trail.toArray().map((p) => ({ x: X(p.x), y: Y(p.y) }));
-      scene.trail(mapped, { color: 'velocity', width: 2.5 });
+      const buf = this._trailBuf;
+      this.trail.forEach((p, i) => {
+        buf[i * 2] = X(p.x);
+        buf[i * 2 + 1] = Y(p.y);
+      });
+      scene.trail(buf.subarray(0, this.trail.length * 2), { color: 'velocity', width: 2.5 });
     }
 
     // Cuerpo del proyectil.
@@ -199,7 +202,7 @@ export default class ProjectileModule extends SimModule {
         { x: vp.x + vp.w - 225, y: vp.y + vp.h - 140, w: 205, h: 124 },
         {
           title: 'y (m) frente a t (s)',
-          series: [{ points: this.samples.map((s) => ({ x: s.t, y: s.y })), color: 'velocity', label: 'y' }]
+          series: [{ points: this.samples, color: 'velocity', label: 'y' }]
         }
       );
     }
@@ -248,7 +251,7 @@ export default class ProjectileModule extends SimModule {
     if (typeof s.landed === 'boolean') this.landed = s.landed;
     if (typeof s.launched === 'boolean') this.launched = s.launched;
     this.trail.clear();
-    this.samples = [];
+    this.samples.clear();
   }
 
   destroy() {

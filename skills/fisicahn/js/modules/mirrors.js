@@ -16,8 +16,7 @@
  */
 
 import { SimModule } from '../core/sim-module.js';
-import { roundTo } from '../utils/math-helpers.js';
-import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
+import { roundTo, clamp } from '../core/geometry.js';
 
 const MIRROR_HALF = 3.2;
 
@@ -51,7 +50,7 @@ export default class Mirrors extends SimModule {
 
   init(meta = null) {
     this.reset();
-    setModuleInfo(this.ui, {
+    this.setModuleInfo({
       title: 'Espejos esféricos',
       blurb: 'Imágenes en espejos cóncavos y convexos con rayos y la ecuación del espejo.',
       story:
@@ -63,7 +62,7 @@ export default class Mirrors extends SimModule {
         'd₀ = f: los reflejados son paralelos: imagen en el infinito.'
       ]
     });
-    setModuleFormulas(this.ui, {
+    this.setModuleFormulas({
       title: 'Espejos esféricos',
       items: [
         { name: 'Ecuación del espejo', formula: '\\dfrac{1}{f} = \\dfrac{1}{d_o} + \\dfrac{1}{d_i}' },
@@ -75,7 +74,7 @@ export default class Mirrors extends SimModule {
         }
       ]
     });
-    clearChallenges(this.ui);
+    this.clearChallenges();
   }
 
   reset() {
@@ -203,22 +202,10 @@ export default class Mirrors extends SimModule {
    */
   _rayToImage(scene, ox, h, my, ix, iy, color, dash) {
     scene.line(ox, h, 0, my, { color, width: 1.7, alpha: 0.85 });
-    const dx = ix - 0;
-    const dy = iy - my;
-    const len = Math.hypot(dx, dy);
-    if (len < 1e-6) return;
-    const ux = dx / len;
-    const uy = dy / len;
-    const reach = len + 2.2; // la línea reflejada cruza la imagen y sigue un trecho
-    if (ix > 0) {
-      // Imagen real: rayo sólido a través de la imagen.
-      scene.line(0, my, ux * reach, my + uy * reach, { color, width: 1.7 });
-    } else {
-      // Virtual: el segmento sólido va hacia la imagen y la extensión es de puntos.
-      const seg = Math.min(len, 2.4);
-      scene.line(0, my, ux * seg, my + uy * seg, { color, width: 1.7 });
-      scene.line(ux * (seg - 4), my + uy * (seg - 4), ix, iy, { color, width: 1.4, dash: [4, 3], alpha: 0.8 });
-    }
+    // Reflejado: sólido a través de la imagen real, o sólido + prolongación
+    // punteada hacia la imagen virtual (primitiva compartida con las lentes).
+    if (Math.hypot(ix, iy - my) < 1e-6) return;
+    scene.rayTo(0, my, ix, iy, { color, virtual: ix <= 0, width: 1.7, overshoot: 2.2, solid: 2.4, back: 4 });
     if (dash) scene.body(ix, iy, { shape: 'circle', r: 0.14, color });
   }
 
@@ -252,8 +239,4 @@ export default class Mirrors extends SimModule {
   }
 
   destroy() {}
-}
-
-function clamp(v, lo, hi) {
-  return Math.max(lo, Math.min(hi, v));
 }

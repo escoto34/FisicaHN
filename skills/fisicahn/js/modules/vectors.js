@@ -13,7 +13,6 @@
 
 import { SimModule } from '../core/sim-module.js';
 import { roundTo } from '../utils/math-helpers.js';
-import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 const DEG = 180 / Math.PI;
 
@@ -55,7 +54,7 @@ export default class VectorsModule extends SimModule {
 
   init(meta = null) {
     this.reset();
-    setModuleInfo(this.ui, {
+    this.setModuleInfo({
       title: 'Vectores',
       blurb: 'Suma de vectores en el plano y descomposición en componentes.',
       story:
@@ -66,7 +65,7 @@ export default class VectorsModule extends SimModule {
         'Descomponer el peso de un cuerpo sobre un plano inclinado (necesario en Inclinado).'
       ]
     });
-    setModuleFormulas(this.ui, {
+    this.setModuleFormulas({
       title: 'Operaciones con vectores',
       items: [
         {
@@ -86,7 +85,7 @@ export default class VectorsModule extends SimModule {
         }
       ]
     });
-    clearChallenges(this.ui);
+    this.clearChallenges();
   }
 
   reset() {
@@ -140,23 +139,16 @@ export default class VectorsModule extends SimModule {
     // Rejilla + ejes: ancla visual para las componentes.
     const w = scene.world();
     this.drawGrid(scene, w);
-    scene.line(w.left, 0, w.right, 0, { color: 'textDim', width: 1.5 });
-    scene.line(0, w.bottom, 0, w.top, { color: 'textDim', width: 1.5 });
+    scene.axes({ color: 'textDim', width: 1.5, tick: 0 });
 
     const hud = scene.hud;
     if (this.params.modo === 'suma') this.drawSum(scene, hud);
     else this.drawComponents(scene, hud);
   }
 
-  /** Rejilla de fondo discreta (0.5 u) para leer componentes a ojo. */
+  /** Rejilla de fondo discreta (0.5 u) para leer componentes a ojo: un solo trazo. */
   drawGrid(scene, w) {
-    const step = 0.5;
-    for (let x = Math.ceil(w.left / step) * step; x <= w.right; x += step) {
-      scene.line(x, w.bottom, x, w.top, { color: 'textDim', width: 0.5, alpha: 0.12 });
-    }
-    for (let y = Math.ceil(w.bottom / step) * step; y <= w.top; y += step) {
-      scene.line(w.left, y, w.right, y, { color: 'textDim', width: 0.5, alpha: 0.12 });
-    }
+    scene.grid(0.5, { color: 'textDim', width: 0.5, alpha: 0.12 });
   }
 
   drawSum(scene, hud) {

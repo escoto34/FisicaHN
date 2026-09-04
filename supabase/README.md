@@ -12,6 +12,7 @@ supabase/
     0004_updated_at_triggers.sql   ← set_updated_at() compartido (§6.3)
     0005_audit_log_policy_index.sql ← SELECT, índice y purga de auditoría (§6.3)
     0006_exams_school_canonical.sql← school_key canónica; se elimina school_id (§6.5)
+    0007_security_invoker_rpcs.sql ← RPCs sin SECURITY DEFINER + política en schema_migrations (Advisor 0028/0029/0008)
   schema.sql                       ← estado ACUMULADO (generado) — no editar
   README.md                        ← este archivo
 ```
@@ -66,7 +67,7 @@ Comprobación post-despliegue:
 
 ```sql
 select * from public.schema_health;            -- 0 filas = sano
-select * from public.schema_migrations;        -- 1..6 con sus checksums
+select * from public.schema_migrations;        -- 1..7 con sus checksums
 ```
 
 ## Reversión
@@ -86,6 +87,19 @@ delete from public.schema_migrations where version = N;
 ```bash
 psql -v ON_ERROR_STOP=1 -f supabase/schema.sql
 ```
+
+## Security Advisor (Supabase → Database → Security Advisor)
+
+La migración 0007 deja el linter sin avisos de SQL:
+
+| Aviso | Causa | Solución en 0007 |
+|---|---|---|
+| 0028/0029 `soft_delete_student_work` | RPC `SECURITY DEFINER` ejecutable por `anon`/`authenticated` | Pasa a `SECURITY INVOKER`. La autoridad la dan políticas de `anon` sobre `student_works` que solo alcanzan la fila cuyo `local_id` coincide con un **ticket transaccional** (`set_config('fisicahn.soft_delete_ticket', …, true)`) que solo el RPC establece, grants **por columna** (`select (local_id, exam_code, deleted_at)`, `update (deleted_at)`) y un trigger guardia que exige `deleted_at: NULL → fecha` y ninguna otra columna. Un `PATCH` directo del cliente anónimo no ve ninguna fila. |
+| 0029 `purge_audit_log` | RPC `SECURITY DEFINER` ejecutable por `authenticated` | Pasa a `SECURITY INVOKER`; una política `DELETE` del docente sobre su colegio con **suelo de retención de 90 días** fijado en la propia política. También se concede el `SELECT` de auditoría que 0005 había olvidado (la política existía pero el privilegio de tabla no). |
+| 0008 `schema_migrations` RLS sin política | Tabla con RLS y cero políticas | Política `SELECT` para `authenticated` (versión y checksum no son sensibles); `anon` sin privilegios; nadie escribe por la API. |
+| `auth_leaked_password_protection` | Ajuste de Auth, **no es SQL** | Dashboard → Authentication → Providers → Email → activar «Leaked password protection» (comprueba contra HaveIBeenPwned). En el plan Free puede no estar disponible. |
+
+La migración se probó de extremo a extremo (roles `anon`/`authenticated`, RLS, trigger, retención) sobre Postgres 18 embebido (PGlite) con un stub del esquema `auth`; tanto `schema.sql` acumulado como la secuencia 0001…0007 pasan las 26 comprobaciones.
 
 ## Seguridad (Anexo §6.6)
 

@@ -17,7 +17,6 @@
 
 import { SimModule } from '../core/sim-module.js';
 import { roundTo } from '../utils/math-helpers.js';
-import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 const DIELECTRICS = {
   aire: { k: 1, label: 'Aire' },
@@ -87,13 +86,11 @@ export default class Circuits extends SimModule {
     this.t = 0;
     this.q = 0;
     this.i = 0;
-    this.histVc = [];
-    this.histI = [];
   }
 
   init(meta = null) {
     this.reset();
-    setModuleInfo(this.ui, {
+    this.setModuleInfo({
       title: 'Circuitos DC / AC',
       blurb: 'Serie/paralelo (Ohm), impedancia RLC con resonancia y RC con dieléctricos.',
       story:
@@ -105,7 +102,7 @@ export default class Circuits extends SimModule {
         'RC: a t = τ el condensador está al 63.2 %; a 5τ, casi lleno.'
       ]
     });
-    setModuleFormulas(this.ui, {
+    this.setModuleFormulas({
       title: 'Circuitos DC / AC',
       items: [
         { name: 'Ley de Ohm', formula: 'V = I R' },
@@ -121,15 +118,13 @@ export default class Circuits extends SimModule {
         { name: 'Capacidad con dieléctrico', formula: 'C = \\kappa C_0' }
       ]
     });
-    clearChallenges(this.ui);
+    this.clearChallenges();
   }
 
   reset() {
     this.t = 0;
     this.q = 0;
     this.i = 0;
-    this.histVc = [];
-    this.histI = [];
     if (this.params.mode === 'rc' && this.params.accion === 'descarga') {
       this.q = this.cEff() * this.params.V;
     }
@@ -154,12 +149,6 @@ export default class Circuits extends SimModule {
       }
       const vc = this.q / Math.max(C, 1e-15);
       this.i = this.params.accion === 'carga' ? (this.params.V - vc) / this.params.R : -vc / this.params.R;
-      this.histVc.push({ x: this.t, y: vc });
-      this.histI.push({ x: this.t, y: this.i });
-      if (this.histVc.length > 420) {
-        this.histVc.shift();
-        this.histI.shift();
-      }
       return;
     }
     this.i = this.dcResults().I;
@@ -237,20 +226,7 @@ export default class Circuits extends SimModule {
 
   /** Puntos de corriente animados a lo largo de un tramo (proporcionales a |I|). */
   _flow(scene, x0, y0, x1, y1, amps, color) {
-    const mag = Math.abs(amps);
-    if (mag < 1e-9) return;
-    const dx = x1 - x0;
-    const dy = y1 - y0;
-    const n = Math.max(3, Math.min(12, Math.round(3 + mag * 30)));
-    const speed = 0.15 + Math.min(2.5, mag * 20);
-    const phase = (this.t * speed) % 1;
-    for (let k = 0; k < n; k++) {
-      let u = (k / n + phase) % 1;
-      if (amps < 0) u = 1 - u;
-      const wx = x0 + dx * u;
-      const wy = y0 + dy * u;
-      scene.body(wx, wy, { shape: 'circle', r: 0.09, color, alpha: 0.85 });
-    }
+    scene.flow(x0, y0, x1, y1, { amps, color, t: this.t });
   }
 
   _wire(scene, x0, y0, x1, y1) {
@@ -276,8 +252,8 @@ export default class Circuits extends SimModule {
       this._flow(scene, 3, 1.5, 3, -1.5, I, '#ffee58');
       this._flow(scene, 2.4, -2, -2.4, -2, I, '#ffee58');
       this._flow(scene, -3, -1.5, -3, 1.5, I, '#ffee58');
-      scene.label(0, 2.85, `R₁ · V₁ = ${roundTo(res.V1, 2)} V`, { color: 'force' });
-      scene.label(0, -2.85, `R₂ · V₂ = ${roundTo(res.V2, 2)} V`, { color: 'energy' });
+      scene.label(0, 3.35, `R₁ · V₁ = ${roundTo(res.V1, 2)} V`, { color: 'force' });
+      scene.label(0, -3.35, `R₂ · V₂ = ${roundTo(res.V2, 2)} V`, { color: 'energy' });
       scene.label(0, 0.15, `I = ${fmtI(I)} (misma en serie)`, { color: 'mass' });
     } else {
       this._wire(scene, -0.8, 2, -0.8, -2);
@@ -331,17 +307,12 @@ export default class Circuits extends SimModule {
     // i(t) en el tiempo reciente.
     const vp = scene.viewport();
     if (vp.w > 430) {
-      const N = 120;
-      const series = [];
-      for (let k = 0; k <= N; k++) {
-        const tt = this.t - 0.8 + (0.8 * k) / N;
-        series.push({ x: tt, y: z.I0 * Math.sin(z.w * tt - z.phi) });
-      }
+      // Serie analítica muestreada por `plot` (sin array de puntos por frame).
       scene.hud.plot(
         { x: vp.x + vp.w - 280, y: vp.y + vp.h - 128, w: 270, h: 118 },
         {
           title: `i(t) · I₀ = ${fmtI(z.I0)}`,
-          series: [{ points: series, color: 'energy', width: 2 }],
+          series: [{ fn: (tt) => z.I0 * Math.sin(z.w * tt - z.phi), samples: 120, color: 'energy', width: 2 }],
           xRange: [this.t - 0.8, this.t],
           yRange: [-z.I0 * 1.3, z.I0 * 1.3],
           xLabel: 't (s)',
@@ -407,14 +378,8 @@ export default class Circuits extends SimModule {
     // V_c(t) analítica con el estado actual marcado.
     const vp = scene.viewport();
     if (vp.w > 430) {
-      const N = 140;
-      const series = [];
       const tMax = Math.max(this.t + 0.05, 6 * tau + 0.05);
-      for (let k = 0; k <= N; k++) {
-        const tt = (tMax * k) / N;
-        const v = cargando ? V * (1 - Math.exp(-tt / tau)) : V * Math.exp(-tt / tau);
-        series.push({ x: tt, y: v });
-      }
+      const vcOf = cargando ? (tt) => V * (1 - Math.exp(-tt / tau)) : (tt) => V * Math.exp(-tt / tau);
       const dot = {
         points: [{ x: this.t - 0.6, y: 0 }, { x: this.t + 0.6, y: 0 }],
         color: 'energy',
@@ -430,7 +395,7 @@ export default class Circuits extends SimModule {
         {
           title: `V_c(t) = ${cargando ? 'V(1−e^(−t/τ))' : 'V·e^(−t/τ)'}`,
           series: [
-            { points: series, color: 'spring', width: 2 },
+            { fn: vcOf, samples: 140, color: 'spring', width: 2 },
             dot,
             horiz
           ],

@@ -14,7 +14,6 @@
 
 import { SimModule } from '../core/sim-module.js';
 import { roundTo } from '../utils/math-helpers.js';
-import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 export default class EMWaves extends SimModule {
   static viewport = { width: 24, height: 15 };
@@ -54,7 +53,7 @@ export default class EMWaves extends SimModule {
 
   init(meta = null) {
     this.reset();
-    setModuleInfo(this.ui, {
+    this.setModuleInfo({
       title: 'Ondas electromagnéticas',
       blurb: 'E ⊥ B ⊥ propagación con c = f·λ, y polarización con la ley de Malus.',
       story:
@@ -67,7 +66,7 @@ export default class EMWaves extends SimModule {
         'Malus a 90°: I = 0: dos polarizadores cruzados apagan la luz.'
       ]
     });
-    setModuleFormulas(this.ui, {
+    this.setModuleFormulas({
       title: 'Ondas electromagnéticas',
       items: [
         { name: 'Velocidad', formula: 'c = f \\cdot \\lambda' },
@@ -76,7 +75,7 @@ export default class EMWaves extends SimModule {
         { name: 'Ley de Malus', formula: 'I = I_1 \\cos^2\\theta' }
       ]
     });
-    clearChallenges(this.ui);
+    this.clearChallenges();
   }
 
   reset() {
@@ -116,18 +115,11 @@ export default class EMWaves extends SimModule {
     const { ampE, ampB, c, f } = this.params;
     const k = this.k();
     const w = this.omega();
-    const N = 120;
-    const ptsE = [];
-    const ptsB = [];
-    for (let i = 0; i <= N; i++) {
-      const x = -6 + (12 * i) / N;
-      const phase = k * x - w * this.t;
-      ptsE.push({ x, y: ampE * Math.cos(phase) });
-      ptsB.push({ x, y: -3.4 + ampB * 0.55 * Math.cos(phase) });
-    }
+    const wt = w * this.t;
     scene.line(-7, 0, 7, 0, { color: 'textDim', width: 1.2 });
-    scene.polyline(ptsE, { color: 'force', width: 2.5 });
-    scene.polyline(ptsB, { color: 'spring', width: 2.5 });
+    // Ondas E y B muestreadas por la escena (sin arrays de puntos por frame).
+    scene.curve((x) => ampE * Math.cos(k * x - wt), -6, 6, { samples: 120, color: 'force', width: 2.5 });
+    scene.curve((x) => -3.4 + ampB * 0.55 * Math.cos(k * x - wt), -6, 6, { samples: 120, color: 'spring', width: 2.5 });
 
     // Vectores en una muestra de x.
     const x0 = 1.5;
@@ -207,12 +199,8 @@ export default class EMWaves extends SimModule {
 
     // Entre P₁ y P₂: onda viajera polarizada vertical, amplitud A₁ ∝ √I₁.
     const N = 48;
-    const pts1 = [];
-    for (let i = 0; i <= N; i++) {
-      const x = xP1 + 0.25 + ((xP2 - 0.25 - xP1 - 0.25) * i) / N;
-      pts1.push({ x, y: A1 * Math.cos(k * x - w * this.t) });
-    }
-    scene.polyline(pts1, { color: 'force', width: 2.4 });
+    const wt = w * this.t;
+    scene.curve((x) => A1 * Math.cos(k * x - wt), xP1 + 0.25, xP2 - 0.25, { samples: N, color: 'force', width: 2.4 });
     // Envolvente ±A₁ (punteada) para que la amplitud se lea aunque la onda viaje.
     scene.line(xP1 + 0.25, A1, xP2 - 0.25, A1, { color: 'force', width: 1, dash: [3, 4], alpha: 0.5 });
     scene.line(xP1 + 0.25, -A1, xP2 - 0.25, -A1, { color: 'force', width: 1, dash: [3, 4], alpha: 0.5 });
@@ -250,14 +238,18 @@ export default class EMWaves extends SimModule {
     // Tras P₂: onda inclinada θ con amplitud A₂ = A₁·cosθ y brillo ∝ cos²θ.
     const alpha2 = Math.max(0.12, ratio);
     if (A2 > 0.02) {
-      const pts2 = [];
-      for (let i = 0; i <= N; i++) {
-        const x = xP2 + 0.25 + ((xScreen - 0.4 - xP2 - 0.25) * i) / N;
-        const e = A2 * Math.cos(k * x - w * this.t);
-        // Oscilación a lo largo de la dirección del eje de P₂ (sinθ, cosθ).
-        pts2.push({ x: x + sinT * e, y: cosT * e });
-      }
-      scene.polyline(pts2, { color: 'spring', width: 2.4, alpha: alpha2 });
+      // Oscilación a lo largo de la dirección del eje de P₂ (sinθ, cosθ):
+      // curva paramétrica, la escena la muestrea.
+      scene.curve(
+        (x, o) => {
+          const e = A2 * Math.cos(k * x - wt);
+          o.x = x + sinT * e;
+          o.y = cosT * e;
+        },
+        xP2 + 0.25,
+        xScreen - 0.4,
+        { samples: N, color: 'spring', width: 2.4, alpha: alpha2 }
+      );
       scene.label((xP2 + xScreen) / 2, A2 + 0.45, `I₂ = I₁cos²θ = ${roundTo(I2, 0)} %`, {
         color: 'spring',
         size: 11,
@@ -272,31 +264,26 @@ export default class EMWaves extends SimModule {
     scene.circle(xScreen + 0.6, 0, 0.75, { color: 'spring', fill: 'spring', alpha: 0.1 + 0.9 * (I2 / 100), width: 1.5 });
     scene.label(xScreen + 0.4, -2.85, `detector · ${roundTo(I2, 0)} %`, { color: 'textDim', size: 11, avoid: true });
 
-    // Barras de intensidad I₁ → I₂.
-    const bar = (x, val, color, name) => {
-      const hMax = 2.6;
-      scene.rect(x, -4.9 + hMax / 2, 0.7, hMax, { color: 'textDim', width: 1, stroke: true });
-      const hh = (hMax * Math.max(0, val)) / 100;
-      if (hh > 0.01) scene.rect(x, -4.9 + hh / 2, 0.7, hh, { color, fill: color, alpha: 0.75, stroke: false });
-      scene.label(x, -5.35, `${name} ${roundTo(val, 0)} %`, { color, size: 10, avoid: true });
-    };
-    bar(-1.4, I1, 'force', 'I₁');
-    bar(-0.2, I2, 'spring', 'I₂');
+    // Barras de intensidad I₁ → I₂ (primitiva `bars`, con marco de escala).
+    scene.bars(
+      -1.4,
+      -4.9,
+      [
+        { value: I1, color: 'force', label: `I₁ ${roundTo(I1, 0)} %` },
+        { value: I2, color: 'spring', label: `I₂ ${roundTo(I2, 0)} %` }
+      ],
+      { max: 100, hMax: 2.6, barW: 0.7, gap: 0.5, frame: true, labelSize: 10, labelOffset: 0.45, minH: 0.01 }
+    );
 
     // Curva cos²θ con el punto actual.
     const vp = scene.viewport();
     if (vp.w > 460) {
-      const series = [];
-      for (let a = 0; a <= 90; a++) {
-        const rr = (a * Math.PI) / 180;
-        series.push({ x: a, y: Math.cos(rr) ** 2 });
-      }
       scene.hud.plot(
         { x: vp.x + vp.w - 250, y: vp.y + vp.h - 128, w: 240, h: 118 },
         {
           title: 'cos²θ (Malus)',
           series: [
-            { points: series, color: 'textDim', width: 1.6 },
+            { fn: (a) => Math.cos((a * Math.PI) / 180) ** 2, samples: 90, color: 'textDim', width: 1.6 },
             {
               points: [{ x: theta, y: 0 }, { x: theta, y: Math.cos(rad) ** 2 }],
               color: 'energy',

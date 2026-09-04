@@ -27,7 +27,9 @@ const ENGINE_KEYS = [
   'calorimetry','kinetic-theory','thermal-expansion','sound','electricity','circuits','magnetic',
   'em-waves','gravity','kepler','optics','lenses','mirrors','induction','wave-optics',
   'optical-instruments','atomic','photoelectric','radioactivity','tunneling','particles',
-  'de-broglie','nuclear-energy','special-relativity','quantum-history'
+  'de-broglie','nuclear-energy','special-relativity','quantum-history',
+  'capacitors','hydraulics',
+  'simple-machines','blackbody'
 ];
 
 /** Claves de semilla del pack/legacy → engineKey del catálogo. */
@@ -35,6 +37,26 @@ const ALIASES = { 'sound-waves': 'sound' };
 
 /** Retos nuevos para motores sin cobertura en las semillas (WAVE 8). */
 const EXTRA = {
+  'simple-machines': [
+    { id:'sm-1', type:'numeric', question:'Palanca de 1.ª clase: la carga de 200 N está a 0.5 m del apoyo y el esfuerzo se aplica a 2 m. ¿Qué fuerza equilibra la carga (N)?', answer:50, unit:'N', hint:'F·d_e = P·d_c → F = 200·0.5/2', points:10 },
+    { id:'sm-2', type:'numeric', question:'Una palanca tiene brazo de esfuerzo 3 m y brazo de carga 0.6 m. ¿Cuál es su ventaja mecánica ideal?', answer:5, hint:'VM = d_esfuerzo / d_carga', points:10 },
+    { id:'sm-3', type:'numeric', question:'Polipasto con 4 cuerdas sosteniendo la carga de 800 N. ¿Qué fuerza ideal hay que hacer (N)?', answer:200, unit:'N', hint:'F = P/n = 800/4', points:10 },
+    { id:'sm-4', type:'numeric', question:'Con el mismo polipasto de 4 cuerdas, para subir la carga 0.5 m, ¿cuántos metros de cuerda hay que recoger?', answer:2, unit:'m', hint:'d_cuerda = n·h = 4·0.5', points:10 },
+    { id:'sm-5', type:'numeric', question:'Plano inclinado de 30°. ¿Cuál es su ventaja mecánica ideal VM = L/h = 1/sen θ?', answer:2, hint:'sen 30° = 0.5 → 1/0.5', points:10 },
+    { id:'sm-6', type:'numeric', question:'Torno con rueda de 0.6 m de radio y eje de 0.15 m. ¿Cuál es su ventaja mecánica?', answer:4, hint:'VM = R/r = 0.6/0.15', points:10 },
+    { id:'sm-7', type:'numeric', question:'Una máquina recibe 500 J de trabajo y entrega 400 J útiles. ¿Cuál es su eficiencia en %?', answer:80, unit:'%', hint:'η = W_salida/W_entrada ×100', points:10 },
+    { id:'sm-8', type:'select', question:'Una máquina simple con ventaja mecánica 4…', options:['Multiplica el trabajo por 4','Divide la fuerza por 4 pero exige 4 veces más recorrido','Reduce la distancia a la cuarta parte','Aumenta la energía disponible'], answer:1, hint:'No ahorra trabajo: multiplica la fuerza y divide la distancia', points:10 },
+    { id:'sm-9', type:'select', question:'En una carretilla, la carga está entre la rueda (apoyo) y las manos (esfuerzo). ¿De qué clase de palanca se trata?', options:['1.ª clase','2.ª clase','3.ª clase','No es una palanca'], answer:1, hint:'Carga en medio → 2.ª clase', points:10 }
+  ],
+  'blackbody': [
+    { id:'bb-1', type:'numeric', question:'Ley de Wien: el Sol tiene T = 5778 K. ¿A qué longitud de onda (nm) emite más? (b = 2.898e-3 m·K)', answer:502, unit:'nm', hint:'λ_max = b/T = 2.898e-3/5778 → en metros; pasa a nm ×1e9', points:10 },
+    { id:'bb-2', type:'numeric', question:'Una estrella tiene su pico de emisión en 290 nm. ¿Cuál es su temperatura (K)? (b = 2.898e-3 m·K)', answer:9993, unit:'K', hint:'T = b/λ_max = 2.898e-3/290e-9', points:15 },
+    { id:'bb-3', type:'numeric', question:'Si la temperatura de un cuerpo negro pasa de 300 K a 600 K, ¿por cuánto se multiplica la potencia radiada?', answer:16, hint:'Stefan–Boltzmann: P ∝ T⁴ → 2⁴', points:10 },
+    { id:'bb-4', type:'numeric', question:'Filamento de 1e-4 m² a 2700 K. ¿Qué potencia radia (W)? (σ = 5.67e-8 W·m⁻²·K⁻⁴)', answer:301, unit:'W', hint:'P = σ·A·T⁴ = 5.67e-8 · 1e-4 · 2700⁴', points:15 },
+    { id:'bb-5', type:'select', question:'La «catástrofe ultravioleta» de la física clásica consistía en que…', options:['La luz UV destruía los detectores','La teoría predecía energía infinita a longitudes de onda cortas','El Sol no emitía UV','Los cuerpos negros no existen'], answer:1, hint:'Rayleigh–Jeans: B ∝ T/λ⁴ crece sin límite cuando λ → 0', points:10 },
+    { id:'bb-6', type:'select', question:'Al subir la temperatura de un cuerpo negro, su color aparente cambia de…', options:['Rojo → naranja → blanco → azulado','Azul → blanco → rojo','No cambia, solo brilla más','Verde → amarillo'], answer:0, hint:'Wien: λ_max baja al subir T; el pico se corre hacia el azul', points:10 },
+    { id:'bb-7', type:'select', question:'Una estrella de clase espectral M comparada con una de clase B es…', options:['Más caliente y azul','Igual de caliente','Más fría y rojiza','Más caliente y roja'], answer:2, hint:'O B A F G K M va de más caliente a más fría', points:10 }
+  ],
   'momentum': [
     { id:'mom-1', type:'numeric', question:'Un camión de 2000 kg va a 10 m/s. ¿Cuánto vale su cantidad de movimiento p = m·v?', answer:20000, unit:'kg·m/s', hint:'p = m·v = 2000·10', points:10 },
     { id:'mom-2', type:'numeric', question:'Dos autos de 1000 kg chocan frontalmente a 5 m/s y quedan pegados. ¿Cuánto vale la velocidad final común? (conservación de p)', answer:0, unit:'m/s', hint:'p_total = 0 → quedan en reposo', points:15 },
@@ -209,6 +231,23 @@ const EXTRA = {
     { id:'ele-7', type:'numeric', question:'Tres resistores de 2 Ω en serie: R_eq =', answer:6, unit:'Ω', hint:'2+2+2', points:10 },
     { id:'ele-8', type:'select', question:'En serie la corriente…', options:['Es la misma en todos los elementos','Se reparte','Solo fluye en el primero','Es menor al final'], answer:0, hint:'No hay ramas: mismo I', points:10 },
     { id:'ele-9', type:'numeric', question:'V = I·R para I = 2 A y R = 60 Ω → V (V)', answer:120, unit:'V', hint:'2·60', points:10 }
+  ],
+  'capacitors': [
+    { id:'cap-1', type:'numeric', question:'Condensador de placas paralelas en vacío: A = 200 cm² (0.02 m²) y d = 2 mm. ¿Cuánto vale C = ε₀·A/d en pF? (ε₀ = 8.85×10⁻¹² F/m)', answer:88.5, unit:'pF', hint:'8.85e-12 · 0.02 / 0.002 = 8.85e-11 F', points:15 },
+    { id:'cap-2', type:'numeric', question:'Un condensador de 47 µF se conecta a 12 V. ¿Qué carga almacena (µC)?', answer:564, unit:'µC', hint:'Q = C·V = 47·12', points:10 },
+    { id:'cap-3', type:'numeric', question:'Energía almacenada por un condensador de 100 µF cargado a 20 V (J).', answer:0.02, unit:'J', hint:'U = ½·C·V² = 0.5·100e-6·400', points:10 },
+    { id:'cap-4', type:'numeric', question:'Circuito RC: R = 10 kΩ y C = 47 µF. ¿Cuánto vale τ = R·C (s)?', answer:0.47, unit:'s', hint:'10 000 · 47e-6 = 0.47 s', points:10 },
+    { id:'cap-5', type:'numeric', question:'Dos condensadores de 10 µF y 20 µF en serie. ¿Capacidad equivalente (µF)?', answer:6.67, unit:'µF', hint:'1/C = 1/10 + 1/20 → C = 200/30', points:15 },
+    { id:'cap-6', type:'select', question:'Se inserta un dieléctrico de κ = 4 con la fuente desconectada (Q constante). El campo entre las placas…', options:['Se cuadruplica','Se reduce a la cuarta parte','No cambia','Se anula'], answer:1, hint:'E = E₀/κ: las cargas de polarización debilitan el campo', points:10 },
+    { id:'cap-7', type:'select', question:'En un condensador en el instante t = τ de la carga, el voltaje alcanza el…', options:['50 %','37 %','63 %','100 %'], answer:2, hint:'1 − e⁻¹ ≈ 0.632', points:10 }
+  ],
+  'hydraulics': [
+    { id:'hyd-1', type:'numeric', question:'Presión hidrostática a 1.5 m de profundidad en agua (ρ = 1000 kg/m³, g = 9.8) con P₀ = 101.3 kPa. ¿P total en kPa?', answer:116, unit:'kPa', hint:'P = P₀ + ρgh = 101.3 + 14.7', points:10 },
+    { id:'hyd-2', type:'numeric', question:'¿Cuánto vale la presión manométrica ρgh a 3 m de profundidad en mercurio (13600 kg/m³, g = 9.8)? Responde en kPa.', answer:399.84, unit:'kPa', hint:'13600·9.8·3 = 399 840 Pa', points:15 },
+    { id:'hyd-3', type:'numeric', question:'Prensa hidráulica: A₁ = 5 cm², A₂ = 100 cm², F₁ = 50 N. ¿Fuerza F₂ en el pistón grande (N)?', answer:1000, unit:'N', hint:'F₂ = F₁·A₂/A₁ = 50·20', points:10 },
+    { id:'hyd-4', type:'numeric', question:'En la misma prensa (A₂/A₁ = 20) el pistón pequeño baja 10 cm. ¿Cuánto sube el grande (cm)?', answer:0.5, unit:'cm', hint:'A₁·d₁ = A₂·d₂ → d₂ = 10/20', points:10 },
+    { id:'hyd-5', type:'numeric', question:'Tubo en U con agua (1000 kg/m³) y una columna de aceite (920 kg/m³) de 10 cm. ¿Altura de la columna de agua sobre la interfaz (cm)?', answer:9.2, unit:'cm', hint:'ρ₁h₁ = ρ₂h₂ → h₁ = 920·10/1000', points:15 },
+    { id:'hyd-6', type:'select', question:'Según el principio de Pascal, una presión aplicada a un líquido encerrado…', options:['Se transmite íntegra a todo el líquido','Solo actúa en la superficie','Se reparte según el volumen','Desaparece con la profundidad'], answer:0, hint:'Se transmite íntegra a todos los puntos del fluido', points:10 }
   ]
 };
 

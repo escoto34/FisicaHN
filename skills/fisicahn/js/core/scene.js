@@ -22,60 +22,108 @@
  */
 
 import { getTheme, resolveColor, seriesColor, seriesDash } from './theme.js';
-import { roundRect, arrowHead, hatchLine, thermalColor, ripplePattern, halo, lensPath } from './draw-primitives.js';
+import { roundRect, arrowHead, hatchLine, thermalColor, ripplePattern, halo, lensPath, photonPath } from './draw-primitives.js';
 
 /** Puntos de trabajo reutilizados: dibujar no debe allocar (§3.2). */
 const _a = { x: 0, y: 0 };
 const _b = { x: 0, y: 0 };
 const _c = { x: 0, y: 0 };
 
+/**
+ * Patrón de guiones vacío compartido: `_style` se llama en cada primitiva y
+ * antes creaba un `[]` nuevo por llamada (≈ 100 asignaciones/frame en los
+ * módulos con muchas líneas).
+ */
+const EMPTY_DASH = Object.freeze([]);
+
+/** Caja de trabajo para `findFreeBox`: prueba candidatos sin allocar. */
+const _scratchBox = { x: 0, y: 0, w: 0, h: 0 };
+
 /** AABB en px CSS: ¿se solapan `a` y `b`? (§13.1) */
 function rectsOverlap(a, b) {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
 
+/** @param {{x:number,y:number,w:number,h:number}} b @param {Array} boxes */
+function overlapsAny(b, boxes) {
+  for (let i = 0; i < boxes.length; i++) if (rectsOverlap(b, boxes[i])) return true;
+  return false;
+}
+
+/*
+ * Adaptadores de `pointList`, reutilizados entre llamadas: antes cada
+ * `polyline`/`trail`/`plot` creaba un objeto y una clausura, y el caso
+ * `TrailBuffer` copiaba el anillo entero con `toArray()` cada frame.
+ */
+const EMPTY_LIST = { length: 0, at: (_, out) => out };
+const _ringList = {
+  src: /** @type {any} */ (null),
+  length: 0,
+  at(i, out) {
+    const p = this.src.get(i);
+    out.x = p.x;
+    out.y = p.y;
+    return out;
+  }
+};
+const _flatList = {
+  src: /** @type {any} */ (null),
+  length: 0,
+  at(i, out) {
+    const s = this.src;
+    out.x = s[i * 2];
+    out.y = s[i * 2 + 1];
+    return out;
+  }
+};
+const _objList = {
+  src: /** @type {any} */ (null),
+  length: 0,
+  at(i, out) {
+    const p = this.src[i] || _a;
+    out.x = p.x;
+    out.y = p.y;
+    return out;
+  }
+};
+
 /**
- * Normaliza las tres formas en las que un módulo puede pasar una secuencia de
- * puntos: array de `{x, y}`, array plano `[x0, y0, x1, y1, …]` o un
- * `TrailBuffer`.
+ * Normaliza las formas en las que un módulo puede pasar una secuencia de
+ * puntos: array de `{x, y}`, array plano `[x0, y0, x1, y1, …]`, un array
+ * tipado plano (`Float64Array`) o un `TrailBuffer`.
+ *
+ * Devuelve un adaptador **compartido** (válido hasta la siguiente llamada):
+ * las primitivas lo consumen de inmediato, así que no allocan por frame.
  * @param {Array|object} points
  * @returns {{length: number, at: (i: number, out: {x:number,y:number}) => {x:number,y:number}}}
  */
 function pointList(points) {
-  if (!points) return { length: 0, at: (_, out) => out };
-  // TrailBuffer: expone `size` y `forEach` en orden cronológico.
-  if (typeof points.forEach === 'function' && typeof points.size === 'number') {
-    const arr = points.toArray();
-    return {
-      length: arr.length,
-      at: (i, out) => {
-        const p = arr[i];
-        out.x = p.x;
-        out.y = p.y;
-        return out;
-      }
-    };
+  if (!points) return EMPTY_LIST;
+  // TrailBuffer: expone `size` y `get(i)` en orden cronológico.
+  if (typeof points.size === 'number' && typeof points.get === 'function') {
+    _ringList.src = points;
+    _ringList.length = points.size;
+    return _ringList;
   }
-  if (!Array.isArray(points)) return { length: 0, at: (_, out) => out };
+  if (typeof points.size === 'number' && typeof points.toArray === 'function') {
+    _objList.src = points.toArray();
+    _objList.length = _objList.src.length;
+    return _objList;
+  }
+  if (ArrayBuffer.isView(points)) {
+    _flatList.src = points;
+    _flatList.length = /** @type {any} */ (points).length >> 1;
+    return _flatList;
+  }
+  if (!Array.isArray(points)) return EMPTY_LIST;
   if (points.length && typeof points[0] === 'number') {
-    return {
-      length: points.length >> 1,
-      at: (i, out) => {
-        out.x = points[i * 2];
-        out.y = points[i * 2 + 1];
-        return out;
-      }
-    };
+    _flatList.src = points;
+    _flatList.length = points.length >> 1;
+    return _flatList;
   }
-  return {
-    length: points.length,
-    at: (i, out) => {
-      const p = points[i] || _a;
-      out.x = p.x;
-      out.y = p.y;
-      return out;
-    }
-  };
+  _objList.src = points;
+  _objList.length = points.length;
+  return _objList;
 }
 
 /**
@@ -96,10 +144,21 @@ export class Surface {
     this.theme = getTheme();
     this.screenSpace = opts.screenSpace === true;
     this._fontFamily = 'system-ui, -apple-system, "Segoe UI", sans-serif';
+    /** Segundos desde el arranque del módulo; la escena lo sincroniza en `beginFrame`. */
+    this.elapsed = 0;
+    /** Caché de cadenas `font` por (tamaño, peso, escala del tema). */
+    this._fontCache = { scale: -1, map: new Map() };
+    /** Caché de degradados radiales de `body` por (color, radio), ligada al `ctx`. */
+    this._gradCache = new Map();
+    /** Búferes planos reutilizables para series muestreadas (`plot` con `fn`, `curve`). */
+    this._fnBufs = [];
   }
 
   /** @param {CanvasRenderingContext2D} ctx */
   bind(ctx, theme) {
+    // Un degradado pertenece al contexto que lo creó: al cambiar de capa o
+    // de grabador (SVG) la caché deja de valer.
+    if (ctx !== this.ctx) this._gradCache.clear();
     this.ctx = ctx;
     this.theme = theme || getTheme();
     return this;
@@ -155,10 +214,26 @@ export class Surface {
     return size * this.theme.fontScale;
   }
 
-  /** Construye la cadena `font` con la escala del tema. */
+  /**
+   * Construye la cadena `font` con la escala del tema. Cacheada: `label` y
+   * `chip` la pedían dos veces por etiqueta y la concatenación era una de las
+   * pocas asignaciones de cadena que quedaban en el bucle caliente.
+   */
   font(size = 12, weight = '') {
-    const s = Math.round(this.fontSize(size));
-    return `${weight ? weight + ' ' : ''}${s}px ${this._fontFamily}`;
+    const cache = this._fontCache;
+    const scale = this.theme.fontScale;
+    if (cache.scale !== scale) {
+      cache.map.clear();
+      cache.scale = scale;
+    }
+    const key = weight ? `${size}|${weight}` : size;
+    let f = cache.map.get(key);
+    if (f === undefined) {
+      const s = Math.round(this.fontSize(size));
+      f = `${weight ? weight + ' ' : ''}${s}px ${this._fontFamily}`;
+      cache.map.set(key, f);
+    }
+    return f;
   }
 
   /** Resuelve un token del tema o devuelve el literal CSS tal cual. */
@@ -182,7 +257,7 @@ export class Surface {
     ctx.globalAlpha = opts.alpha ?? 1;
     // `dash` es la señal redundante que exige el perfil accesible: el color
     // nunca debe ser el único canal que distingue dos magnitudes.
-    ctx.setLineDash(opts.dash || []);
+    ctx.setLineDash(opts.dash || EMPTY_DASH);
     if (opts.glow && this.theme.glow) {
       ctx.shadowColor = stroke;
       ctx.shadowBlur = opts.glow === true ? 8 : opts.glow;
@@ -531,14 +606,7 @@ export class Surface {
     if (shape === 'circle') {
       // El degradado da volumen sin coste apreciable; en proyector se omite
       // porque el brillo se pierde y sólo baja el contraste.
-      if (this.theme.glow) {
-        const g = ctx.createRadialGradient(-rp * 0.35, -rp * 0.4, rp * 0.05, 0, 0, rp);
-        g.addColorStop(0, '#ffffff');
-        g.addColorStop(0.18, color);
-        g.addColorStop(0.85, color);
-        g.addColorStop(1, 'rgba(0,0,0,0.35)');
-        ctx.fillStyle = g;
-      }
+      if (this.theme.glow) ctx.fillStyle = this._bodyGradient(color, rp);
       ctx.beginPath();
       ctx.arc(0, 0, rp, 0, Math.PI * 2);
       ctx.fill();
@@ -581,6 +649,29 @@ export class Surface {
     }
     if (opts.id) this.pickable(opts.id, { x, y, r });
     return this;
+  }
+
+  /**
+   * Degradado radial de `body`, cacheado por color y radio (a ½ px). Es
+   * relativo al origen trasladado, así que vale para cualquier posición: un
+   * gas de 300 moléculas pasaba de 300 `createRadialGradient` por frame a 0.
+   * @param {string} color @param {number} rp - Radio en px.
+   */
+  _bodyGradient(color, rp) {
+    const r = Math.round(rp * 2) / 2;
+    const key = color + '|' + r;
+    const cache = this._gradCache;
+    let g = cache.get(key);
+    if (g === undefined) {
+      if (cache.size > 512) cache.clear();
+      g = this.ctx.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.05, 0, 0, r);
+      g.addColorStop(0, '#ffffff');
+      g.addColorStop(0.18, color);
+      g.addColorStop(0.85, color);
+      g.addColorStop(1, 'rgba(0,0,0,0.35)');
+      cache.set(key, g);
+    }
+    return g;
   }
 
   /**
@@ -870,6 +961,39 @@ export class Surface {
     return this;
   }
 
+  /**
+   * Punta de flecha suelta sobre un punto del mundo, orientada según un
+   * ángulo en sentido matemático (radianes, mundo). Sirve para marcar el
+   * sentido de una curva ya trazada — líneas de campo, corrientes, flujos —
+   * sin dibujar un vector completo. Tamaño en px CSS (escala con el tema).
+   * @param {number} x @param {number} y
+   * @param {number} angle - Dirección en el mundo (rad, y hacia arriba).
+   * @param {object} [opts]
+   * @param {string} [opts.color='field']
+   * @param {number} [opts.size=7] - Longitud de la punta, px CSS.
+   * @param {number} [opts.alpha=0.9]
+   */
+  arrowMark(x, y, angle, opts = {}) {
+    const ctx = this.ctx;
+    if (!ctx) return this;
+    const p = this.project(x, y, _a);
+    // Ángulo de pantalla: el eje Y del lienzo crece hacia abajo.
+    const sa = this.screenSpace ? angle : -angle;
+    const size = (opts.size ?? 7) * this.theme.lineScale;
+    const color = this.color(opts.color, 'field');
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.globalAlpha = opts.alpha ?? 0.9;
+    ctx.beginPath();
+    ctx.moveTo(p.x + Math.cos(sa) * size * 0.5, p.y + Math.sin(sa) * size * 0.5);
+    ctx.lineTo(p.x - size * Math.cos(sa - 0.45), p.y - size * Math.sin(sa - 0.45));
+    ctx.lineTo(p.x - size * Math.cos(sa + 0.45), p.y - size * Math.sin(sa + 0.45));
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+    return this;
+  }
+
   /* ---------- anotación ---------- */
 
   /** Texto en coordenadas de pantalla (uso interno de las primitivas). */
@@ -878,6 +1002,18 @@ export class Surface {
     if (!ctx) return this;
     ctx.save();
     ctx.font = this.font(opts.size ?? 13, opts.weight);
+    this._fillText(sx, sy, text, opts);
+    ctx.restore();
+    return this;
+  }
+
+  /**
+   * Núcleo de `_screenText` sin `save/restore` ni `font`: para las primitivas
+   * que ya han medido el texto con la fuente puesta (`label`, `chip`) y no
+   * necesitan un segundo par `save/restore` por etiqueta.
+   */
+  _fillText(sx, sy, text, opts) {
+    const ctx = this.ctx;
     ctx.fillStyle = this.color(opts.color, 'text');
     ctx.textAlign = opts.align || 'center';
     ctx.textBaseline = opts.baseline || 'bottom';
@@ -886,8 +1022,6 @@ export class Surface {
       ctx.shadowBlur = 4;
     }
     ctx.fillText(text, sx, sy);
-    ctx.restore();
-    return this;
   }
 
   /**
@@ -916,24 +1050,26 @@ export class Surface {
 
   /** Etiqueta anclada a un punto del mundo. Con `opts.avoid` evita pisar otras etiquetas del frame (§13.1). */
   label(x, y, text, opts = {}) {
+    const ctx = this.ctx;
+    if (!ctx) return this;
     const p = this.project(x, y, _a);
     let sx = p.x + (opts.offsetX || 0);
     let sy = p.y + (opts.offsetY || 0);
-    const ctx = this.ctx;
-    if (ctx) {
-      ctx.save();
-      ctx.font = this.font(opts.size ?? 13, opts.weight);
-      const w = ctx.measureText(text).width;
-      ctx.restore();
-      const h = this.fontSize((opts.size ?? 13) * 1.35);
-      const align = opts.align || 'center';
-      const baseline = opts.baseline || 'bottom';
-      const box = this._textBox(sx, sy, w, h, align, baseline);
-      const placed = this._placeBox(box, opts);
-      sx += placed.x - box.x;
-      sy += placed.y - box.y;
-    }
-    return this._screenText(sx, sy, text, opts);
+    const size = opts.size ?? 13;
+    // Un solo `save/restore`: medir y pintar con la misma fuente puesta.
+    ctx.save();
+    ctx.font = this.font(size, opts.weight);
+    const w = ctx.measureText(text).width;
+    const h = this.fontSize(size * 1.35);
+    const align = opts.align || 'center';
+    const baseline = opts.baseline || 'bottom';
+    const box = this._textBox(sx, sy, w, h, align, baseline);
+    const placed = this._placeBox(box, opts);
+    sx += placed.x - box.x;
+    sy += placed.y - box.y;
+    this._fillText(sx, sy, text, opts);
+    ctx.restore();
+    return this;
   }
 
   /**
@@ -988,12 +1124,10 @@ export class Surface {
     const padX = 8 * this.theme.fontScale;
     const w = ctx.measureText(text).width + padX * 2;
     const h = this.fontSize(22);
-    ctx.restore();
     const box = this._textBox(px, py, w, h, 'center', 'middle');
     const placed = this._placeBox(box, opts);
     px += placed.x - box.x;
     py += placed.y - box.y;
-    ctx.save();
     ctx.fillStyle = opts.background || this.theme.hudBg;
     ctx.strokeStyle = this.color(opts.color, 'hudBorder');
     ctx.lineWidth = this.lineWidth(1);
@@ -1188,6 +1322,722 @@ export class Surface {
     return this;
   }
 
+  /**
+   * Fotón / onda viajera: garabato sinusoidal con punta de flecha, el símbolo
+   * de libro de texto para γ (`atomic`, `photoelectric`, `radioactivity`).
+   * `(x, y)` es la cola y `angle`/`length` la dirección y longitud en unidades
+   * de mundo. El color suele ser el de la longitud de onda
+   * (`wavelengthColor`): acompáñalo siempre de una etiqueta con λ o hf.
+   * @param {number} x @param {number} y
+   * @param {number} angle - Radianes, sentido matemático.
+   * @param {number} length - Unidades de mundo.
+   * @param {object} [opts]
+   * @param {string} [opts.color='ray']
+   * @param {number} [opts.amplitude=0.12] - Semiamplitud, unidades de mundo.
+   * @param {number} [opts.waves=3]
+   * @param {number} [opts.phase=0] - Fase inicial (anima el garabato).
+   * @param {boolean} [opts.arrow=true]
+   * @param {string} [opts.label] - Etiqueta en la punta.
+   */
+  photon(x, y, angle, length, opts = {}) {
+    const ctx = this.ctx;
+    if (!ctx || !(length > 0)) return this;
+    const p = this.project(x, y, _a);
+    const lenPx = this.screenSpace ? length : this.px(length);
+    const ampPx = this.screenSpace ? (opts.amplitude ?? 4) : this.px(opts.amplitude ?? 0.12);
+    ctx.save();
+    this._style(opts, 'ray');
+    ctx.setLineDash([]);
+    // El eje Y del lienzo crece hacia abajo: se invierte el ángulo.
+    photonPath(ctx, p.x, p.y, -angle, lenPx, {
+      amplitude: ampPx,
+      waves: opts.waves ?? 3,
+      head: opts.arrow === false ? 0 : 7 * this.theme.lineScale,
+      phase: opts.phase ?? 0
+    });
+    ctx.restore();
+    if (opts.label) {
+      this.label(x + Math.cos(angle) * length, y + Math.sin(angle) * length, opts.label, {
+        color: opts.color,
+        size: opts.size ?? 11,
+        offsetY: -10,
+        avoid: opts.avoid !== false
+      });
+    }
+    return this;
+  }
+
+  /* ---------- curvas muestreadas ---------- */
+
+  /**
+   * Muestrea `fn` en `n + 1` puntos de `[t0, t1]` sobre el búfer plano
+   * `_fnBufs[slot]` (se crea o redimensiona sólo si hace falta). `fn(t, out)`
+   * puede devolver `y` (curva y = f(t), con x = t) o escribir `out.x/out.y`
+   * (curva paramétrica). Sin asignaciones por frame en régimen estacionario.
+   * @param {number} slot @param {(t:number, out:{x:number,y:number}) => (number|void|object)} fn
+   * @param {number} t0 @param {number} t1 @param {number} n
+   * @returns {Float64Array} Búfer plano `[x0, y0, x1, y1, …]`.
+   */
+  _sampleFn(slot, fn, t0, t1, n) {
+    const len = (n + 1) * 2;
+    let buf = this._fnBufs[slot];
+    if (!buf || buf.length !== len) {
+      buf = new Float64Array(len);
+      this._fnBufs[slot] = buf;
+    }
+    const span = t1 - t0;
+    for (let i = 0; i <= n; i++) {
+      const t = t0 + (span * i) / n;
+      _c.x = t;
+      _c.y = 0;
+      const r = fn(t, _c);
+      if (typeof r === 'number') {
+        buf[i * 2] = t;
+        buf[i * 2 + 1] = r;
+      } else {
+        buf[i * 2] = _c.x;
+        buf[i * 2 + 1] = _c.y;
+      }
+    }
+    return buf;
+  }
+
+  /**
+   * Curva definida por una función, sin construir arrays de puntos por frame:
+   * ondas, envolventes, curvas analíticas. `fn(t, out)` devuelve `y` para
+   * una curva `y = f(t)` (x = t) o escribe `out.x/out.y` para una curva
+   * paramétrica (ramas de hipérbola, ondas inclinadas).
+   * @param {(t:number, out:{x:number,y:number}) => (number|void|object)} fn
+   * @param {number} t0 @param {number} t1 - Rango del parámetro (mundo).
+   * @param {object} [opts] - Mismas opciones de estilo que `polyline`.
+   * @param {number} [opts.samples=64]
+   * @param {boolean} [opts.close=false] - Cierra el camino (y rellena si `opts.fill`).
+   */
+  curve(fn, t0, t1, opts = {}) {
+    const ctx = this.ctx;
+    if (!ctx || typeof fn !== 'function') return this;
+    const n = Math.max(1, Math.round(opts.samples ?? 64));
+    const span = t1 - t0;
+    ctx.save();
+    this._style(opts, 'text');
+    ctx.beginPath();
+    for (let i = 0; i <= n; i++) {
+      const t = t0 + (span * i) / n;
+      _c.x = t;
+      _c.y = 0;
+      const r = fn(t, _c);
+      if (typeof r === 'number') {
+        _c.x = t;
+        _c.y = r;
+      }
+      const p = this.project(_c.x, _c.y, _b);
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    }
+    if (opts.close) ctx.closePath();
+    if (opts.fill) {
+      ctx.fillStyle = this.color(opts.fill === true ? opts.color : opts.fill, 'text');
+      ctx.globalAlpha = opts.fillAlpha ?? opts.alpha ?? 0.3;
+      ctx.fill();
+      ctx.globalAlpha = opts.alpha ?? 1;
+    }
+    if (opts.stroke !== false) ctx.stroke();
+    ctx.restore();
+    return this;
+  }
+
+  /* ---------- entorno: suelo, techo, pared, ejes y rejilla ---------- */
+
+  /**
+   * Núcleo de `ground`/`ceiling`/`wall`: línea de apoyo más rayado a un lado,
+   * en un único `save/restore`. `sideSign` ya viene resuelto en el sistema de
+   * `hatchLine` (pantalla).
+   */
+  _support(x1, y1, x2, y2, opts, sideSign) {
+    const ctx = this.ctx;
+    if (!ctx) return this;
+    const from = this.project(x1, y1, _a);
+    const fx = from.x;
+    const fy = from.y;
+    const to = this.project(x2, y2, _b);
+    const alpha = opts.alpha ?? 1;
+    ctx.save();
+    ctx.strokeStyle = this.color(opts.color, 'textDim');
+    ctx.lineCap = 'butt';
+    ctx.setLineDash(EMPTY_DASH);
+    ctx.globalAlpha = alpha;
+    ctx.lineWidth = this.lineWidth(opts.width ?? 2);
+    ctx.beginPath();
+    ctx.moveTo(fx, fy);
+    ctx.lineTo(to.x, to.y);
+    ctx.stroke();
+    if (opts.hatch !== false) {
+      ctx.lineWidth = this.lineWidth(opts.hatchWidth ?? 1.2);
+      ctx.globalAlpha = alpha * (opts.hatchAlpha ?? 0.8);
+      hatchLine(ctx, fx, fy, to.x, to.y, {
+        spacing: (opts.spacing ?? 9) * this.theme.lineScale,
+        length: (opts.length ?? 10) * this.theme.lineScale,
+        side: sideSign
+      });
+    }
+    ctx.restore();
+    return this;
+  }
+
+  /**
+   * Suelo: línea horizontal de `x1` a `x2` a la altura `y` con el rayado de
+   * apoyo por debajo (notación de libro de texto). Sustituye a las variantes
+   * "línea + rectángulo relleno" y "línea + dos trazos" de los módulos.
+   * @param {number} x1 @param {number} x2 @param {number} y
+   * @param {object} [opts]
+   * @param {string} [opts.color='textDim']
+   * @param {number} [opts.width=2] - Grosor de la línea.
+   * @param {boolean} [opts.hatch=true] - Rayado de apoyo.
+   * @param {number} [opts.spacing=9] @param {number} [opts.length=10] - Rayado, px CSS.
+   */
+  ground(x1, x2, y, opts = {}) {
+    return this._support(Math.min(x1, x2), y, Math.max(x1, x2), y, opts, -1);
+  }
+
+  /** Techo: como `ground`, con el rayado por encima (soporte de un péndulo, viga de `statics`). */
+  ceiling(x1, x2, y, opts = {}) {
+    return this._support(Math.min(x1, x2), y, Math.max(x1, x2), y, opts, 1);
+  }
+
+  /**
+   * Pared vertical en `x` entre `y1` e `y2`, con el rayado hacia el lado
+   * sólido (`opts.side`: `'left'` por defecto, o `'right'`).
+   */
+  wall(x, y1, y2, opts = {}) {
+    const side = opts.side === 'right' ? -1 : 1;
+    return this._support(x, Math.min(y1, y2), x, Math.max(y1, y2), opts, side);
+  }
+
+  /**
+   * Ejes cartesianos que cruzan el encuadre por `(opts.x, opts.y)` con marcas
+   * cada `opts.tick` unidades, en dos trazos (uno para los ejes y otro para
+   * las marcas) en vez de una línea por marca.
+   * @param {object} [opts]
+   * @param {number} [opts.x=0] @param {number} [opts.y=0] - Origen.
+   * @param {string} [opts.color='textDim'] @param {number} [opts.width=1.5]
+   * @param {number} [opts.tick=1] - Paso de las marcas (mundo); 0 las omite.
+   * @param {number} [opts.tickSize=0.12] - Semilongitud de la marca (mundo).
+   * @param {string} [opts.tickColor='axisLabel']
+   */
+  axes(opts = {}) {
+    const ctx = this.ctx;
+    if (!ctx) return this;
+    const b = this.world();
+    const ox = opts.x ?? 0;
+    const oy = opts.y ?? 0;
+    ctx.save();
+    ctx.setLineDash(EMPTY_DASH);
+    ctx.globalAlpha = opts.alpha ?? 1;
+    ctx.strokeStyle = this.color(opts.color, 'textDim');
+    ctx.lineWidth = this.lineWidth(opts.width ?? 1.5);
+    ctx.beginPath();
+    let p = this.project(b.left, oy, _a);
+    ctx.moveTo(p.x, p.y);
+    p = this.project(b.right, oy, _a);
+    ctx.lineTo(p.x, p.y);
+    p = this.project(ox, b.bottom, _a);
+    ctx.moveTo(p.x, p.y);
+    p = this.project(ox, b.top, _a);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    const tick = opts.tick ?? 1;
+    if (tick > 0) {
+      const ts = opts.tickSize ?? 0.12;
+      ctx.strokeStyle = this.color(opts.tickColor, 'axisLabel');
+      ctx.lineWidth = this.lineWidth(opts.tickWidth ?? 1);
+      ctx.beginPath();
+      for (let x = Math.ceil((b.left - ox) / tick) * tick + ox; x <= b.right; x += tick) {
+        p = this.project(x, oy - ts, _a);
+        ctx.moveTo(p.x, p.y);
+        p = this.project(x, oy + ts, _a);
+        ctx.lineTo(p.x, p.y);
+      }
+      for (let y = Math.ceil((b.bottom - oy) / tick) * tick + oy; y <= b.top; y += tick) {
+        p = this.project(ox - ts, y, _a);
+        ctx.moveTo(p.x, p.y);
+        p = this.project(ox + ts, y, _a);
+        ctx.lineTo(p.x, p.y);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+    return this;
+  }
+
+  /**
+   * Rejilla de mundo con paso `step`, en un solo trazo (antes: una `line` —
+   * con su `save/restore` — por cada una de las ~100 líneas).
+   * @param {number} step - Paso en unidades de mundo.
+   * @param {object} [opts]
+   * @param {string} [opts.color='textDim'] @param {number} [opts.width=0.5] @param {number} [opts.alpha=0.12]
+   */
+  grid(step, opts = {}) {
+    const ctx = this.ctx;
+    if (!ctx || !(step > 0)) return this;
+    const b = this.world();
+    ctx.save();
+    ctx.setLineDash(EMPTY_DASH);
+    ctx.strokeStyle = this.color(opts.color, 'textDim');
+    ctx.lineWidth = this.lineWidth(opts.width ?? 0.5);
+    ctx.globalAlpha = opts.alpha ?? 0.12;
+    ctx.beginPath();
+    let p;
+    for (let x = Math.ceil(b.left / step) * step; x <= b.right; x += step) {
+      p = this.project(x, b.bottom, _a);
+      ctx.moveTo(p.x, p.y);
+      p = this.project(x, b.top, _a);
+      ctx.lineTo(p.x, p.y);
+    }
+    for (let y = Math.ceil(b.bottom / step) * step; y <= b.top; y += step) {
+      p = this.project(b.left, y, _a);
+      ctx.moveTo(p.x, p.y);
+      p = this.project(b.right, y, _a);
+      ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+    ctx.restore();
+    return this;
+  }
+
+  /* ---------- instrumentos y aparatos ---------- */
+
+  /**
+   * Termómetro de columna: tubo vertical que arranca en `y` (base del tubo,
+   * mundo) y sube `h`, bulbo justo debajo y columna llena en la fracción
+   * `t` ∈ [0,1]. La escala se declara en fracciones para que el módulo decida
+   * el mapeo físico (°C, K…).
+   * @param {number} x @param {number} y @param {number} h @param {number} t
+   * @param {object} [opts]
+   * @param {string} [opts.color='force'] - Columna y bulbo.
+   * @param {string} [opts.tube='textDim'] - Contorno del tubo y marcas.
+   * @param {number} [opts.width=0.5] - Ancho del tubo (mundo); el resto escala con él.
+   * @param {Array<{t:number, label?:string, major?:boolean}>} [opts.ticks] - Marcas a la izquierda.
+   * @param {Array<{t:number, label?:string, color?:string}>} [opts.marks] - Líneas de referencia a la derecha (p. ej. T_eq).
+   * @param {number} [opts.labelSize=9]
+   */
+  thermometer(x, y, h, t, opts = {}) {
+    const ctx = this.ctx;
+    if (!ctx) return this;
+    const wT = opts.width ?? 0.5;
+    const k = wT / 0.5;
+    const tube = opts.tube || 'textDim';
+    const color = opts.color || 'force';
+    const inset = 0.15 * k;
+    const span = Math.max(1e-6, h - 2 * inset);
+    const frac = Math.max(0, Math.min(1, t));
+    this.rect(x, y + h / 2, wT, h, { color: tube, width: 1.4, fill: 'rgba(255,255,255,0.06)', radius: 4 });
+    const colH = span * frac;
+    if (colH > 0.02) this.rect(x, y + inset + colH / 2, wT * 0.48, colH, { fill: color, stroke: false, alpha: 0.95 });
+    this.circle(x, y - 0.05 * k, 0.38 * k, { color, fill: color, alpha: 0.95, width: 1 });
+    const size = opts.labelSize ?? 9;
+    if (opts.ticks) {
+      for (const tk of opts.ticks) {
+        const yy = y + inset + span * Math.max(0, Math.min(1, tk.t));
+        this.line(x + wT * 0.5, yy, x + (tk.major ? 1.2 : 0.84) * wT, yy, { color: tube, width: 1 });
+        if (tk.label != null) this.label(x - 1.5 * wT, yy, String(tk.label), { color: tube, size, avoid: false });
+      }
+    }
+    if (opts.marks) {
+      for (const mk of opts.marks) {
+        const yy = y + inset + span * Math.max(0, Math.min(1, mk.t));
+        const c = mk.color || 'energy';
+        this.line(x + wT * 0.5, yy, x + 1.9 * wT, yy, { color: c, width: 2, dash: [3, 2] });
+        if (mk.label != null) this.label(x + 2.1 * wT, yy, mk.label, { color: c, size: size + 1, align: 'left', avoid: false });
+      }
+    }
+    return this;
+  }
+
+  /**
+   * Barras verticales comparativas sobre la línea base `y`, creciendo hacia
+   * arriba; `x` es el centro de la primera barra. Reemplaza los diagramas de
+   * barras a mano de `mass-weight` (peso por astro) y `em-waves` (I₁ → I₂).
+   * @param {number} x @param {number} y
+   * @param {Array<{value:number, color?:string, label?:string, alpha?:number}>} items
+   * @param {object} [opts]
+   * @param {number} [opts.max] - Escala común; por defecto el mayor `value`.
+   * @param {number} [opts.hMax=3] - Altura de la barra de valor `max` (mundo).
+   * @param {number} [opts.barW=0.5] @param {number} [opts.gap=0.32] - Anchura y separación (mundo).
+   * @param {boolean} [opts.frame=false] - Marco vacío de la escala completa tras cada barra.
+   * @param {number} [opts.labelSize=9] @param {number} [opts.labelOffset=0.45] - Etiquetas bajo la base.
+   * @param {string} [opts.frameColor='textDim']
+   */
+  bars(x, y, items, opts = {}) {
+    const ctx = this.ctx;
+    if (!ctx || !items?.length) return this;
+    let max = opts.max;
+    if (!(max > 0)) {
+      max = 0;
+      for (const it of items) if (it.value > max) max = it.value;
+      if (!(max > 0)) max = 1;
+    }
+    const hMax = opts.hMax ?? 3;
+    const barW = opts.barW ?? 0.5;
+    const gap = opts.gap ?? 0.32;
+    const minH = opts.minH ?? 0.02;
+    const size = opts.labelSize ?? 9;
+    const off = opts.labelOffset ?? 0.45;
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      const cx = x + i * (barW + gap);
+      if (opts.frame) this.rect(cx, y + hMax / 2, barW, hMax, { color: opts.frameColor || 'textDim', width: 1 });
+      const hh = Math.max(minH, (hMax * Math.max(0, it.value)) / max);
+      const color = it.color || (i % 2 ? 'mass2' : 'energy');
+      this.rect(cx, y + hh / 2, barW, hh, { color, fill: color, alpha: it.alpha ?? (opts.frame ? 0.75 : 1), stroke: !opts.frame });
+      if (it.label != null) this.label(cx, y - off, it.label, { color: opts.frame ? color : 'textDim', size, avoid: true });
+    }
+    return this;
+  }
+
+  /**
+   * Rectángulo centrado en (x, y) relleno con un degradado lineal: fondo
+   * frío → caliente, sombreado cilíndrico… Un solo `fillRect` en vez de N
+   * bandas. Si el backend no expone degradados cae a `opts.bands` bandas
+   * interpoladas (y el grabador SVG aplana al color medio).
+   * @param {number} x @param {number} y @param {number} w @param {number} h - Mundo.
+   * @param {object} [opts]
+   * @param {string} [opts.from='field'] @param {string} [opts.to='force'] - Extremos (token o CSS).
+   * @param {Array<[number,string]>} [opts.stops] - Paradas `[offset, color]` que sustituyen a from/to.
+   * @param {'horizontal'|'vertical'} [opts.direction='horizontal'] - izquierda→derecha o abajo→arriba.
+   * @param {number} [opts.alpha=1]
+   * @param {number} [opts.bands=24] - Bandas del fallback sin degradados.
+   */
+  gradientRect(x, y, w, h, opts = {}) {
+    const ctx = this.ctx;
+    if (!ctx) return this;
+    const p = this.project(x, y, _a);
+    const wp = this.screenSpace ? w : this.px(w);
+    const hp = this.screenSpace ? h : this.px(h);
+    const left = p.x - wp / 2;
+    const top = p.y - hp / 2;
+    const vertical = opts.direction === 'vertical';
+    const stops = opts.stops || [
+      [0, this.color(opts.from, 'field')],
+      [1, this.color(opts.to, 'force')]
+    ];
+    ctx.save();
+    ctx.globalAlpha = opts.alpha ?? 1;
+    let done = false;
+    if (typeof ctx.createLinearGradient === 'function') {
+      try {
+        // Vertical: de abajo (offset 0) a arriba (offset 1), como el eje y del mundo.
+        const g = vertical ? ctx.createLinearGradient(left, top + hp, left, top) : ctx.createLinearGradient(left, top, left + wp, top);
+        for (const [o, c] of stops) g.addColorStop(Math.max(0, Math.min(1, o)), this.color(c, 'text'));
+        ctx.fillStyle = g;
+        ctx.fillRect(left, top, wp, hp);
+        done = true;
+      } catch {
+        /* backend sin degradados: bandas */
+      }
+    }
+    if (!done) {
+      const n = Math.max(2, opts.bands ?? 24);
+      for (let i = 0; i < n; i++) {
+        const u = (i + 0.5) / n;
+        let j = 0;
+        while (j < stops.length - 2 && stops[j + 1][0] < u) j++;
+        const [o0, c0] = stops[j];
+        const [o1, c1] = stops[Math.min(j + 1, stops.length - 1)];
+        const tt = o1 > o0 ? (u - o0) / (o1 - o0) : 0;
+        ctx.fillStyle = thermalColor(this.color(c0, 'text'), this.color(c1, 'text'), tt);
+        if (vertical) ctx.fillRect(left, top + hp - ((i + 1) * hp) / n - 0.5, wp, hp / n + 1);
+        else ctx.fillRect(left + (i * wp) / n - 0.5, top, wp / n + 1, hp);
+      }
+    }
+    ctx.restore();
+    return this;
+  }
+
+  /**
+   * Llama animada con base en (x, y): tres capas (exterior, media, núcleo)
+   * que parpadean con `opts.t` (por defecto el reloj de la escena) y un halo
+   * cálido. Es la fuente de calor de `thermal-expansion` y de los módulos de
+   * calor en general.
+   * @param {number} x @param {number} y - Base de la llama (mundo).
+   * @param {object} [opts]
+   * @param {number} [opts.h=2.6] @param {number} [opts.w=1.5] - Alto y ancho máximos (mundo).
+   * @param {number} [opts.t] - Tiempo (s) para el parpadeo.
+   * @param {string} [opts.outer='ray'] @param {string} [opts.mid='force'] @param {string} [opts.core='#fff3c4']
+   * @param {boolean} [opts.halo=true]
+   */
+  flame(x, y, opts = {}) {
+    const ctx = this.ctx;
+    if (!ctx) return this;
+    const t = opts.t ?? this.elapsed ?? 0;
+    const h = opts.h ?? 2.6;
+    const w = opts.w ?? 1.5;
+    const p = this.project(x, y, _a);
+    const bx = p.x;
+    const by = p.y;
+    const hp = this.screenSpace ? h : this.px(h);
+    const halfW = (this.screenSpace ? w : this.px(w)) / 2;
+    const flick = 1 + 0.12 * Math.sin(t * 9) + 0.06 * Math.sin(t * 17);
+    if (opts.halo !== false) {
+      halo(ctx, bx, by - hp * 0.38, Math.max(1, halfW * 2.1), { color: opts.haloColor || 'rgba(255,140,80,0.35)' });
+    }
+    ctx.save();
+    ctx.setLineDash(EMPTY_DASH);
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = this.lineWidth(1);
+    const N = 18;
+    const layer = (scale, hgt, token, fallback, alpha) => {
+      const c = this.color(token, fallback);
+      ctx.fillStyle = c;
+      ctx.strokeStyle = c;
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      for (let i = 0; i <= N; i++) {
+        const u = i / N;
+        const wobble = 1 + 0.08 * Math.sin(t * 11 + u * 6);
+        const sx = bx + Math.sin(u * Math.PI) * halfW * scale * wobble;
+        const sy = by - u * hp * hgt * flick;
+        if (i === 0) ctx.moveTo(sx, sy);
+        else ctx.lineTo(sx, sy);
+      }
+      for (let i = N; i >= 0; i--) {
+        const u = i / N;
+        const wobble = 1 + 0.08 * Math.sin(t * 13 + u * 5);
+        ctx.lineTo(bx - Math.sin(u * Math.PI) * halfW * scale * wobble, by - u * hp * hgt * flick);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    };
+    layer(1, 1, opts.outer, 'ray', 0.75);
+    layer(0.55, 0.65, opts.mid, 'force', 0.9);
+    layer(0.25, 0.35, opts.core || '#fff3c4', 'text', 0.9);
+    ctx.restore();
+    return this;
+  }
+
+  /**
+   * Bobina vista de lado: `loops` espiras apiladas en vertical (o en
+   * horizontal con `opts.horizontal`) alrededor de (cx, cy), en un solo
+   * trazo. Símbolo de `induction` (Faraday, transformador) y de cualquier
+   * solenoide.
+   * @param {number} cx @param {number} cy @param {number} loops @param {number} r - Radio de cada espira (mundo).
+   * @param {object} [opts]
+   * @param {string} [opts.color='energy'] @param {number} [opts.width=2]
+   * @param {number} [opts.spacing] - Paso entre espiras (mundo); por defecto 1.15·r.
+   * @param {boolean} [opts.horizontal=false]
+   */
+  coil(cx, cy, loops, r, opts = {}) {
+    const ctx = this.ctx;
+    if (!ctx || !(loops > 0)) return this;
+    const spacing = opts.spacing ?? r * 1.15;
+    const rp = Math.max(0.5, this.screenSpace ? r : this.px(r));
+    const start = -((loops - 1) * spacing) / 2;
+    ctx.save();
+    ctx.setLineDash(EMPTY_DASH);
+    ctx.strokeStyle = this.color(opts.color, 'energy');
+    ctx.lineWidth = this.lineWidth(opts.width ?? 2);
+    ctx.globalAlpha = opts.alpha ?? 1;
+    ctx.beginPath();
+    for (let i = 0; i < loops; i++) {
+      const off = start + i * spacing;
+      const p = opts.horizontal ? this.project(cx + off, cy, _a) : this.project(cx, cy + off, _a);
+      ctx.moveTo(p.x + rp, p.y);
+      ctx.arc(p.x, p.y, rp, 0, Math.PI * 2);
+    }
+    ctx.stroke();
+    ctx.restore();
+    return this;
+  }
+
+  /**
+   * Puntos de corriente que recorren el tramo (x0, y0) → (x1, y1): densidad y
+   * velocidad crecen con |amps|, el signo invierte el sentido. Puntos planos
+   * (sin degradado) en un solo `save/restore`: `circuits` pasaba de 16
+   * `body` con degradado por tramo a una llamada.
+   * @param {number} x0 @param {number} y0 @param {number} x1 @param {number} y1
+   * @param {object} [opts]
+   * @param {number} [opts.amps=1] - Intensidad (A); 0 no dibuja nada.
+   * @param {string} [opts.color='ray'] @param {number} [opts.r=0.09] - Radio de cada punto (mundo).
+   * @param {number} [opts.t] - Tiempo (s), por defecto el reloj de la escena.
+   * @param {number} [opts.alpha=0.85]
+   */
+  flow(x0, y0, x1, y1, opts = {}) {
+    const ctx = this.ctx;
+    if (!ctx) return this;
+    const amps = opts.amps ?? 1;
+    const mag = Math.abs(amps);
+    if (mag < 1e-9) return this;
+    const t = opts.t ?? this.elapsed ?? 0;
+    const n = opts.n ?? Math.max(3, Math.min(12, Math.round(3 + mag * 30)));
+    const speed = opts.speed ?? 0.15 + Math.min(2.5, mag * 20);
+    const phase = (t * speed) % 1;
+    const rp = Math.max(1, this.screenSpace ? opts.r ?? 3 : this.px(opts.r ?? 0.09));
+    const from = this.project(x0, y0, _a);
+    const fx = from.x;
+    const fy = from.y;
+    const to = this.project(x1, y1, _b);
+    const dx = to.x - fx;
+    const dy = to.y - fy;
+    ctx.save();
+    ctx.fillStyle = this.color(opts.color, 'ray');
+    ctx.globalAlpha = opts.alpha ?? 0.85;
+    ctx.beginPath();
+    for (let k = 0; k < n; k++) {
+      let u = (k / n + phase) % 1;
+      if (amps < 0) u = 1 - u;
+      const sx = fx + dx * u;
+      const sy = fy + dy * u;
+      ctx.moveTo(sx + rp, sy);
+      ctx.arc(sx, sy, rp, 0, Math.PI * 2);
+    }
+    ctx.fill();
+    ctx.restore();
+    return this;
+  }
+
+  /**
+   * Rayo óptico desde (x0, y0) hacia una imagen (ix, iy). Real: trazo
+   * sólido que cruza la imagen y sigue `overshoot`. Virtual: tramo sólido de
+   * longitud `solid` y prolongación punteada hasta la imagen, que arranca
+   * `back` unidades antes para que se lea como extensión del rayo. Reúne
+   * `_rayToImage` (mirrors) y `_segToImage` (optical-instruments).
+   * @param {number} x0 @param {number} y0 @param {number} ix @param {number} iy
+   * @param {object} [opts]
+   * @param {boolean} [opts.virtual=false]
+   * @param {string} [opts.color='ray'] @param {number} [opts.width=1.7]
+   * @param {number} [opts.overshoot=2.2] @param {number} [opts.solid=2.4] @param {number} [opts.back=4] - Mundo.
+   * @param {number[]} [opts.dash=[4,3]] @param {number} [opts.dashWidth=1.4] @param {number} [opts.dashAlpha=0.8]
+   */
+  rayTo(x0, y0, ix, iy, opts = {}) {
+    const ctx = this.ctx;
+    if (!ctx) return this;
+    const dx = ix - x0;
+    const dy = iy - y0;
+    const len = Math.hypot(dx, dy);
+    if (len < 1e-6) return this;
+    const ux = dx / len;
+    const uy = dy / len;
+    const color = this.color(opts.color, 'ray');
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineCap = 'round';
+    ctx.setLineDash(EMPTY_DASH);
+    ctx.globalAlpha = opts.alpha ?? 1;
+    ctx.lineWidth = this.lineWidth(opts.width ?? 1.7);
+    const from = this.project(x0, y0, _a);
+    const fx = from.x;
+    const fy = from.y;
+    ctx.beginPath();
+    ctx.moveTo(fx, fy);
+    if (!opts.virtual) {
+      const reach = len + (opts.overshoot ?? 2.2);
+      const to = this.project(x0 + ux * reach, y0 + uy * reach, _b);
+      ctx.lineTo(to.x, to.y);
+      ctx.stroke();
+    } else {
+      const seg = Math.min(len, opts.solid ?? 2.4);
+      const to = this.project(x0 + ux * seg, y0 + uy * seg, _b);
+      ctx.lineTo(to.x, to.y);
+      ctx.stroke();
+      const back = seg - (opts.back ?? 4);
+      const s = this.project(x0 + ux * back, y0 + uy * back, _a);
+      const e = this.project(ix, iy, _b);
+      ctx.setLineDash(opts.dash || [4, 3]);
+      ctx.lineWidth = this.lineWidth(opts.dashWidth ?? 1.4);
+      ctx.globalAlpha = (opts.alpha ?? 1) * (opts.dashAlpha ?? 0.8);
+      ctx.beginPath();
+      ctx.moveTo(s.x, s.y);
+      ctx.lineTo(e.x, e.y);
+      ctx.stroke();
+    }
+    ctx.restore();
+    return this;
+  }
+
+  /**
+   * Franja de intensidad: columna vertical en `x` de `y0` a `y1` (mundo),
+   * ancho `w`, dividida en tantas celdas como `values` (intensidades en
+   * [0,1], de `y0` a `y1`). Es la pantalla de franjas de `wave-optics`:
+   * N `fillRect` en un solo `save/restore`, sin una primitiva por celda.
+   * @param {number} x @param {number} y0 @param {number} y1 @param {number} w
+   * @param {ArrayLike<number>} values
+   * @param {object} [opts]
+   * @param {number} [opts.gamma=0.7] - Compresión perceptual del brillo.
+   * @param {(I:number) => string} [opts.colorAt] - Color por intensidad; por defecto gris azulado.
+   * @param {number} [opts.alpha=1]
+   */
+  intensityStrip(x, y0, y1, w, values, opts = {}) {
+    const ctx = this.ctx;
+    const n = values ? values.length : 0;
+    if (!ctx || n < 1) return this;
+    const wp = this.screenSpace ? w : this.px(w);
+    const p0 = this.project(x, y0, _a);
+    const p1 = this.project(x, y1, _b);
+    const cell = Math.abs(p1.y - p0.y) / n;
+    const hh = cell * 1.2 + 0.5;
+    const gamma = opts.gamma ?? 0.7;
+    const colorAt = opts.colorAt;
+    const left = p0.x - wp / 2;
+    ctx.save();
+    ctx.globalAlpha = opts.alpha ?? 1;
+    for (let i = 0; i < n; i++) {
+      const I = Math.max(0, Math.min(1, values[i]));
+      if (colorAt) ctx.fillStyle = colorAt(I);
+      else {
+        const g = Math.round(255 * Math.pow(I, gamma));
+        ctx.fillStyle = `rgb(${g}, ${g}, ${Math.min(255, g + 40)})`;
+      }
+      const cy = p0.y + ((p1.y - p0.y) * (i + 0.5)) / n;
+      ctx.fillRect(left, cy - hh / 2, wp, hh);
+    }
+    ctx.restore();
+    return this;
+  }
+
+  /**
+   * Nube de partículas: muchos discos iguales (mismo radio y color) en un
+   * solo camino y un solo `save/restore`. Es la versión de bucle caliente de
+   * `body` para gases, electrones en vuelo o cargas: `kinetic-theory` pasaba
+   * de 120 `body()` (cada uno con `save`, `translate`, sombra y `restore`) a
+   * una llamada. Acepta los mismos formatos de puntos que `polyline`, más un
+   * filtro opcional para dibujar sólo una especie de un array mixto.
+   * @param {Array|object} points - `[{x,y}…]`, plano `[x0,y0,…]`, tipado o `TrailBuffer`.
+   * @param {number} r - Radio (mundo; px CSS en el HUD).
+   * @param {object} [opts]
+   * @param {string} [opts.color='mass']
+   * @param {number} [opts.alpha=1]
+   * @param {boolean} [opts.outline=true] - Contorno sutil, como en `body`.
+   * @param {(p:object, i:number) => boolean} [opts.filter] - Sólo para arrays de objetos.
+   */
+  dots(points, r, opts = {}) {
+    const ctx = this.ctx;
+    if (!ctx) return this;
+    const list = pointList(points);
+    if (list.length < 1) return this;
+    const rp = Math.max(1, this.screenSpace ? r : this.px(r));
+    const filter = typeof opts.filter === 'function' && Array.isArray(points) ? opts.filter : null;
+    ctx.save();
+    ctx.setLineDash(EMPTY_DASH);
+    ctx.fillStyle = this.color(opts.color, 'mass');
+    ctx.globalAlpha = opts.alpha ?? 1;
+    ctx.beginPath();
+    for (let i = 0; i < list.length; i++) {
+      if (filter && !filter(points[i], i)) continue;
+      list.at(i, _a);
+      const p = this.project(_a.x, _a.y, _b);
+      ctx.moveTo(p.x + rp, p.y);
+      ctx.arc(p.x, p.y, rp, 0, Math.PI * 2);
+    }
+    ctx.fill();
+    if (opts.outline !== false) {
+      ctx.strokeStyle = this.theme.dark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)';
+      ctx.lineWidth = this.lineWidth(1);
+      ctx.stroke();
+    }
+    ctx.restore();
+    return this;
+  }
+
   /* ---------- registro para picking ---------- */
 
   /**
@@ -1371,10 +2221,17 @@ export class HudSurface extends Surface {
     const lh = this.fontSize(opts.lineHeight ?? 17);
     ctx.save();
     ctx.font = `${Math.round(this.fontSize(12))}px ui-monospace, "SFMono-Regular", monospace`;
-    const lines = rows.map(
-      (r) => `${r.label} = ${typeof r.value === 'number' ? r.value.toFixed(opts.decimals ?? 2) : r.value}${r.unit ? ' ' + r.unit : ''}`
-    );
-    const w = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 20;
+    const decimals = opts.decimals ?? 2;
+    const lines = new Array(rows.length);
+    let wMax = 0;
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      const l = `${r.label} = ${typeof r.value === 'number' ? r.value.toFixed(decimals) : r.value}${r.unit ? ' ' + r.unit : ''}`;
+      lines[i] = l;
+      const lw = ctx.measureText(l).width;
+      if (lw > wMax) wMax = lw;
+    }
+    const w = wMax + 20;
     const h = lh * lines.length + 14;
     const off = this._nextOffset(anchor, h + 6, opts);
     const left = a.align === 'right' ? a.x - w : a.x;
@@ -1403,6 +2260,12 @@ export class HudSurface extends Surface {
    * @param {string} [spec.yLabel]
    * @param {[number,number]} [spec.xRange] - Autoescala si se omite.
    * @param {[number,number]} [spec.yRange]
+   *
+   * Una serie puede ser **muestreada**: `{ fn: (x) => y, samples?: 80 }` en
+   * vez de `points`. La función se evalúa sobre el rango X (el de `xRange` o
+   * el autoescalado de las series con puntos) y se vuelca a un búfer plano
+   * reutilizado entre frames: las curvas analíticas (i(t), V_c(t), cos²θ…)
+   * dejan de construir un array de objetos por frame.
    */
   plot(rect, spec = {}) {
     const ctx = this.ctx;
@@ -1422,7 +2285,13 @@ export class HudSurface extends Surface {
     let maxX = -Infinity;
     let minY = Infinity;
     let maxY = -Infinity;
-    for (const s of series) {
+    let hasFn = false;
+    for (let k = 0; k < series.length; k++) {
+      const s = series[k];
+      if (typeof s.fn === 'function') {
+        hasFn = true;
+        continue;
+      }
       const list = pointList(s.points);
       for (let i = 0; i < list.length; i++) {
         list.at(i, _a);
@@ -1433,14 +2302,38 @@ export class HudSurface extends Surface {
       }
     }
     if (spec.xRange) [minX, maxX] = spec.xRange;
-    if (spec.yRange) [minY, maxY] = spec.yRange;
-    if (!Number.isFinite(minX) || minX === maxX) {
+    if (!Number.isFinite(minX)) {
       minX = 0;
       maxX = 1;
+    } else if (minX === maxX) {
+      // Rango degenerado (una sola muestra o serie constante): centrar en el
+      // valor en vez de forzar 0..1, que mandaba el punto fuera del recuadro.
+      minX -= 1;
+      maxX += 1;
     }
-    if (!Number.isFinite(minY) || minY === maxY) {
+    if (hasFn) {
+      // Las series por función se muestrean ya con el rango X resuelto y
+      // participan en la autoescala Y como cualquier otra.
+      for (let k = 0; k < series.length; k++) {
+        const s = series[k];
+        if (typeof s.fn !== 'function') continue;
+        const buf = this._sampleFn(k, s.fn, minX, maxX, s.samples ?? 80);
+        if (spec.yRange) continue;
+        for (let i = 1; i < buf.length; i += 2) {
+          const v = buf[i];
+          if (v < minY) minY = v;
+          if (v > maxY) maxY = v;
+        }
+      }
+    }
+    if (spec.yRange) [minY, maxY] = spec.yRange;
+    if (!Number.isFinite(minY)) {
       minY = 0;
       maxY = 1;
+    } else if (minY === maxY) {
+      const pad = Math.max(1, Math.abs(minY) * 0.1);
+      minY -= pad;
+      maxY += pad;
     }
 
     const sx = (v) => px + ((v - minX) / (maxX - minX)) * pw;
@@ -1486,7 +2379,7 @@ export class HudSurface extends Surface {
     ctx.rect(px, py, pw, ph);
     ctx.clip();
     series.forEach((s, i) => {
-      const list = pointList(s.points);
+      const list = pointList(typeof s.fn === 'function' ? this._fnBufs[i] : s.points);
       if (list.length < 1) return;
       ctx.strokeStyle = this.color(s.color, 'text') || seriesColor(i);
       ctx.lineWidth = this.lineWidth(s.width ?? 1.8);
@@ -1618,6 +2511,9 @@ export class Scene {
     this.dt = info.dt ?? 1 / 60;
     this.elapsed = info.elapsed ?? 0;
     this.alpha = info.alpha ?? 0;
+    // Las superficies animan por tiempo (`fill` con olas, `flame`, `flow`):
+    // reciben el reloj de la escena en vez de leer un `elapsed` inexistente.
+    this.world$.elapsed = this.bg.elapsed = this.hud.elapsed = this.elapsed;
     this.world$.bind(worldCtx, this.theme);
     this._pickables.length = 0;
     this._collectPickables = true;
@@ -1673,18 +2569,19 @@ export class Scene {
    */
   findFreeBox(box) {
     const boxes = this._labelBoxes;
-    const overlapsAny = (b) => boxes.some((o) => rectsOverlap(b, o));
-    if (!overlapsAny(box)) return this.registerBox(box);
+    if (!overlapsAny(box, boxes)) return this.registerBox(box);
+    // Los cuatro candidatos se prueban sobre una caja de trabajo: sólo se
+    // alloca la que finalmente se registra (antes: 4 copias + 1 clausura por
+    // etiqueta, en un bucle O(n) por candidato).
     const dx = box.w + 4;
     const dy = box.h + 4;
-    const candidates = [
-      { ...box, y: box.y - dy },
-      { ...box, y: box.y + dy },
-      { ...box, x: box.x + dx },
-      { ...box, x: box.x - dx }
-    ];
-    for (const c of candidates) {
-      if (!overlapsAny(c)) return this.registerBox(c);
+    const s = _scratchBox;
+    s.w = box.w;
+    s.h = box.h;
+    for (let k = 0; k < 4; k++) {
+      s.x = box.x + (k === 2 ? dx : k === 3 ? -dx : 0);
+      s.y = box.y + (k === 0 ? -dy : k === 1 ? dy : 0);
+      if (!overlapsAny(s, boxes)) return this.registerBox({ x: s.x, y: s.y, w: s.w, h: s.h });
     }
     return this.registerBox(box);
   }

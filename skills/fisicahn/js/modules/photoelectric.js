@@ -1,529 +1,407 @@
 /**
- * Efecto fotoeléctrico: umbral de frecuencia, Kmax = hf − φ.
- * Visual: fotones chocan con la superficie del metal; gráfica K_max vs f
- * con caja acotada (marcador naranja y recta no salen del área).
+ * @fileoverview Efecto fotoeléctrico — K_max = hf − φ y frecuencia umbral.
+ *
+ * Fotones de energía hf (f en 10¹⁴ Hz; h·10¹⁴ Hz = 0,414 eV) viajan desde la
+ * fuente hasta la superficie de un metal con función de trabajo φ. Cada fotón
+ * se absorbe en la superficie: si hf > φ arranca un electrón con energía
+ * cinética máxima K_max = hf − φ (rapidez ∝ √K); si hf ≤ φ no sale nada por
+ * intensa que sea la luz. La intensidad solo cambia el número de fotones por
+ * segundo (y por tanto de electrones), nunca K_max — el argumento de
+ * Einstein de 1905.
+ *
+ * El color de cada fotón es el de su longitud de onda λ = c/f (rojo → violeta
+ * → UV), acompañado por la etiqueta hf en el HUD para que el color no sea el
+ * único portador de la información. La gráfica K_max–f del lienzo muestra la
+ * recta de Einstein con pendiente h y corte f₀ = φ/h, y el punto de trabajo.
  */
 
-import { roundTo } from '../utils/math-helpers.js';
-import {
-  setModuleInfo,
-  setModuleFormulas,
-  clearChallenges
-} from '../module-ui.js';
+import { SimModule } from '../core/sim-module.js';
+import { roundTo } from '../core/geometry.js';
+import { wavelengthColor } from '../core/draw-primitives.js';
 
-let _engine, _renderer, _ui;
-let t = 0;
-let electrons = [];
-/** Fotones animados que viajan hasta la superficie del metal. */
-let photons = [];
-
-// h in eV·s style using f in 10^14 Hz scale for teaching
-const params = {
-  f: 8, // ×10^14 Hz visual
-  intensity: 0.6,
-  phi: 2.3, // eV work function
-  metal: 'Na'
-};
-
-const METALS = {
-  Na: 2.3,
-  K: 2.0,
-  Cu: 4.7,
-  Zn: 4.3
-};
-
-// h_eff so that E(eV) = h_eff * f with f in 10^14 Hz → roughly E = 0.414 * f
+/** Función de trabajo (eV) de metales de referencia. */
+const METALS = { Na: 2.3, K: 2.0, Cu: 4.7, Zn: 4.3 };
+/** h·10¹⁴ Hz en eV: E[eV] = 0,414 · f[10¹⁴ Hz]. */
 const H_EFF = 0.414;
+/** λ[nm] = c/f = 3000 / f[10¹⁴ Hz]. */
+const C_NM_PER_1E14HZ = 3000;
+/** Rango del slider de f (también el dominio de la gráfica). */
+const F_MIN = 2;
+const F_MAX = 15;
 
-/** Superficie del metal (cara derecha de la placa) en coords mundo. */
-const METAL = {
-  left: -3.4,
-  right: -1.7, // superficie iluminada
-  top: 2.2,
-  bottom: -2.2
-};
+/** Placa metálica: su superficie iluminada (cara derecha) está en x = 0 (§17.1). */
+const METAL = { left: -1.8, right: 0, top: 2.4, bottom: -2.4 };
+/** Fuente de luz y rapidez de los fotones (todos a c: la intensidad no la cambia). */
+const SOURCE_X = -8.6;
+const PHOTON_SPEED = 5.5;
+/** Límite de vuelo de los electrones (unidades de mundo). */
+const X_LIMIT = 9.5;
+const Y_LIMIT = 5.5;
 
-/** Dominio de la gráfica embebida (coincide con sliders). */
-const GRAPH = {
-  // mundo: esquina inferior-izquierda y tamaño del área de dibujo
-  x0: 1.0,
-  y0: -3.35,
-  w: 5.4,
-  h: 3.1,
-  fMin: 0,
-  fMax: 15, // igual que el slider de f
-  kMin: 0,
-  kMax: 6.5 // cubre hf_max − φ_min ≈ 0.414*15 − 1
-};
+export default class PhotoelectricModule extends SimModule {
+  static viewport = { width: 22, height: 13 };
 
-export function init(engine, renderer, ui, meta = null) {
-  _engine = engine;
-  _renderer = renderer;
-  _ui = ui;
-  resetState();
-  renderer?.resetCamera?.();
-  setModuleInfo(ui, {
-    title: meta?.title || 'Efecto fotoeléctrico',
-    blurb:
-      meta?.blurb ||
-      'Fotones sobre un metal: emisión solo si hf > φ; K_max = hf − φ.',
-    story:
-      'Einstein explicó el efecto fotoeléctrico con cuantos de luz. La intensidad cambia el número de electrones, no K_max. Los fotones se absorben en la superficie del metal (no la atraviesan).',
-    cases: [
-      'Células fotoeléctricas y sensores de luz.',
-      'Por qué la luz roja no arranca electrones en ciertos metales y la violeta sí.',
-      'Gráfica K_max vs f: pendiente h, corte f₀ = φ/h.'
-    ]
-  });
-  setModuleFormulas(ui, {
-    items: [
-      { name: 'Einstein', formula: 'K<sub>max</sub> = h f − φ' },
-      { name: 'Frecuencia umbral', formula: 'f₀ = φ / h' },
-      { name: 'Potencial de frenado', formula: 'e V₀ = K<sub>max</sub>' }
-    ]
-  });
-  clearChallenges(ui);
-  renderParams();
-  updateData();
-}
+  /** La superficie del metal (donde se absorben los fotones) es el punto fijo. */
+  static anchor = { x: 0, y: 0 };
 
-function resetState() {
-  t = 0;
-  electrons = [];
-  photons = [];
-}
+  static params = [
+    {
+      id: 'metal',
+      type: 'select',
+      label: 'Metal',
+      value: 'Na',
+      options: [
+        ...Object.entries(METALS).map(([m, phi]) => ({ value: m, label: `${m} (φ = ${phi} eV)` })),
+        { value: 'manual', label: 'Manual (usar φ del control)' }
+      ]
+    },
+    { id: 'f', label: 'Frecuencia', latex: 'f', unit: '×10¹⁴ Hz', min: F_MIN, max: F_MAX, step: 0.1, value: 8 },
+    { id: 'intensidad', label: 'Intensidad', latex: 'I', min: 0.05, max: 1, step: 0.05, value: 0.6 },
+    { id: 'phi', label: 'Función de trabajo (manual)', latex: '\\varphi', unit: 'eV', min: 1, max: 6, step: 0.1, value: 3 }
+  ];
 
-export function destroy() {
-  _engine = _renderer = _ui = null;
-}
-export function reset(engine) {
-  resetState();
-  engine?.reset?.();
-  updateData();
-}
-export function setTool() {}
-
-function photonE() {
-  return H_EFF * params.f;
-}
-
-function kMax() {
-  return photonE() - params.phi;
-}
-
-function f0() {
-  return params.phi / H_EFF;
-}
-
-/** Mapea (f, K) del dominio de la gráfica → coords mundo (acotado al rectángulo). */
-function graphToWorld(f, k) {
-  const g = GRAPH;
-  const fu = Math.max(g.fMin, Math.min(g.fMax, f));
-  const ku = Math.max(g.kMin, Math.min(g.kMax, k));
-  const nx = (fu - g.fMin) / (g.fMax - g.fMin);
-  const ny = (ku - g.kMin) / (g.kMax - g.kMin);
-  return {
-    x: g.x0 + nx * g.w,
-    y: g.y0 + ny * g.h,
-    clamped: fu !== f || ku !== k
-  };
-}
-
-export function update(dt) {
-  t += dt;
-  const E = photonE();
-  const K = E - params.phi;
-  const above = K > 0;
-
-  // Spawn fotones (viajan hacia la superficie del metal)
-  const photonRate = params.intensity * 10 * dt;
-  if (Math.random() < photonRate) {
-    photons.push({
-      x: -7.2,
-      y: (Math.random() - 0.5) * (METAL.top - METAL.bottom) * 0.85,
-      vx: 4.2 + params.intensity * 1.5,
-      life: 4,
-      absorbed: false
-    });
+  constructor(ctx) {
+    super(ctx);
+    this.params = { metal: 'Na', f: 8, intensidad: 0.6, phi: 3 };
+    this.t = 0;
+    /** Fotones en vuelo: { x, y, absorbed, life }. */
+    this.photons = [];
+    /** Electrones emitidos: { x, y, vx, vy, life }. */
+    this.electrons = [];
+    /** Acumulador de emisión de fotones (tasa = 10·I por segundo). */
+    this.spawnAcc = 0;
+    /** Contadores desde el último reset. */
+    this.photonsAbsorbed = 0;
+    this.electronsEmitted = 0;
   }
 
-  // Mover fotones; al tocar la superficie se absorben (no atraviesan la placa)
-  for (const p of photons) {
-    if (p.absorbed) {
-      p.life -= dt * 3;
-      continue;
+  init(meta = null) {
+    this.reset();
+    this.setModuleInfo({
+      title: meta?.title || 'Efecto fotoeléctrico',
+      blurb: meta?.blurb || 'Fotones sobre un metal: emisión solo si hf > φ; K_max = hf − φ.',
+      story:
+        'Einstein explicó el efecto fotoeléctrico con cuantos de luz: cada fotón entrega toda su energía hf a un solo electrón. Por eso existe una frecuencia umbral f₀ = φ/h por debajo de la cual no sale ningún electrón, por intensa que sea la luz; y por eso la intensidad cambia cuántos electrones salen, pero no su energía máxima. Los fotones se absorben en la superficie del metal, no lo atraviesan.',
+      cases: [
+        'Células fotoeléctricas y sensores de luz.',
+        'Por qué la luz roja no arranca electrones en ciertos metales y la violeta sí.',
+        'Gráfica K_max vs f: pendiente h, corte f₀ = φ/h (medida de Millikan, 1916).'
+      ]
+    });
+    this.setModuleFormulas({
+      items: [
+        { name: 'Einstein', formula: 'K_{max} = h f - \\varphi' },
+        { name: 'Frecuencia umbral', formula: 'f_0 = \\varphi / h', note: 'Con f en 10¹⁴ Hz: h ≈ 0,414 eV por unidad.' },
+        { name: 'Potencial de frenado', formula: 'e V_0 = K_{max}' },
+        { name: 'Longitud de onda', formula: '\\lambda = c / f' }
+      ]
+    });
+    this.clearChallenges();
+  }
+
+  reset() {
+    this.t = 0;
+    this.photons.length = 0;
+    this.electrons.length = 0;
+    this.spawnAcc = 0;
+    this.photonsAbsorbed = 0;
+    this.electronsEmitted = 0;
+    this.engine?.reset?.();
+  }
+
+  /* ---------- física ---------- */
+
+  /** φ efectiva: la del metal elegido, o la manual. */
+  phi() {
+    const m = this.params.metal;
+    return m === 'manual' || !(m in METALS) ? Number(this.params.phi) : METALS[m];
+  }
+
+  photonE() {
+    return H_EFF * this.params.f;
+  }
+
+  kMax() {
+    return this.photonE() - this.phi();
+  }
+
+  f0() {
+    return this.phi() / H_EFF;
+  }
+
+  lambdaNm() {
+    return C_NM_PER_1E14HZ / Math.max(this.params.f, 1e-6);
+  }
+
+  /** Fotones por segundo que llegan a la placa. */
+  photonRate() {
+    return this.params.intensidad * 10;
+  }
+
+  update(dt) {
+    this.t += dt;
+    const K = this.kMax();
+    const above = K > 0;
+    const spread = (METAL.top - METAL.bottom) * 0.85;
+
+    // Emisión de fotones a tasa fija (∝ intensidad), altura aleatoria.
+    this.spawnAcc += dt * this.photonRate();
+    while (this.spawnAcc >= 1) {
+      this.spawnAcc -= 1;
+      this.photons.push({ x: SOURCE_X + 0.6, y: (Math.random() - 0.5) * spread, absorbed: false, life: 4 });
     }
-    p.x += p.vx * dt;
-    if (p.x >= METAL.right - 0.05) {
-      p.x = METAL.right - 0.05;
-      p.absorbed = true;
-      p.life = 0.25;
-      // Emisión de e⁻ solo si hf > φ, desde la superficie
-      if (above) {
-        const speed = Math.sqrt(2 * Math.max(K, 0)) * 0.9;
-        electrons.push({
-          x: METAL.right + 0.08,
-          y: p.y + (Math.random() - 0.5) * 0.15,
-          vx: 1.2 + speed,
-          vy: (Math.random() - 0.5) * 0.9,
-          life: 2.5
+
+    // Vuelo y absorción en la superficie (no atraviesan la placa).
+    for (let i = 0; i < this.photons.length; i++) {
+      const p = this.photons[i];
+      if (p.absorbed) {
+        p.life -= dt * 3;
+        continue;
+      }
+      p.x += PHOTON_SPEED * dt;
+      if (p.x >= METAL.right - 0.05) {
+        p.x = METAL.right - 0.05;
+        p.absorbed = true;
+        p.life = 0.25;
+        this.photonsAbsorbed++;
+        if (above) {
+          const speed = Math.sqrt(2 * K) * 0.9;
+          this.electrons.push({
+            x: METAL.right + 0.08,
+            y: p.y + (Math.random() - 0.5) * 0.15,
+            vx: 1.2 + speed,
+            vy: (Math.random() - 0.5) * 0.9,
+            life: 2.5
+          });
+          this.electronsEmitted++;
+        }
+      }
+    }
+    // Compactación in situ (§3.2): sin `filter()` por frame.
+    let pw = 0;
+    for (let i = 0; i < this.photons.length; i++) {
+      const p = this.photons[i];
+      if (p.life > 0) {
+        if (pw !== i) this.photons[pw] = p;
+        pw++;
+      }
+    }
+    this.photons.length = pw;
+
+    for (let i = 0; i < this.electrons.length; i++) {
+      const e = this.electrons[i];
+      e.x += e.vx * dt;
+      e.y += e.vy * dt;
+      e.life -= dt;
+      if (e.x < METAL.right) {
+        e.x = METAL.right;
+        e.vx = Math.abs(e.vx);
+      }
+    }
+    let ew = 0;
+    for (let i = 0; i < this.electrons.length; i++) {
+      const e = this.electrons[i];
+      if (e.life > 0 && e.x < X_LIMIT && e.y < Y_LIMIT && e.y > -Y_LIMIT) {
+        if (ew !== i) this.electrons[ew] = e;
+        ew++;
+      }
+    }
+    this.electrons.length = ew;
+  }
+
+  /* ---------- dibujo declarativo (§2.4) ---------- */
+
+  draw(scene) {
+    const phi = this.phi();
+    const E = this.photonE();
+    const K = E - phi;
+    const above = K > 0;
+    const lam = this.lambdaNm();
+    const photonColor = wavelengthColor(lam);
+    const metalName = this.params.metal === 'manual' ? 'metal (φ manual)' : this.params.metal;
+
+    // Fuente de luz y cono del haz.
+    scene.polygon(
+      [
+        { x: SOURCE_X + 0.4, y: 0.5 },
+        { x: METAL.right - 0.1, y: METAL.top * 0.9 },
+        { x: METAL.right - 0.1, y: METAL.bottom * 0.9 },
+        { x: SOURCE_X + 0.4, y: -0.5 }
+      ],
+      { fill: photonColor, fillAlpha: 0.08, stroke: false }
+    );
+    scene.body(SOURCE_X, 0, { shape: 'rect', r: 0.45, w: 0.8, h: 1.4, color: 'spring', label: 'fuente de luz' });
+    scene.label(SOURCE_X, -1.15, `λ = ${roundTo(lam, 0)} nm`, { color: photonColor, size: 11, avoid: true });
+
+    // Placa metálica: cuerpo rayado (sólido) y superficie iluminada resaltada.
+    const cx = (METAL.left + METAL.right) / 2;
+    const w = METAL.right - METAL.left;
+    const h = METAL.top - METAL.bottom;
+    scene.rect(cx, 0, w, h, { color: 'spring', fill: 'spring', alpha: 0.45, width: 1.5 });
+    scene.hatch(METAL.left, METAL.top, METAL.left, METAL.bottom, { color: 'spring', side: -1, spacing: 10, length: 8 });
+    scene.line(METAL.right, METAL.top, METAL.right, METAL.bottom, { color: 'ray', width: 3.5 });
+    scene.label(cx, 0.15, metalName, { color: 'text', size: 13, weight: '600', avoid: true });
+    scene.label(cx, -0.45, `φ = ${roundTo(phi, 2)} eV`, { color: 'text', size: 11, avoid: true });
+    scene.label(METAL.right + 0.15, METAL.top + 0.15, 'superficie', { color: 'ray', size: 10, align: 'left', avoid: true });
+
+    // Fotones: garabato del color de λ; al absorberse se encogen y apagan.
+    for (let i = 0; i < this.photons.length; i++) {
+      const p = this.photons[i];
+      if (p.absorbed) {
+        const a = Math.max(0, p.life / 0.25);
+        scene.circle(p.x, p.y, 0.08 + (1 - a) * 0.18, { color: photonColor, fill: photonColor, alpha: a * 0.8, stroke: false });
+      } else {
+        scene.photon(p.x - 0.8, p.y, 0, 0.8, {
+          color: photonColor,
+          width: 2,
+          amplitude: 0.1,
+          waves: 2.5,
+          phase: -this.t * 14
         });
       }
     }
-  }
-  // Compactación in situ: el `filter()` creaba un array nuevo por frame (§3.2).
-  let pw = 0;
-  for (let i = 0; i < photons.length; i++) {
-    const p = photons[i];
-    if (p.life > 0 && p.x < 8) {
-      if (pw !== i) photons[pw] = p;
-      pw++;
+
+    // Electrones emitidos (solo a la derecha de la superficie).
+    for (let i = 0; i < this.electrons.length; i++) {
+      const e = this.electrons[i];
+      scene.body(e.x, e.y, { shape: 'circle', r: 0.14, color: 'field', glow: false });
     }
-  }
-  photons.length = pw;
-
-  for (const e of electrons) {
-    e.x += e.vx * dt;
-    e.y += e.vy * dt;
-    e.life -= dt;
-    // No reentrar en el metal
-    if (e.x < METAL.right) {
-      e.x = METAL.right;
-      e.vx = Math.abs(e.vx);
-    }
-  }
-  // Compactación in situ (§3.2).
-  let ew = 0;
-  for (let i = 0; i < electrons.length; i++) {
-    const e = electrons[i];
-    if (e.life > 0 && e.x < 8 && e.y < 5 && e.y > -5) {
-      if (ew !== i) electrons[ew] = e;
-      ew++;
-    }
-  }
-  electrons.length = ew;
-  updateData();
-}
-
-function updateData() {
-  const E = photonE();
-  const K = E - params.phi;
-  const thr = f0();
-  _ui?.setData(`
-    <div style="font-family:var(--font-mono);font-size:0.82rem;line-height:1.7">
-      <div>metal ${params.metal} · φ = ${params.phi} eV</div>
-      <div>f = ${params.f}×10¹⁴ Hz · hf ≈ ${roundTo(E, 2)} eV</div>
-      <div>f₀ ≈ ${roundTo(thr, 2)}×10¹⁴ Hz</div>
-      <div>K<sub>max</sub> = ${K > 0 ? roundTo(K, 2) + ' eV' : '0 (bajo umbral)'}</div>
-      <div>${K > 0 ? 'Emisión activa (fotones se absorben en la superficie)' : 'Sin emisión: hf ≤ φ'}</div>
-    </div>
-  `);
-}
-
-function drawMetalPlate(ctx, r) {
-  const tl = r.worldToCanvas(METAL.left, METAL.top);
-  const br = r.worldToCanvas(METAL.right, METAL.bottom);
-  const x = Math.min(tl.x, br.x);
-  const y = Math.min(tl.y, br.y);
-  const w = Math.abs(br.x - tl.x);
-  const h = Math.abs(br.y - tl.y);
-
-  ctx.save();
-  // cuerpo del metal
-  const g = ctx.createLinearGradient(x, y, x + w, y);
-  g.addColorStop(0, '#546e7a');
-  g.addColorStop(0.7, '#78909c');
-  g.addColorStop(1, '#90a4ae');
-  ctx.fillStyle = g;
-  ctx.fillRect(x, y, w, h);
-  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(x, y, w, h);
-
-  // superficie iluminada (cara derecha)
-  ctx.strokeStyle = 'rgba(255, 236, 179, 0.85)';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(x + w, y);
-  ctx.lineTo(x + w, y + h);
-  ctx.stroke();
-
-  ctx.font = '600 13px system-ui, sans-serif';
-  ctx.fillStyle = '#eceff1';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(params.metal, x + w / 2, y + h / 2 - 8);
-  ctx.font = '11px system-ui, sans-serif';
-  ctx.fillStyle = 'rgba(255,255,255,0.7)';
-  ctx.fillText(`φ = ${params.phi} eV`, x + w / 2, y + h / 2 + 10);
-
-  // etiqueta superficie
-  ctx.save();
-  ctx.translate(x + w + 8, y + 14);
-  ctx.fillStyle = 'rgba(255, 236, 179, 0.9)';
-  ctx.textAlign = 'left';
-  ctx.font = '10px system-ui, sans-serif';
-  ctx.fillText('superficie', 0, 0);
-  ctx.restore();
-  ctx.restore();
-}
-
-function drawGraph(ctx, r) {
-  const g = GRAPH;
-  const bl = r.worldToCanvas(g.x0, g.y0);
-  const tr = r.worldToCanvas(g.x0 + g.w, g.y0 + g.h);
-  const left = Math.min(bl.x, tr.x);
-  const right = Math.max(bl.x, tr.x);
-  const top = Math.min(bl.y, tr.y);
-  const bottom = Math.max(bl.y, tr.y);
-  const boxW = right - left;
-  const boxH = bottom - top;
-
-  ctx.save();
-
-  // Fondo / caja de la gráfica
-  ctx.fillStyle = 'rgba(12, 15, 20, 0.55)';
-  ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-  ctx.lineWidth = 1.5;
-  if (ctx.roundRect) {
-    ctx.beginPath();
-    ctx.roundRect(left - 6, top - 6, boxW + 12, boxH + 22, 8);
-    ctx.fill();
-    ctx.stroke();
-  } else {
-    ctx.fillRect(left - 6, top - 6, boxW + 12, boxH + 22);
-    ctx.strokeRect(left - 6, top - 6, boxW + 12, boxH + 22);
-  }
-
-  // Clip estricto al interior de la gráfica (nada atraviesa el borde)
-  ctx.beginPath();
-  ctx.rect(left, top, boxW, boxH);
-  ctx.clip();
-
-  // Cuadrícula suave
-  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-  ctx.lineWidth = 1;
-  for (let i = 1; i < 4; i++) {
-    const yy = top + (boxH * i) / 4;
-    const xx = left + (boxW * i) / 4;
-    ctx.beginPath();
-    ctx.moveTo(left, yy);
-    ctx.lineTo(right, yy);
-    ctx.moveTo(xx, top);
-    ctx.lineTo(xx, bottom);
-    ctx.stroke();
-  }
-
-  // Ejes (borde inferior e izquierdo del área)
-  ctx.strokeStyle = 'rgba(255,255,255,0.55)';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(left, bottom);
-  ctx.lineTo(right, bottom);
-  ctx.moveTo(left, bottom);
-  ctx.lineTo(left, top);
-  ctx.stroke();
-
-  // Recta K = h f − φ, dibujada solo dentro del dominio y recortada por clip
-  const thr = f0();
-  const fStart = Math.max(g.fMin, thr);
-  const fEnd = g.fMax;
-  if (fStart < fEnd) {
-    const pA = graphToWorld(fStart, Math.max(0, H_EFF * fStart - params.phi));
-    const pB = graphToWorld(fEnd, Math.max(0, H_EFF * fEnd - params.phi));
-    const cA = r.worldToCanvas(pA.x, pA.y);
-    const cB = r.worldToCanvas(pB.x, pB.y);
-    ctx.strokeStyle = '#66bb6a';
-    ctx.lineWidth = 2.2;
-    ctx.beginPath();
-    ctx.moveTo(cA.x, cA.y);
-    ctx.lineTo(cB.x, cB.y);
-    ctx.stroke();
-  }
-
-  // Segmento bajo umbral (K=0) en el eje f
-  if (thr > g.fMin) {
-    const z0 = graphToWorld(g.fMin, 0);
-    const z1 = graphToWorld(Math.min(thr, g.fMax), 0);
-    const c0 = r.worldToCanvas(z0.x, z0.y);
-    const c1 = r.worldToCanvas(z1.x, z1.y);
-    ctx.strokeStyle = 'rgba(239, 154, 154, 0.75)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(c0.x, c0.y);
-    ctx.lineTo(c1.x, c1.y);
-    ctx.stroke();
-  }
-
-  // Marca vertical f₀ (si cae dentro del eje)
-  if (thr >= g.fMin && thr <= g.fMax) {
-    const t0 = graphToWorld(thr, 0);
-    const t1 = graphToWorld(thr, g.kMax * 0.12);
-    const ct0 = r.worldToCanvas(t0.x, t0.y);
-    const ct1 = r.worldToCanvas(t1.x, t1.y);
-    ctx.strokeStyle = 'rgba(255,183,77,0.7)';
-    ctx.setLineDash([4, 3]);
-    ctx.beginPath();
-    ctx.moveTo(ct0.x, ct0.y);
-    ctx.lineTo(ct1.x, ct1.y);
-    ctx.stroke();
-    ctx.setLineDash([]);
-  }
-
-  // Marcador naranja (f, K_max) — SIEMPRE dentro de la caja
-  const K = kMax();
-  const km = Math.max(0, K);
-  const pm = graphToWorld(params.f, km);
-  const cMark = r.worldToCanvas(pm.x, pm.y);
-  ctx.fillStyle = '#ffb74d';
-  ctx.strokeStyle = 'rgba(0,0,0,0.35)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.arc(cMark.x, cMark.y, 6, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-
-  // Punto guía en el eje f (proyección) para leer f actual
-  const pBase = graphToWorld(params.f, 0);
-  const cBase = r.worldToCanvas(pBase.x, pBase.y);
-  ctx.strokeStyle = 'rgba(255,183,77,0.45)';
-  ctx.setLineDash([3, 3]);
-  ctx.beginPath();
-  ctx.moveTo(cMark.x, cMark.y);
-  ctx.lineTo(cBase.x, cBase.y);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  ctx.restore(); // sale del clip
-
-  // Etiquetas fuera del clip (no se cortan)
-  ctx.save();
-  ctx.fillStyle = 'rgba(255,255,255,0.75)';
-  ctx.font = '600 11px system-ui, sans-serif';
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
-  ctx.fillText('K_max vs f', left, bottom + 4);
-  ctx.font = '10px system-ui, sans-serif';
-  ctx.fillStyle = 'rgba(255,255,255,0.55)';
-  ctx.textAlign = 'right';
-  ctx.fillText('f →', right, bottom + 4);
-  ctx.textAlign = 'left';
-  ctx.save();
-  ctx.translate(left - 4, top + 4);
-  ctx.rotate(-Math.PI / 2);
-  ctx.fillText('K →', 0, 0);
-  ctx.restore();
-
-  // Leyenda del punto
-  ctx.font = '10px system-ui, sans-serif';
-  ctx.fillStyle = '#ffb74d';
-  ctx.textAlign = 'left';
-  const legend =
-    km > 0
-      ? `● f=${params.f} · K=${roundTo(km, 2)} eV`
-      : `● f=${params.f} · bajo umbral (K=0)`;
-  ctx.fillText(legend, left, top - 18);
-  ctx.restore();
-}
-
-export function render(ctx) {
-  if (!_renderer) return;
-  const r = _renderer;
-  const E = photonE();
-  const K = E - params.phi;
-  const above = K > 0;
-  const photonColor = above ? '#fff59d' : '#ef9a9a';
-
-  // Metal (placa sólida — los fotones no la cruzan)
-  drawMetalPlate(ctx, r);
-
-  // Fotones
-  for (const p of photons) {
-    const alpha = p.absorbed ? Math.max(0, p.life / 0.25) : 1;
-    const size = p.absorbed ? 0.08 + (1 - alpha) * 0.1 : 0.14;
-    ctx.save();
-    ctx.globalAlpha = alpha;
-    r.drawObject(p.x, p.y, {
-      shape: 'circle',
-      size,
-      color: photonColor,
-      label: '',
-      glow: !p.absorbed
-    });
-    ctx.restore();
-  }
-
-  // Electrones emitidos (solo a la derecha de la superficie)
-  for (const e of electrons) {
-    r.drawObject(e.x, e.y, {
-      shape: 'circle',
-      size: 0.16,
-      color: '#4fc3f7',
-      label: 'e⁻'
-    });
-  }
-
-  // Gráfica acotada (caja + clip: el punto naranja y la recta no salen)
-  drawGraph(ctx, r);
-}
-
-function renderParams() {
-  _ui.setParams(`
-    <div class="control-group">
-      <label class="control-label">Metal</label>
-      <select id="ph_metal" class="custom-select">
-        ${Object.keys(METALS)
-          .map(
-            (m) =>
-              `<option value="${m}" ${params.metal === m ? 'selected' : ''}>${m} (φ=${METALS[m]} eV)</option>`
-          )
-          .join('')}
-      </select>
-    </div>
-    <div class="control-group"><label class="control-label">$f$ ($\times 10^{14}$ Hz)</label>
-      <div class="slider-row"><input type="range" id="ph_f" class="custom-slider" min="2" max="15" step="0.1" value="${params.f}"><span id="ph_fd">${params.f}</span></div></div>
-    <div class="control-group"><label class="control-label">Intensidad</label>
-      <div class="slider-row"><input type="range" id="ph_I" class="custom-slider" min="0.05" max="1" step="0.05" value="${params.intensity}"><span id="ph_Id">${params.intensity}</span></div></div>
-    <div class="control-group"><label class="control-label">$\varphi$ (eV) manual</label>
-      <div class="slider-row"><input type="range" id="ph_phi" class="custom-slider" min="1" max="6" step="0.1" value="${params.phi}"><span id="ph_phid">${params.phi}</span></div></div>
-  `);
-  setTimeout(() => {
-    document.getElementById('ph_metal')?.addEventListener('change', (e) => {
-      params.metal = e.target.value;
-      params.phi = METALS[params.metal];
-      renderParams();
-      updateData();
-    });
-    const bind = (id, key, d) => {
-      const el = document.getElementById(id);
-      el?.addEventListener('input', () => {
-        params[key] = parseFloat(el.value);
-        const disp = document.getElementById(d);
-        if (disp) disp.textContent = String(params[key]);
-        updateData();
+    // Vector K_max de referencia junto a la superficie: crece con f, no con I.
+    if (above) {
+      const len = Math.min(3.2, 0.9 + Math.sqrt(2 * K) * 0.55);
+      scene.vector(METAL.right + 0.2, METAL.bottom - 0.6, len, 0, {
+        color: 'field',
+        width: 2,
+        label: `K_max = ${roundTo(K, 2)} eV`,
+        labelSide: 1
       });
-    };
-    bind('ph_f', 'f', 'ph_fd');
-    bind('ph_I', 'intensity', 'ph_Id');
-    bind('ph_phi', 'phi', 'ph_phid');
-  }, 0);
-}
+    } else {
+      scene.label(METAL.right + 0.3, METAL.bottom - 0.9, 'hf ≤ φ: ningún electrón sale', {
+        color: 'danger',
+        size: 11,
+        align: 'left',
+        avoid: true
+      });
+    }
 
-export function getState() {
-  return {
-    t,
-    params: { ...params },
-    electrons: electrons.map((e) => ({ ...e })),
-    photons: photons.map((p) => ({ ...p }))
-  };
-}
-export function setState(s) {
-  if (!s || typeof s !== 'object') return;
-  if (s.params) Object.assign(params, s.params);
-  if (s.t != null) t = s.t;
-  if (Array.isArray(s.electrons)) electrons = s.electrons;
-  if (Array.isArray(s.photons)) photons = s.photons;
-  else photons = [];
-  renderParams();
-  updateData();
+    this._drawHud(scene, { phi, E, K, above, photonColor });
+  }
+
+  _drawHud(scene, s) {
+    const hud = scene.hud;
+    const f = this.params.f;
+    hud.chip(
+      s.above
+        ? `Emisión: hf = ${roundTo(s.E, 2)} eV > φ = ${roundTo(s.phi, 2)} eV`
+        : `Sin emisión: hf = ${roundTo(s.E, 2)} eV ≤ φ = ${roundTo(s.phi, 2)} eV`,
+      'top-left',
+      { color: s.above ? 'energy' : 'danger' }
+    );
+    hud.readout(
+      [
+        { label: 'f', value: f, unit: '×10¹⁴ Hz' },
+        { label: 'f₀', value: this.f0(), unit: '×10¹⁴ Hz' },
+        { label: 'K_max', value: Math.max(0, s.K), unit: 'eV' },
+        { label: 'V₀', value: Math.max(0, s.K), unit: 'V' },
+        { label: 'e⁻', value: this.electronsEmitted, unit: '' }
+      ],
+      'bottom-left'
+    );
+    hud.legend(
+      [
+        { color: s.photonColor, label: `fotón, hf = ${roundTo(s.E, 2)} eV`, dash: [] },
+        { color: 'field', label: 'electrón e⁻ (rapidez ∝ √K)', dash: [1, 3] }
+      ],
+      'top-right'
+    );
+
+    // Gráfica K_max–f: recta de Einstein y punto de trabajo.
+    const vp = scene.viewport();
+    if (vp.w > 420) {
+      const thr = this.f0();
+      const kTop = Math.max(1, H_EFF * F_MAX - 1);
+      const series = [];
+      if (thr < F_MAX) {
+        series.push({
+          points: [
+            { x: Math.max(F_MIN, thr), y: Math.max(0, H_EFF * Math.max(F_MIN, thr) - s.phi) },
+            { x: F_MAX, y: H_EFF * F_MAX - s.phi }
+          ],
+          color: 'energy',
+          width: 2.2,
+          dash: []
+        });
+      }
+      if (thr > F_MIN) {
+        series.push({
+          points: [
+            { x: F_MIN, y: 0 },
+            { x: Math.min(thr, F_MAX), y: 0 }
+          ],
+          color: 'danger',
+          width: 2.2,
+          dash: [4, 3]
+        });
+      }
+      series.push({ points: [{ x: f, y: Math.max(0, s.K) }], color: 'warn', pointSize: 4 });
+      hud.plot(
+        { x: vp.x + vp.w - 232, y: vp.y + vp.h - 150, w: 218, h: 138 },
+        {
+          title: `K_max (eV) vs f (10¹⁴ Hz) · f₀ = ${roundTo(thr, 2)}`,
+          series,
+          xRange: [F_MIN, F_MAX],
+          yRange: [0, kTop]
+        }
+      );
+    }
+  }
+
+  /* ---------- datos numéricos (§3.1) ---------- */
+
+  readout() {
+    const phi = this.phi();
+    const E = this.photonE();
+    const K = E - phi;
+    return {
+      metal: { value: this.params.metal === 'manual' ? 'manual' : this.params.metal, unit: '' },
+      φ: { value: roundTo(phi, 2), unit: 'eV' },
+      f: { value: this.params.f, unit: '×10¹⁴ Hz' },
+      λ: { value: roundTo(this.lambdaNm(), 0), unit: 'nm' },
+      hf: { value: roundTo(E, 3), unit: 'eV' },
+      'f₀': { value: roundTo(this.f0(), 3), unit: '×10¹⁴ Hz' },
+      'K_max': { value: roundTo(Math.max(0, K), 3), unit: 'eV' },
+      'V₀': { value: roundTo(Math.max(0, K), 3), unit: 'V' },
+      'fotones/s': { value: roundTo(this.photonRate(), 2), unit: '' },
+      'e⁻ emitidos': { value: this.electronsEmitted, unit: '' },
+      emisión: { value: K > 0 ? 'sí' : 'no (hf ≤ φ)', unit: '' }
+    };
+  }
+
+  getState() {
+    return {
+      t: this.t,
+      spawnAcc: this.spawnAcc,
+      photonsAbsorbed: this.photonsAbsorbed,
+      electronsEmitted: this.electronsEmitted,
+      params: { ...this.params },
+      electrons: this.electrons.map((e) => ({ ...e })),
+      photons: this.photons.map((p) => ({ ...p }))
+    };
+  }
+
+  setState(s) {
+    if (!s || typeof s !== 'object') return;
+    if (s.params) Object.assign(this.params, s.params);
+    if (Number.isFinite(s.t)) this.t = s.t;
+    if (Number.isFinite(s.spawnAcc)) this.spawnAcc = s.spawnAcc;
+    if (Number.isFinite(s.photonsAbsorbed)) this.photonsAbsorbed = s.photonsAbsorbed;
+    if (Number.isFinite(s.electronsEmitted)) this.electronsEmitted = s.electronsEmitted;
+    this.electrons = Array.isArray(s.electrons) ? s.electrons.map((e) => ({ ...e })) : [];
+    this.photons = Array.isArray(s.photons) ? s.photons.map((p) => ({ ...p })) : [];
+  }
+
+  destroy() {
+    this.photons.length = 0;
+    this.electrons.length = 0;
+  }
 }

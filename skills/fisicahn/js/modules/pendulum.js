@@ -14,7 +14,6 @@
 import { SimModule } from '../core/sim-module.js';
 import { TrailBuffer } from '../core/trail-buffer.js';
 import { roundTo } from '../utils/math-helpers.js';
-import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 const G = 9.8;
 const DEG = Math.PI / 180;
@@ -88,7 +87,7 @@ export default class Pendulum extends SimModule {
 
   init(meta = null) {
     this.reset();
-    setModuleInfo(this.ui, {
+    this.setModuleInfo({
       title: 'Péndulo',
       blurb: 'Integración angular: periodo real frente a T = 2π√(L/g), y doble péndulo caótico.',
       story:
@@ -100,7 +99,7 @@ export default class Pendulum extends SimModule {
         'Roce γ: la amplitud decae y la energía se disipa en cada oscilación.'
       ]
     });
-    setModuleFormulas(this.ui, {
+    this.setModuleFormulas({
       title: 'Péndulo',
       items: [
         {
@@ -125,7 +124,7 @@ export default class Pendulum extends SimModule {
         }
       ]
     });
-    clearChallenges(this.ui);
+    this.clearChallenges();
   }
 
   reset() {
@@ -260,10 +259,8 @@ export default class Pendulum extends SimModule {
     const p = this.pivot;
     const doble = this.params.modo === 'doble';
 
-    // Soporte del techo.
-    scene.line(p.x - 1.6, p.y + 0.5, p.x + 1.6, p.y + 0.5, { color: 'textDim', width: 3 });
-    scene.line(p.x - 1.2, p.y + 0.5, p.x - 1.2, p.y + 0.8, { color: 'textDim', width: 2 });
-    scene.line(p.x + 1.2, p.y + 0.5, p.x + 1.2, p.y + 0.8, { color: 'textDim', width: 2 });
+    // Soporte del techo (rayado de apoyo por encima).
+    scene.ceiling(p.x - 1.6, p.x + 1.6, p.y + 0.5, { width: 3 });
 
     if (doble) {
       const b1 = this._bobPos(this.st[0], this.st[1]);

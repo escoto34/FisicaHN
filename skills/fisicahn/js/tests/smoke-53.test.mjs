@@ -14,13 +14,20 @@ const base = pathToFileURL(path.join(JS, 'modules') + '/');
 const ESCENA = [
   'line', 'polyline', 'rect', 'arc', 'polygon', 'fill', 'body', 'vector', 'trail',
   'spring', 'pulley', 'ray', 'wavefront', 'field', 'label', 'chip', 'dimension',
-  'angleArc', 'tooltip', 'pickable', 'lens', 'ellipse', 'circle', 'emphasisHalo'
+  'angleArc', 'tooltip', 'pickable', 'lens', 'ellipse', 'circle', 'emphasisHalo',
+  // Vocabulario visual (§13.2) y primitivas compartidas del núcleo gráfico.
+  'hatch', 'thermal', 'fluidPattern', 'callout', 'photon', 'arrowMark', 'curve',
+  'ground', 'ceiling', 'wall', 'axes', 'grid', 'thermometer', 'bars', 'gradientRect',
+  'flame', 'coil', 'flow', 'rayTo', 'intensityStrip', 'dots'
 ];
 
 function makeScene() {
   const scene = {
     viewport: () => ({ x: 0, y: 0, w: 900, h: 600 }),
     world: () => ({ left: -12, right: 12, top: 8, bottom: -8 }),
+    px: (v) => v * 37.5,
+    units: (v) => v / 37.5,
+    theme: { lineScale: 1, fontScale: 1 },
     dt: 1 / 60,
     elapsed: 0
   };

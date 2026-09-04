@@ -18,9 +18,8 @@
  */
 
 import { SimModule } from '../core/sim-module.js';
-import { roundTo } from '../utils/math-helpers.js';
+import { roundTo, smoothstep } from '../core/geometry.js';
 import { thermalColor } from '../core/draw-primitives.js';
-import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 const C_WATER = 4186; // J/(kg·K)
 const C_ICE = 2090; // J/(kg·K)
@@ -119,12 +118,15 @@ export default class Calorimetry extends SimModule {
     this.t = 0;
     /** Calor acumulado entregado al hielo (modo fase). */
     this.Q = 0;
-    this.history = [];
+    /** Escala del termómetro: marcas cacheadas por rango, y la marca viva de T_eq. */
+    this._ticks = [];
+    this._tickKey = '';
+    this._tEqMark = [{ t: 0, label: 'T_eq', color: 'energy' }];
   }
 
   init(meta = null) {
     this.reset();
-    setModuleInfo(this.ui, {
+    this.setModuleInfo({
       title: 'Calorimetría',
       blurb: 'Equilibrio térmico, calor latente con meseta de fusión y los tres modos de transferencia.',
       story:
@@ -144,7 +146,7 @@ export default class Calorimetry extends SimModule {
         'Radiación: la potencia depende de T⁴: el cuerpo brillante pierde mucho más que el tibio.'
       ]
     });
-    setModuleFormulas(this.ui, {
+    this.setModuleFormulas({
       title: 'Calorimetría',
       items: [
         {
@@ -179,13 +181,12 @@ export default class Calorimetry extends SimModule {
         }
       ]
     });
-    clearChallenges(this.ui);
+    this.clearChallenges();
   }
 
   reset() {
     this.t = 0;
     this.Q = 0;
-    this.history.length = 0;
     this.engine?.reset?.();
   }
 
@@ -242,26 +243,9 @@ export default class Calorimetry extends SimModule {
 
   update(dt) {
     this.t += dt;
-    const modo = this.params.modo;
-
-    if (modo === 'fase') {
-      this.Q += this.params.P * dt;
-      this.history.push({ x: this.Q, y: this.phaseTemp(this.Q) });
-      if (this.history.length > 400) this.history.shift();
-      return;
-    }
-
-    if (modo === 'mezcla') {
-      // Equilibrio en vivo tipo calorímetro: agua y metal se aproximan a T_eq
-      // con relajamiento exponencial; se va registrando la serie T(t).
-      this.history.push({ x: this.t, y: this.tEq() - 0.0001, w: this.mixWater(), m: this.mixMetal() });
-      if (this.history.length > 600) this.history.shift();
-      return;
-    }
-
-    if (modo === 'conduccion' || modo === 'conveccion' || modo === 'radiacion') {
-      return;
-    }
+    // Sólo el modo fase integra en el tiempo (calor acumulado); la mezcla
+    // tiene solución analítica y las gráficas se muestrean al dibujar.
+    if (this.params.modo === 'fase') this.Q += this.params.P * dt;
   }
 
   /** Temperatura del agua en el instante actual (aprox. exponencial a T_eq). */
@@ -311,7 +295,7 @@ export default class Calorimetry extends SimModule {
     const sampleName = sample ? `Muestra ${this.params.muestra}` : 'Metal';
     // Caída de la muestra: de la pinza (arriba) al fondo del vaso.
     const drop = Math.min(1, this.t / T_DROP);
-    const ease = drop * drop * (3 - 2 * drop);
+    const ease = smoothstep(0, 1, drop);
 
     /* ---- Calorímetro: vaso exterior aislante, vaso interior y tapa ---- */
     const cxV = -2.2;
@@ -319,11 +303,13 @@ export default class Calorimetry extends SimModule {
     const Hh = 7.2;
     const yC = -0.6;
     scene.rect(cxV, yC, W + 1.2, Hh + 0.9, { color: 'textDim', width: 2.4, fill: 'rgba(90,100,120,0.18)', radius: 6 });
-    // Aislante: rayado entre las dos paredes del vaso.
-    for (let yy = yC - Hh / 2 - 0.3; yy <= yC + Hh / 2 + 0.3; yy += 0.5) {
-      scene.line(cxV - W / 2 - 0.6, yy, cxV - W / 2, yy + 0.35, { color: 'textDim', width: 1, alpha: 0.5 });
-      scene.line(cxV + W / 2, yy, cxV + W / 2 + 0.6, yy + 0.35, { color: 'textDim', width: 1, alpha: 0.5 });
-    }
+    // Aislante: rayado entre las dos paredes del vaso (una primitiva por lado).
+    const yIns0 = yC + Hh / 2 + 0.45;
+    const yIns1 = yC - Hh / 2 - 0.45;
+    const lineScale = scene.theme?.lineScale || 1;
+    const insOpts = { width: 1, spacing: scene.px(0.5) / lineScale, length: scene.px(0.72) / lineScale };
+    scene.hatch(cxV - W / 2 - 0.6, yIns0, cxV - W / 2 - 0.6, yIns1, { ...insOpts, side: 1 });
+    scene.hatch(cxV + W / 2 + 0.6, yIns0, cxV + W / 2 + 0.6, yIns1, { ...insOpts, side: -1 });
     scene.rect(cxV, yC, W, Hh, { color: 'textDim', width: 1.6 });
     scene.label(cxV, yC - Hh / 2 - 0.95, 'calorímetro (aislado)', { avoid: true, color: 'textDim', size: 11 });
     // Tapa con agujeros para termómetro y pinza.
@@ -362,21 +348,21 @@ export default class Calorimetry extends SimModule {
     const tBot = yC - Hh / 2 + 0.6;
     const tScaleLo = Math.floor((tLow - 10) / 10) * 10;
     const tScaleHi = Math.ceil((tHigh + 10) / 10) * 10;
-    const tFrac = (val) => Math.max(0, Math.min(1, (val - tScaleLo) / Math.max(1e-6, tScaleHi - tScaleLo)));
-    scene.rect(xT, (tTop + tBot) / 2, 0.5, tTop - tBot, { color: 'textDim', width: 1.4, fill: 'rgba(255,255,255,0.06)', radius: 4 });
-    const colH = (tTop - tBot - 0.3) * tFrac(Tw);
-    if (colH > 0.02) scene.rect(xT, tBot + 0.15 + colH / 2, 0.24, colH, { fill: 'force', stroke: false, alpha: 0.95 });
-    scene.circle(xT, tBot - 0.05, 0.38, { color: 'force', fill: 'force', alpha: 0.95, width: 1 });
-    for (let tv = tScaleLo; tv <= tScaleHi; tv += 10) {
-      const yy = tBot + 0.15 + (tTop - tBot - 0.3) * tFrac(tv);
-      const major = tv % 50 === 0;
-      scene.line(xT + 0.25, yy, xT + (major ? 0.6 : 0.42), yy, { color: 'textDim', width: 1 });
-      if (major) scene.label(xT - 0.75, yy, `${tv}`, { color: 'textDim', size: 9, avoid: false });
+    const tSpan = Math.max(1e-6, tScaleHi - tScaleLo);
+    const tFrac = (val) => Math.max(0, Math.min(1, (val - tScaleLo) / tSpan));
+    // Marcas de la escala: sólo se reconstruyen cuando cambia el rango.
+    const tickKey = tScaleLo + '|' + tScaleHi;
+    if (this._tickKey !== tickKey) {
+      const ticks = [];
+      for (let tv = tScaleLo; tv <= tScaleHi; tv += 10) {
+        const major = tv % 50 === 0;
+        ticks.push({ t: tFrac(tv), label: major ? String(tv) : undefined, major });
+      }
+      this._ticks = ticks;
+      this._tickKey = tickKey;
     }
-    // Marca de T_eq en la escala.
-    const yEq = tBot + 0.15 + (tTop - tBot - 0.3) * tFrac(Teq);
-    scene.line(xT + 0.25, yEq, xT + 0.95, yEq, { color: 'energy', width: 2, dash: [3, 2] });
-    scene.label(xT + 1.05, yEq, 'T_eq', { color: 'energy', size: 10, align: 'left', avoid: false });
+    this._tEqMark[0].t = tFrac(Teq);
+    scene.thermometer(xT, tBot, tTop - tBot, tFrac(Tw), { color: 'force', tube: 'textDim', ticks: this._ticks, marks: this._tEqMark });
     scene.label(xT, tTop + 0.55, `${roundTo(Tw, 1)} °C`, { color: 'force', size: 12, avoid: true });
 
     /* ---- Estado ---- */
@@ -405,23 +391,14 @@ export default class Calorimetry extends SimModule {
     if (vp.w > 430) {
       // T(t) con relajamiento exponencial: la mezcla tiende a T_eq en vivo.
       const horizon = Math.max(clock, 1);
-      const mk = (T0) => {
-        const pts = [];
-        const N = 60;
-        for (let i = 0; i <= N; i++) {
-          const tt = (horizon * i) / N;
-          pts.push({ x: tt, y: Teq + (T0 - Teq) * Math.exp(-tt / tau) });
-        }
-        return pts;
-      };
       const last = { x: clock, w: Tw, m: Tm };
       hud.plot(
         { x: vp.x + vp.w - 250, y: vp.y + vp.h - 128, w: 235, h: 116 },
         {
           title: 'Temperatura T(t) en el calorímetro',
           series: [
-            { points: mk(T1), color: 'field', label: 'agua' },
-            { points: mk(T2), color: 'force', label: 'metal' },
+            { fn: (tt) => Teq + (T1 - Teq) * Math.exp(-tt / tau), samples: 60, color: 'field', label: 'agua' },
+            { fn: (tt) => Teq + (T2 - Teq) * Math.exp(-tt / tau), samples: 60, color: 'force', label: 'metal' },
             { points: [{ x: 0, y: Teq }, { x: horizon, y: Teq }], color: 'energy', dash: [3, 3], label: 'T_eq' },
             { points: [{ x: last.x, y: last.w - 0.02 }, { x: last.x, y: last.w + 0.02 }], color: 'field', width: 2.5 },
             { points: [{ x: last.x, y: last.m - 0.02 }, { x: last.x, y: last.m + 0.02 }], color: 'force', width: 2.5 }
@@ -462,16 +439,13 @@ export default class Calorimetry extends SimModule {
 
     if (vp.w > 430) {
       // Curva T vs Q completa (analítica) con el punto vivo y la meseta.
-      const pts = [];
       const Qmax = Q2 + mIce * C_WATER * 60;
-      const N = 120;
-      for (let i = 0; i <= N; i++) pts.push({ x: (Qmax * i) / N, y: this.phaseTemp((Qmax * i) / N) });
       hud.plot(
         { x: vp.x + vp.w - 250, y: vp.y + vp.h - 128, w: 235, h: 116 },
         {
           title: 'Curva de calentamiento T(Q)',
           series: [
-            { points: pts, color: 'energy', label: 'T(Q)' },
+            { fn: (Q) => this.phaseTemp(Q), samples: 120, color: 'energy', label: 'T(Q)' },
             { points: [{ x: this.Q, y: T }, { x: this.Q, y: T }], color: 'force' }
           ],
           xRange: [0, Qmax],
@@ -582,10 +556,7 @@ export default class Calorimetry extends SimModule {
     if (s.params) Object.assign(this.params, s.params);
     if (Number.isFinite(s.t)) this.t = s.t;
     if (Number.isFinite(s.Q)) this.Q = s.Q;
-    this.history.length = 0;
   }
 
-  destroy() {
-    this.history.length = 0;
-  }
+  destroy() {}
 }

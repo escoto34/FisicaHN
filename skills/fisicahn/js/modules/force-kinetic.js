@@ -1,260 +1,286 @@
 /**
- * Fuerza cinética — cómo una fuerza neta genera aceleración y energía cinética.
- * Ec = ½ m v² · W_neto = ΔEc · F = m a
+ * @fileoverview Fuerza cinética — cómo una fuerza neta genera aceleración y
+ * energía cinética. Ec = ½ m v² · W_neto = ΔEc · F = m a
+ *
+ * Migrado al contrato `SimModule` con `draw(scene)`. Sin fricción: todo el
+ * trabajo de F se convierte en energía cinética, y la gráfica del HUD muestra
+ * Ec(t) y W_neto(t) superpuestas para que se vea el teorema trabajo–energía.
  */
 
-import { roundTo } from '../utils/math-helpers.js';
+import { SimModule } from '../core/sim-module.js';
 import { TrailBuffer } from '../core/trail-buffer.js';
-import {
-  setModuleInfo,
-  setModuleFormulas,
-  paramControl,
-  bindParamControls,
-  clearChallenges
-} from '../module-ui.js';
+import { roundTo } from '../core/geometry.js';
 
-let _engine, _renderer, _ui;
-let t = 0;
-let x = -6;
-let v = 0;
-let Wnet = 0;
-const MAX_TRAIL = 80;
-/** Estela en anillo: el `push`+`shift()` era O(n) por frame (§3.2). */
-const trail = new TrailBuffer(MAX_TRAIL);
-/** Punto de trabajo para worldToCanvas (bucle de estela, §3.2). */
-const _c = { x: 0, y: 0 };
+/** Posición de partida y límites de la pista (unidades de mundo). */
+const X0 = -6;
+const TRACK_HALF = 9;
+const WRAP_X = 8;
+const GROUND_Y = -0.5;
+/** Escalas de dibujo de los vectores. */
+const K_FORCE = 0.12;
+const K_VEL = 0.22;
+const K_ACC = 0.35;
 
-const params = {
-  m: 2,
-  F: 8,
-  v0: 0,
-  g: 9.81 // solo referencia; movimiento horizontal
-};
+export default class ForceKineticModule extends SimModule {
+  static viewport = { width: 22, height: 12 };
+  static anchor = { x: 0, y: 0 };
 
-function Ec() {
-  return 0.5 * params.m * v * v;
-}
+  static params = [
+    { id: 'm', label: 'Masa', latex: 'm', unit: 'kg', min: 0.5, max: 15, step: 0.5, value: 2 },
+    { id: 'F', label: 'Fuerza neta', latex: 'F', unit: 'N', min: -20, max: 40, step: 0.5, value: 8 },
+    { id: 'v0', label: 'Velocidad inicial', latex: 'v_0', unit: 'm/s', min: -5, max: 10, step: 0.5, value: 0 }
+  ];
 
-function a() {
-  return params.F / params.m;
-}
-
-export function init(engine, renderer, ui, meta = null) {
-  _engine = engine;
-  _renderer = renderer;
-  _ui = ui;
-  resetState();
-  renderer?.resetCamera?.();
-
-  setModuleInfo(ui, {
-    title: meta?.title || 'Fuerza cinética',
-    blurb:
-      meta?.blurb ||
-      'Una fuerza neta acelera la masa: a = F/m y la energía cinética crece Ec = ½mv².',
-    story:
-      '“Cinético” se refiere al movimiento. Una fuerza neta distinta de cero produce aceleración ' +
-      'y por tanto cambia la velocidad y la energía cinética. El teorema trabajo–energía dice que ' +
-      'el trabajo de la fuerza neta es igual al cambio de Ec. Aquí no hay fricción: toda F va a aumentar Ec.',
-    cases: [
-      'Acelerar un carrito con un empuje constante en el laboratorio.',
-      'Un cohete en el vacío (empuje ≈ fuerza neta).',
-      'Comparar dos masas con la misma F: la más liviana gana más Ec en el mismo tiempo.'
-    ]
-  });
-
-  setModuleFormulas(ui, {
-    items: [
-      { name: 'Segunda ley', formula: 'F = m a \\Rightarrow a = F/m' },
-      { name: 'Energía cinética', formula: 'E_c = \\tfrac{1}{2} m v^2' },
-      { name: 'Trabajo–energía', formula: 'W_{\\mathrm{neto}} = \\Delta E_c' },
-      { name: 'Velocidad (a const.)', formula: 'v = v_0 + a t' }
-    ]
-  });
-  clearChallenges(ui);
-  renderParams();
-  updateData();
-}
-
-function resetState() {
-  t = 0;
-  x = -6;
-  v = params.v0;
-  Wnet = 0;
-  trail.clear();
-}
-
-export function destroy() {
-  _engine = _renderer = _ui = null;
-}
-
-export function reset(engine) {
-  resetState();
-  engine?.reset?.();
-  updateData();
-}
-
-export function setTool() {}
-
-export function update(dt) {
-  t += dt;
-  const acc = a();
-  const vPrev = v;
-  v += acc * dt;
-  const dx = ((v + vPrev) / 2) * dt;
-  x += dx;
-  Wnet += params.F * dx;
-
-  trail.push({ x, y: 0 });
-
-  if (x > 8) {
-    x = -6;
-    v = params.v0;
-    Wnet = 0;
-    trail.clear();
-  }
-  updateData();
-}
-
-function updateData() {
-  if (!_ui) return;
-  const ec = Ec();
-  _ui.setData(`
-    <div style="font-family:var(--font-mono);font-size:0.82rem;line-height:1.75">
-      <div>t = ${roundTo(t, 2)} s</div>
-      <div>F = ${params.F} N · m = ${params.m} kg</div>
-      <div>a = F/m = ${roundTo(a(), 3)} m/s²</div>
-      <div>v = ${roundTo(v, 3)} m/s · x = ${roundTo(x, 2)} m</div>
-      <div>E<sub>c</sub> = ½mv² = ${roundTo(ec, 2)} J</div>
-      <div>W<sub>neto</sub> = ${roundTo(Wnet, 2)} J ≈ ΔE<sub>c</sub></div>
-    </div>
-  `);
-}
-
-export function render(ctx) {
-  if (!_renderer) return;
-  const r = _renderer;
-
-  // suelo
-  const g0 = r.worldToCanvas(-9, -0.5);
-  const g1 = r.worldToCanvas(9, -0.5);
-  ctx.save();
-  ctx.strokeStyle = 'rgba(255,255,255,0.28)';
-  ctx.lineWidth = 2.5;
-  ctx.beginPath();
-  ctx.moveTo(g0.x, g0.y);
-  ctx.lineTo(g1.x, g1.y);
-  ctx.stroke();
-  ctx.restore();
-
-  // estela
-  if (trail.length > 1) {
-    ctx.save();
-    ctx.strokeStyle = 'rgba(255, 183, 77, 0.35)';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([5, 5]);
-    ctx.beginPath();
-    trail.forEach((p, i) => {
-      const c = r.worldToCanvas(p.x, 0, _c);
-      if (i === 0) ctx.moveTo(c.x, c.y);
-      else ctx.lineTo(c.x, c.y);
-    });
-    ctx.stroke();
-    ctx.restore();
+  constructor(ctx) {
+    super(ctx);
+    this.params = { m: 2, F: 8, v0: 0 };
+    this.t = 0;
+    this.x = X0;
+    this.v = 0;
+    /** Trabajo neto acumulado desde la última partida. */
+    this.Wnet = 0;
+    /** Ec en la partida: W_neto = Ec − Ec0. */
+    this.Ec0 = 0;
+    this.trail = new TrailBuffer(80);
+    /** Historiales Ec(t) y W(t) para la gráfica del HUD. */
+    this.histEc = new TrailBuffer(240);
+    this.histW = new TrailBuffer(240);
+    this.dragging = null;
   }
 
-  // masa
-  const size = 0.35 + params.m * 0.06;
-  r.drawObject(x, 0, {
-    shape: 'circle',
-    size: Math.min(size, 0.85),
-    color: '#ffb74d',
-    label: `m=${params.m} kg`
-  });
+  init(meta = null) {
+    this.reset();
+    this.renderer?.resetCamera?.();
 
-  // vectores
-  if (Math.abs(params.F) > 0.05) {
-    r.drawVector(x, 0.15, params.F * 0.12, 0, {
-      color: '#ef5350',
-      width: 2.5,
-      label: `F=${params.F} N`,
-      labelSide: 1
+    this.setModuleInfo({
+      title: meta?.title || 'Fuerza cinética',
+      blurb:
+        meta?.blurb ||
+        'Una fuerza neta acelera la masa: a = F/m y la energía cinética crece Ec = ½mv².',
+      story:
+        '“Cinético” se refiere al movimiento. Una fuerza neta distinta de cero produce aceleración ' +
+        'y por tanto cambia la velocidad y la energía cinética. El teorema trabajo–energía dice que ' +
+        'el trabajo de la fuerza neta es igual al cambio de Ec. Aquí no hay fricción: toda F va a aumentar Ec.',
+      cases: [
+        'Acelerar un carrito con un empuje constante en el laboratorio.',
+        'Un cohete en el vacío (empuje ≈ fuerza neta).',
+        'Comparar dos masas con la misma F: la más liviana gana más Ec en el mismo tiempo.'
+      ]
     });
+
+    this.setModuleFormulas({
+      items: [
+        { name: 'Segunda ley', formula: 'F = m a \\Rightarrow a = F/m' },
+        { name: 'Energía cinética', formula: 'E_c = \\tfrac{1}{2} m v^2' },
+        { name: 'Trabajo–energía', formula: 'W_{\\mathrm{neto}} = \\Delta E_c' },
+        { name: 'Velocidad (a const.)', formula: 'v = v_0 + a t' }
+      ]
+    });
+    this.clearChallenges();
   }
-  if (Math.abs(v) > 0.05) {
-    r.drawVector(x, -0.2, v * 0.22, 0, {
-      color: '#66bb6a',
-      width: 2.5,
-      label: `v=${roundTo(v, 2)}`,
-      labelSide: -1
-    });
+
+  _restart(x = X0) {
+    this.x = x;
+    this.v = this.params.v0;
+    this.Wnet = 0;
+    this.Ec0 = this.Ec();
+    this.trail.clear();
   }
-  r.drawVector(x, 0.45, a() * 0.35, 0, {
-    color: '#4fc3f7',
-    width: 2,
-    label: `a=${roundTo(a(), 2)}`,
-    labelSide: 1
-  });
 
-  // barras Ec / W
-  const ec = Ec();
-  const maxE = Math.max(ec, Math.abs(Wnet), 15);
-  const barH = (val, color, i, label) => {
-    const h = (Math.abs(val) / maxE) * 110;
-    const bx = r.viewport().w - 48 - i * 40;
-    ctx.fillStyle = color;
-    ctx.fillRect(bx, 130 - h, 26, h);
-    ctx.fillStyle = 'rgba(255,255,255,0.75)';
-    ctx.font = '11px system-ui,sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(label, bx + 13, 144);
-    ctx.fillText(`${roundTo(val, 0)}`, bx + 13, 130 - h - 12);
-  };
-  ctx.save();
-  barH(ec, 'rgba(255,183,77,0.85)', 0, 'Ec');
-  barH(Wnet, 'rgba(102,187,106,0.75)', 1, 'W');
-  ctx.restore();
+  reset() {
+    this.t = 0;
+    this._restart();
+    this.histEc.clear();
+    this.histW.clear();
+    this.engine?.reset?.();
+  }
 
-  // HUD
-  ctx.save();
-  ctx.font = '12px system-ui,sans-serif';
-  ctx.fillStyle = 'rgba(255,255,255,0.7)';
-  ctx.textAlign = 'left';
-  [
-    'Sin fricción: toda F aumenta Ec',
-    `a = ${roundTo(a(), 2)} m/s² · Ec = ${roundTo(ec, 1)} J`
-  ].forEach((line, i) => ctx.fillText(line, 12, 12 + i * 17));
-  ctx.restore();
-}
+  destroy() {
+    this.trail.clear();
+    this.histEc.clear();
+    this.histW.clear();
+  }
 
-function renderParams() {
-  if (!_ui) return;
-  _ui.setParams(`
-    ${paramControl({ id: 'm', labelTex: 'm', labelRest: 'masa', min: 0.5, max: 15, step: 0.5, value: params.m, unit: 'kg' })}
-    ${paramControl({ id: 'F', labelTex: 'F', labelRest: 'fuerza neta', min: -20, max: 40, step: 0.5, value: params.F, unit: 'N' })}
-    ${paramControl({ id: 'v0', labelTex: 'v_0', labelRest: 'inicial', min: -5, max: 10, step: 0.5, value: params.v0, unit: 'm/s' })}
-  `);
-  setTimeout(() => {
-    bindParamControls(['m', 'F', 'v0'], (id, val) => {
-      params[id] = val;
-      resetState();
-      _engine?.reset?.();
-      updateData();
+  setTool() {}
+
+  Ec() {
+    return 0.5 * this.params.m * this.v * this.v;
+  }
+
+  a() {
+    return this.params.F / this.params.m;
+  }
+
+  radius() {
+    return Math.min(0.35 + this.params.m * 0.06, 0.85);
+  }
+
+  update(dt) {
+    if (this.dragging) return;
+    this.t += dt;
+    const acc = this.a();
+    const vPrev = this.v;
+    this.v += acc * dt;
+    const dx = ((this.v + vPrev) / 2) * dt;
+    this.x += dx;
+    this.Wnet += this.params.F * dx;
+
+    this.trail.push({ x: this.x, y: 0 });
+    this.histEc.push({ x: this.t, y: this.Ec() });
+    this.histW.push({ x: this.t, y: this.Wnet });
+
+    // Pista en bucle: al salir por un extremo vuelve a empezar por el otro
+    // lado, con la velocidad inicial y el contador de trabajo a cero.
+    if (this.x > WRAP_X) this._restart(X0);
+    else if (this.x < -WRAP_X) this._restart(WRAP_X - 2);
+  }
+
+  /* ---------- interacción directa (§2.6) ---------- */
+
+  onPickStart(id) {
+    this.dragging = id;
+  }
+
+  onDrag(id, world) {
+    this.x = Math.max(-TRACK_HALF + 0.5, Math.min(TRACK_HALF - 0.5, world.x));
+    this.v = this.params.v0;
+    this.Wnet = 0;
+    this.Ec0 = this.Ec();
+    this.trail.clear();
+  }
+
+  onDragEnd() {
+    this.dragging = null;
+  }
+
+  /* ---------- dibujo declarativo (§2.4) ---------- */
+
+  draw(scene) {
+    const r = this.radius();
+    const acc = this.a();
+    const ec = this.Ec();
+    const F = this.params.F;
+
+    // Suelo con rayado: pista sin fricción, pero con referencia visual.
+    scene.line(-TRACK_HALF, GROUND_Y, TRACK_HALF, GROUND_Y, { color: 'textDim', width: 2.5 });
+    scene.hatch(-TRACK_HALF, GROUND_Y, TRACK_HALF, GROUND_Y, { color: 'textDim', side: 1, spacing: 16, length: 8 });
+
+    // Punto de partida y cota del desplazamiento d: W = F·d.
+    scene.line(X0, GROUND_Y, X0, GROUND_Y + 0.35, { color: 'textDim', width: 1.5 });
+    const d = this.x - X0;
+    if (Math.abs(d) > 0.4) {
+      scene.dimension(X0, GROUND_Y - 0.55, this.x, GROUND_Y - 0.55, `d = ${roundTo(d, 2)} m`, { color: 'textDim' });
+    }
+
+    if (this.trail.length > 1) {
+      scene.trail(this.trail, { color: 'trail', width: 2, dash: [5, 5], fade: true });
+    }
+
+    scene.body(this.x, 0, {
+      shape: 'circle',
+      r,
+      color: 'mass',
+      id: 'masa',
+      label: `m = ${this.params.m} kg`,
+      labelColor: 'mass'
     });
-  }, 0);
-}
 
-export function getState() {
-  return { t, x, v, Wnet, params: { ...params } };
-}
+    // Vectores: F (sólido, arriba), a (punteado, más arriba) y v (a trazos, abajo).
+    if (Math.abs(F) > 0.05) {
+      scene.vector(this.x, 0.15, F * K_FORCE, 0, {
+        color: 'force',
+        width: 2.5,
+        label: `F = ${F} N`,
+        labelSide: 1
+      });
+    }
+    if (Math.abs(acc) > 0.01) {
+      scene.vector(this.x, r + 0.9, acc * K_ACC, 0, {
+        color: 'accel',
+        width: 2,
+        dash: [3, 3],
+        label: `a = ${roundTo(acc, 2)} m/s²`,
+        labelSide: 1
+      });
+    }
+    if (Math.abs(this.v) > 0.05) {
+      scene.vector(this.x, -0.2, this.v * K_VEL, 0, {
+        color: 'velocity',
+        width: 2.5,
+        dash: [6, 3],
+        label: `v = ${roundTo(this.v, 2)} m/s`,
+        labelSide: -1
+      });
+    }
 
-export function setState(s) {
-  if (!s || typeof s !== 'object') return;
-  if (s.params) Object.assign(params, s.params);
-  if (s.x != null) x = s.x;
-  if (s.v != null) v = s.v;
-  if (s.Wnet != null) Wnet = s.Wnet;
-  if (s.t != null) t = s.t;
-  trail.clear();
-  renderParams();
-  updateData();
+    // HUD
+    const hud = scene.hud;
+    hud.chip('Sin fricción: todo el trabajo de F va a Ec', 'top-left');
+    hud.readout(
+      [
+        { label: 't', value: this.t, unit: 's' },
+        { label: 'a', value: acc, unit: 'm/s²' },
+        { label: 'v', value: this.v, unit: 'm/s' },
+        { label: 'Ec', value: ec, unit: 'J' },
+        { label: 'W', value: this.Wnet, unit: 'J' }
+      ],
+      'bottom-left'
+    );
+
+    const vp = scene.viewport();
+    if (vp.w > 420) {
+      hud.legend(
+        [
+          { color: 'energy', label: 'Ec = ½mv²' },
+          { color: 'force', label: 'W neto = F·d', dash: [6, 3] }
+        ],
+        'top-right'
+      );
+      const ecPts = this.histEc.length > 1 ? this.histEc : [{ x: 0, y: ec }, { x: 1, y: ec }];
+      const wPts = this.histW.length > 1 ? this.histW : [{ x: 0, y: this.Wnet }, { x: 1, y: this.Wnet }];
+      hud.plot(
+        { x: vp.x + vp.w - 210, y: vp.y + vp.h - 128, w: 195, h: 116 },
+        {
+          title: 'Energía (J) frente a t (s)',
+          series: [
+            { points: ecPts, color: 'energy', label: 'Ec' },
+            { points: wPts, color: 'force', label: 'W', dash: [6, 3] }
+          ]
+        }
+      );
+    }
+  }
+
+  /* ---------- datos numéricos (§1.1) ---------- */
+
+  readout() {
+    return {
+      t: { value: roundTo(this.t, 2), unit: 's' },
+      F: { value: this.params.F, unit: 'N' },
+      m: { value: this.params.m, unit: 'kg' },
+      a: { value: roundTo(this.a(), 3), unit: 'm/s²' },
+      v: { value: roundTo(this.v, 3), unit: 'm/s' },
+      x: { value: roundTo(this.x, 2), unit: 'm' },
+      'Ec': { value: roundTo(this.Ec(), 2), unit: 'J' },
+      'W neto': { value: roundTo(this.Wnet, 2), unit: 'J' },
+      'ΔEc': { value: roundTo(this.Ec() - this.Ec0, 2), unit: 'J' }
+    };
+  }
+
+  getState() {
+    return { t: this.t, x: this.x, v: this.v, Wnet: this.Wnet, Ec0: this.Ec0, params: { ...this.params } };
+  }
+
+  setState(s) {
+    if (!s || typeof s !== 'object') return;
+    if (s.params) Object.assign(this.params, s.params);
+    if (Number.isFinite(s.x)) this.x = s.x;
+    if (Number.isFinite(s.v)) this.v = s.v;
+    if (Number.isFinite(s.Wnet)) this.Wnet = s.Wnet;
+    if (Number.isFinite(s.Ec0)) this.Ec0 = s.Ec0;
+    if (Number.isFinite(s.t)) this.t = s.t;
+    this.trail.clear();
+    this.histEc.clear();
+    this.histW.clear();
+  }
 }

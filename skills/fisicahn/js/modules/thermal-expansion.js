@@ -15,7 +15,6 @@
 import { SimModule } from '../core/sim-module.js';
 import { roundTo } from '../utils/math-helpers.js';
 import { thermalColor } from '../core/draw-primitives.js';
-import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 /** Materiales con α en 10⁻⁶/°C. */
 const MATERIALS = {
@@ -95,11 +94,13 @@ export default class ThermalExpansion extends SimModule {
       t: 1.5
     };
     this.t = 0;
+    /** Paradas del sombreado cilíndrico (abajo → brillo → arriba); sólo cambia el color. */
+    this._shade = [[0, '#000'], [0.68, '#fff'], [1, '#000']];
   }
 
   init(meta = null) {
     this.reset();
-    setModuleInfo(this.ui, {
+    this.setModuleInfo({
       title: 'Dilatación térmica',
       blurb: 'ΔL = α·L₀·ΔT en lineal, superficial y volumétrica, y la tira bimetálica.',
       story:
@@ -111,7 +112,7 @@ export default class ThermalExpansion extends SimModule {
         'Tira bimetálica: se curva hacia la lámina de menor α al calentar.'
       ]
     });
-    setModuleFormulas(this.ui, {
+    this.setModuleFormulas({
       title: 'Dilatación térmica',
       items: [
         {
@@ -136,7 +137,7 @@ export default class ThermalExpansion extends SimModule {
         }
       ]
     });
-    clearChallenges(this.ui);
+    this.clearChallenges();
   }
 
   reset() {
@@ -195,43 +196,19 @@ export default class ThermalExpansion extends SimModule {
     /* ---- Fondo: gradiente térmico frío (izq, azul) → caliente (der, rojo) ---- */
     const cold = '#1f5fbf';
     const hot = '#e8442a';
-    const nBands = 48;
     const wv = scene.world();
     const left = wv.left;
     const right = wv.right;
     const top = wv.top;
     const bottom = wv.bottom;
-    const bandW = (right - left) / nBands;
-    for (let i = 0; i < nBands; i++) {
-      const bx = left + (i + 0.5) * bandW;
-      const c = thermalColor(cold, hot, i / (nBands - 1));
-      scene.rect(bx, (top + bottom) / 2, bandW + 0.04, Math.abs(top - bottom), { fill: c, stroke: false, alpha: 0.16 });
-    }
+    scene.gradientRect((left + right) / 2, (top + bottom) / 2, right - left, top - bottom, { from: cold, to: hot, alpha: 0.16 });
     scene.label(left + 1.6, top - 2.1, 'frío', { color: 'mass', size: 11, avoid: true });
     scene.label(right - 1.9, top - 2.1, 'caliente', { color: 'force', size: 11, avoid: true });
 
     /* ---- Fuente de calor: llama bajo el extremo derecho de la barra ---- */
-    const flick = 1 + 0.12 * Math.sin(this.t * 9) + 0.06 * Math.sin(this.t * 17);
     const fx = x0 + w1 + 0.9;
     const fy = yBar - H / 2 - 2.6;
-    scene.emphasisHalo(fx, fy + 1, 1.6, { color: 'rgba(255,140,80,0.35)' });
-    const flame = (scale, hgt) => {
-      const pts = [];
-      for (let i = 0; i <= 18; i++) {
-        const u = i / 18;
-        const wobble = 1 + 0.08 * Math.sin(this.t * 11 + u * 6);
-        pts.push({ x: fx + Math.sin(u * Math.PI) * 0.75 * scale * wobble, y: fy + u * hgt * flick });
-      }
-      for (let i = 18; i >= 0; i--) {
-        const u = i / 18;
-        const wobble = 1 + 0.08 * Math.sin(this.t * 13 + u * 5);
-        pts.push({ x: fx - Math.sin(u * Math.PI) * 0.75 * scale * wobble, y: fy + u * hgt * flick });
-      }
-      return pts;
-    };
-    scene.polygon(flame(1, 2.6), { color: 'ray', fill: 'ray', alpha: 0.75, width: 1 });
-    scene.polygon(flame(0.55, 1.7), { color: 'force', fill: 'force', alpha: 0.9, width: 1 });
-    scene.polygon(flame(0.25, 0.9), { color: '#fff3c4', fill: '#fff3c4', alpha: 0.9, width: 1 });
+    scene.flame(fx, fy, { h: 2.6, w: 1.5, t: this.t });
     // Mechero: base de la llama.
     scene.rect(fx, fy - 0.35, 0.9, 0.5, { color: 'textDim', fill: 'textDim', alpha: 0.8, width: 1 });
     scene.rect(fx, fy - 1.1, 0.35, 1.1, { color: 'textDim', fill: 'textDim', alpha: 0.8, width: 1 });
@@ -243,23 +220,22 @@ export default class ThermalExpansion extends SimModule {
       scene.line(fx - 0.5 + j * 0.5, yy, fx - 0.2 + j * 0.5, yy + 0.35, { color: 'force', width: 1.2, alpha: 0.6 * (1 - ph) });
     }
 
-    /* ---- Pared fija a la izquierda ---- */
+    /* ---- Pared fija a la izquierda (bloque sólido + rayado de apoyo) ---- */
     scene.rect(x0 - 0.35, yBar, 0.7, H + 2.2, { color: 'textDim', fill: 'textDim', alpha: 0.85, width: 1 });
-    for (let yy = yBar - H / 2 - 1.0; yy <= yBar + H / 2 + 1.0; yy += 0.45) {
-      scene.line(x0 - 0.7, yy, x0 - 1.15, yy - 0.4, { color: 'textDim', width: 1, alpha: 0.7 });
-    }
+    scene.wall(x0 - 0.7, yBar - H / 2 - 1.1, yBar + H / 2 + 1.1, {
+      side: 'left', width: 1, alpha: 0.7, spacing: scene.px(0.45), length: scene.px(0.6)
+    });
 
     /* ---- Barra cilíndrica horizontal (el objeto en estudio) ---- */
     const tone = Math.max(0, Math.min(1, (T + 50) / 450));
     const barColor = thermalColor('#5b8fd6', '#ff6a3d', tone);
     const cx = x0 + w1 / 2;
-    // Sombreado cilíndrico: bandas horizontales de claro (arriba) a oscuro (abajo).
-    const nShade = 10;
-    for (let i = 0; i < nShade; i++) {
-      const u = (i + 0.5) / nShade;
-      const shade = thermalColor('#ffffff', barColor, 0.35 + 0.65 * Math.abs(u - 0.32) * 1.5);
-      scene.rect(cx, yBar + H / 2 - u * H, w1, H / nShade + 0.03, { fill: shade, stroke: false, alpha: 0.95 });
-    }
+    // Sombreado cilíndrico: degradado vertical con el brillo a un tercio de la
+    // altura (abajo = color pleno, arriba = algo más claro).
+    this._shade[0][1] = barColor;
+    this._shade[1][1] = thermalColor('#ffffff', barColor, 0.35);
+    this._shade[2][1] = thermalColor('#ffffff', barColor, 0.66);
+    scene.gradientRect(cx, yBar, w1, H, { direction: 'vertical', stops: this._shade, alpha: 0.95 });
     // Zona ΔL resaltada (la parte nueva de la barra).
     if (Math.abs(dW) > 0.02) {
       scene.rect(x0 + w0 + dW / 2, yBar, Math.abs(dW), H, { fill: 'energy', stroke: false, alpha: 0.35 });
@@ -401,18 +377,14 @@ export default class ThermalExpansion extends SimModule {
     scene.label(x0 + Lv / 2, y0 + 2.6, `T − T₀ = ${roundTo(dT, 0)} °C`, { avoid: true, color: 'energy' });
     scene.chip(x0, y0 - 2.2, `R real ≈ ${R >= 100 ? '∞' : roundTo(R, 2) + ' m'}`, { avoid: true, color: 'textDim' });
 
-    const pts = (offsetY) => {
-      const out = [];
-      const N = 40;
-      for (let i = 0; i <= N; i++) {
-        const u = i / N;
-        out.push({ x: x0 + u * Lv, y: y0 + u * u * yEnd + offsetY });
-      }
-      return out;
+    // Lámina superior (α mayor, queda fuera al curvar) y lámina inferior:
+    // parábola y = y₀ + u²·δ muestreada por la escena.
+    const lamina = (offsetY) => (u, o) => {
+      o.x = x0 + u * Lv;
+      o.y = y0 + u * u * yEnd + offsetY;
     };
-    // Lámina superior (α mayor, queda fuera al curvar) y lámina inferior.
-    scene.polyline(pts(0.09), { color: 'mass2', width: 8 });
-    scene.polyline(pts(-0.09), { color: 'mass', width: 8 });
+    scene.curve(lamina(0.09), 0, 1, { samples: 40, color: 'mass2', width: 8 });
+    scene.curve(lamina(-0.09), 0, 1, { samples: 40, color: 'mass', width: 8 });
     scene.body(x0, y0, { shape: 'rect', w: 0.5, h: 0.7, color: 'textDim' });
     scene.label(x0 - 0.5, y0 - 0.8, 'Fijo', { avoid: true, color: 'textDim' });
 

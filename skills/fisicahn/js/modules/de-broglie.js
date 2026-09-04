@@ -17,8 +17,8 @@
  */
 
 import { SimModule } from '../core/sim-module.js';
+import { TrailBuffer } from '../core/trail-buffer.js';
 import { roundTo, lerp } from '../utils/math-helpers.js';
-import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 /** λ[nm] ≈ 1.226 / √V[V] — de Broglie para electrones no relativistas acelerados por V. */
 const H_NM_V = 1.226;
@@ -48,14 +48,17 @@ export default class DeBroglie extends SimModule {
     this.t = 0;
     /** Electrones en vuelo: {y0, yTarget, t}. */
     this.flying = [];
-    /** Impactos acumulados en la pantalla (coordenada y de mundo). */
-    this.hits = [];
+    /** Impactos acumulados en la pantalla (coordenada y de mundo): anillo de MAX_HITS. */
+    this.hits = new TrailBuffer(MAX_HITS);
+    /** Histograma y posiciones en vuelo, reutilizados entre frames. */
+    this._bins = new Int32Array(BINS);
+    this._flyBuf = new Float64Array(64);
     this.spawnAcc = 0;
   }
 
   init(meta = null) {
     this.reset();
-    setModuleInfo(this.ui, {
+    this.setModuleInfo({
       title: meta?.title || 'Dualidad onda-partícula',
       blurb: meta?.blurb || 'Electrones uno a uno que forman un patrón de interferencia: λ = h/p.',
       story:
@@ -66,7 +69,7 @@ export default class DeBroglie extends SimModule {
         'Doble rendija con fotones, neutrones o incluso moléculas grandes: mismo patrón.'
       ]
     });
-    setModuleFormulas(this.ui, {
+    this.setModuleFormulas({
       items: [
         { name: 'de Broglie', formula: '\\lambda = h / p', note: 'Toda partícula con momento p tiene una onda asociada.' },
         {
@@ -77,13 +80,13 @@ export default class DeBroglie extends SimModule {
         { name: 'Interferencia (Young)', formula: 'I \\propto \\cos^2(\\delta/2)', note: 'Misma fórmula que la luz — la partícula interfiere consigo misma.' }
       ]
     });
-    clearChallenges(this.ui);
+    this.clearChallenges();
   }
 
   reset() {
     this.t = 0;
     this.flying = [];
-    this.hits = [];
+    this.hits.clear();
     this.spawnAcc = 0;
     this.engine?.reset?.();
   }
@@ -133,7 +136,6 @@ export default class DeBroglie extends SimModule {
       f.t += dt;
       if (f.t >= FLIGHT_TIME) {
         this.hits.push(f.yTarget);
-        if (this.hits.length > MAX_HITS) this.hits.shift();
       } else {
         if (write !== i) this.flying[write] = f;
         write++;
@@ -154,12 +156,14 @@ export default class DeBroglie extends SimModule {
     scene.body(0, -d / 2, { shape: 'circle', r: 0.1, color: 'field', glow: false });
 
     // Histograma de impactos acumulados — el patrón emerge tras muchos disparos.
-    const bins = new Array(BINS).fill(0);
-    for (const y of this.hits) {
+    const bins = this._bins;
+    bins.fill(0);
+    this.hits.forEach((y) => {
       const idx = Math.min(BINS - 1, Math.max(0, Math.floor(((y + 4) / 8) * BINS)));
       bins[idx]++;
-    }
-    const maxBin = Math.max(1, ...bins);
+    });
+    let maxBin = 1;
+    for (let i = 0; i < BINS; i++) if (bins[i] > maxBin) maxBin = bins[i];
     const binH = (8 / BINS) * 0.85;
     for (let i = 0; i < BINS; i++) {
       if (!bins[i]) continue;
@@ -168,12 +172,19 @@ export default class DeBroglie extends SimModule {
       scene.rect(SCREEN_L + w / 2, y, w, binH, { color: 'field', fill: 'field', stroke: false, alpha: 0.85 });
     }
 
-    // Electrones en vuelo: puntos que viajan del plano de rendijas a la pantalla.
-    for (const f of this.flying) {
-      const u = Math.min(1, f.t / FLIGHT_TIME);
-      const x = lerp(0, SCREEN_L, u);
-      const y = lerp(f.y0, f.yTarget, u);
-      scene.body(x, y, { shape: 'circle', r: 0.07, color: 'ray', glow: false });
+    // Electrones en vuelo: puntos que viajan del plano de rendijas a la
+    // pantalla, en una sola nube (`dots`) sobre un búfer plano reutilizado.
+    const n = this.flying.length;
+    if (n) {
+      if (this._flyBuf.length < n * 2) this._flyBuf = new Float64Array(n * 4);
+      const buf = this._flyBuf;
+      for (let i = 0; i < n; i++) {
+        const f = this.flying[i];
+        const u = Math.min(1, f.t / FLIGHT_TIME);
+        buf[i * 2] = lerp(0, SCREEN_L, u);
+        buf[i * 2 + 1] = lerp(f.y0, f.yTarget, u);
+      }
+      scene.dots(buf.subarray(0, n * 2), 0.07, { color: 'ray' });
     }
 
     scene.hud.readout(
@@ -201,13 +212,16 @@ export default class DeBroglie extends SimModule {
   }
 
   getState() {
-    return { t: this.t, params: { ...this.params }, hits: this.hits.slice(-100) };
+    return { t: this.t, params: { ...this.params }, hits: this.hits.toArray().slice(-100) };
   }
 
   setState(s) {
     if (!s || typeof s !== 'object') return;
     if (s.params) Object.assign(this.params, s.params);
-    if (Array.isArray(s.hits)) this.hits = s.hits.slice();
+    if (Array.isArray(s.hits)) {
+      this.hits.clear();
+      for (const y of s.hits) this.hits.push(y);
+    }
     if (s.t != null) this.t = s.t;
   }
 }

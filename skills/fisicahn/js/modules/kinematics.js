@@ -9,15 +9,16 @@ import { SimModule } from '../core/sim-module.js';
 import { TrailBuffer } from '../core/trail-buffer.js';
 import { roundTo } from '../utils/math-helpers.js';
 import { Vector2D } from '../utils/vector2d.js';
-import {
-  setModuleInfo,
-  setModuleFormulas,
-  paramControl,
-  bindParamControls,
-  clearChallenges
-} from '../module-ui.js';
 
 export default class Kinematics extends SimModule {
+  /** Esquema declarativo (§2.7): el anfitrión construye y enlaza el panel. */
+  static params = [
+    { id: 'vx', label: 'Velocidad x', latex: 'v_x', unit: 'm/s', min: -5, max: 5, step: 0.1, value: 2 },
+    { id: 'vy', label: 'Velocidad y', latex: 'v_y', unit: 'm/s', min: -5, max: 5, step: 0.1, value: 0 },
+    { id: 'ax', label: 'Aceleración x', latex: 'a_x', unit: 'm/s²', min: -2, max: 2, step: 0.1, value: 0 },
+    { id: 'ay', label: 'Aceleración y', latex: 'a_y', unit: 'm/s²', min: -2, max: 2, step: 0.1, value: 0 }
+  ];
+
   constructor(ctx) {
     super(ctx);
     this.params = { vx: 2, vy: 0, ax: 0, ay: 0 };
@@ -25,7 +26,8 @@ export default class Kinematics extends SimModule {
     this.vel = new Vector2D(0, 0);
     this.accel = new Vector2D(0, 0);
     this.trail = new TrailBuffer(160);
-    this.tSamples = [];
+    /** Muestras (t, x) para la gráfica x(t): anillo de 120, listo para `hud.plot`. */
+    this.tSamples = new TrailBuffer(120);
     this.isRunning = false;
     this.unbounded = true;
   }
@@ -35,12 +37,12 @@ export default class Kinematics extends SimModule {
     this.vel = new Vector2D(this.params.vx, this.params.vy);
     this.accel = new Vector2D(this.params.ax, this.params.ay);
     this.trail.clear();
-    this.tSamples = [];
+    this.tSamples.clear();
     this.unbounded = true;
     this.isRunning = true;
     this.renderer?.resetCamera?.();
 
-    setModuleInfo(this.ui, {
+    this.setModuleInfo({
       title: meta?.title || 'Cinemática',
       blurb:
         meta?.blurb ||
@@ -54,7 +56,7 @@ export default class Kinematics extends SimModule {
       ]
     });
 
-    setModuleFormulas(this.ui, {
+    this.setModuleFormulas({
       title: 'Ecuaciones del movimiento',
       items: [
         {
@@ -74,9 +76,7 @@ export default class Kinematics extends SimModule {
         }
       ]
     });
-    clearChallenges(this.ui);
-    this.ui.setData('<p class="tab-text">Los datos apareceran al iniciar la simulacion.</p>');
-    this.renderParams();
+    this.clearChallenges();
   }
 
   destroy() {
@@ -89,7 +89,7 @@ export default class Kinematics extends SimModule {
     this.vel = new Vector2D(this.params.vx, this.params.vy);
     this.accel = new Vector2D(this.params.ax, this.params.ay);
     this.trail.clear();
-    this.tSamples = [];
+    this.tSamples.clear();
     if (this.unbounded) this.renderer?.follow?.(this.pos.x, this.pos.y);
     else this.renderer?.resetCamera?.();
     this.engine?.reset?.();
@@ -103,12 +103,6 @@ export default class Kinematics extends SimModule {
     this.unbounded = !!on;
     if (this.unbounded) this.renderer?.follow?.(this.pos.x, this.pos.y);
     else this.renderer?.resetCamera?.();
-    const btn = document.getElementById('param_unbounded');
-    if (btn) {
-      btn.setAttribute('aria-pressed', this.unbounded ? 'true' : 'false');
-      btn.classList.toggle('active', this.unbounded);
-      btn.textContent = this.unbounded ? 'Espacio infinito: ON' : 'Espacio infinito: OFF';
-    }
   }
 
   getUnbounded() {
@@ -133,12 +127,7 @@ export default class Kinematics extends SimModule {
     if (s.accel) this.accel = new Vector2D(s.accel.x, s.accel.y);
     if (typeof s.unbounded === 'boolean') this.setUnbounded(s.unbounded);
     this.trail.clear();
-    this.tSamples = [];
-    try {
-      this.renderParams();
-    } catch {
-      /* ignore */
-    }
+    this.tSamples.clear();
   }
 
   update(dt) {
@@ -147,13 +136,7 @@ export default class Kinematics extends SimModule {
     this.vel.addScaled(this.accel, dt);
     this.pos.addScaled(this.vel, dt);
     this.trail.push({ x: this.pos.x, y: this.pos.y });
-    this.tSamples.push({
-      t: this.engine?._elapsed ?? this.tSamples.length * dt,
-      x: this.pos.x,
-      y: this.pos.y,
-      v: this.vel.magnitude()
-    });
-    if (this.tSamples.length > 120) this.tSamples.shift();
+    this.tSamples.push({ x: this.engine?._elapsed ?? this.tSamples.length * dt, y: this.pos.x });
 
     if (!this.unbounded) {
       if (this.pos.x > 9.5) {
@@ -205,10 +188,10 @@ export default class Kinematics extends SimModule {
     // Gráfica x(t) en el propio lienzo (§15.1): sustituye el SVG lateral.
     const vp = scene.viewport();
     const points = this.tSamples.length > 1
-      ? this.tSamples.map((s) => ({ x: s.t, y: s.x }))
+      ? this.tSamples
       : [{ x: 0, y: this.pos.x }, { x: 1, y: this.pos.x }];
     scene.hud.plot(
-      { x: vp.w - 220, y: vp.h - 150, w: 200, h: 130 },
+      { x: vp.x + vp.w - 220, y: vp.y + vp.h - 150, w: 200, h: 130 },
       { title: 'x (m) frente al tiempo (s)', series: [{ label: 'x', points, color: 'field' }] }
     );
   }
@@ -225,31 +208,5 @@ export default class Kinematics extends SimModule {
       ay: { value: roundTo(this.accel.y, 2), unit: 'm/s²' },
       modo: { value: this.unbounded ? 'Espacio infinito ON' : 'Con paredes', unit: '' }
     };
-  }
-
-  renderParams() {
-    if (!this.ui) return;
-    const on = this.unbounded ? ' active' : '';
-    const txt = this.unbounded ? 'Espacio infinito: ON' : 'Espacio infinito: OFF';
-    this.ui.setParams(`
-      <div class="control-group">
-        <button type="button" class="ctrl-btn unbounded-btn${on}" id="param_unbounded" aria-pressed="${this.unbounded}">
-          ${txt}
-        </button>
-      </div>
-      ${paramControl({ id: 'vx', labelTex: 'v_x', labelRest: 'velocidad', min: -5, max: 5, step: 0.1, value: this.params.vx, unit: 'm/s' })}
-      ${paramControl({ id: 'vy', labelTex: 'v_y', labelRest: 'velocidad', min: -5, max: 5, step: 0.1, value: this.params.vy, unit: 'm/s' })}
-      ${paramControl({ id: 'ax', labelTex: 'a_x', labelRest: 'aceleración', min: -2, max: 2, step: 0.1, value: this.params.ax, unit: 'm/s²' })}
-      ${paramControl({ id: 'ay', labelTex: 'a_y', labelRest: 'aceleración', min: -2, max: 2, step: 0.1, value: this.params.ay, unit: 'm/s²' })}
-    `);
-    setTimeout(() => {
-      document.getElementById('param_unbounded')?.addEventListener('click', () =>
-        this.setUnbounded(!this.unbounded)
-      );
-      bindParamControls(['vx', 'vy', 'ax', 'ay'], (id, val) => {
-        this.params[id] = val;
-        this.reset();
-      });
-    }, 0);
   }
 }

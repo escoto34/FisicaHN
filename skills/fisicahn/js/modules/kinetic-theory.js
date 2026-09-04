@@ -17,7 +17,6 @@
 
 import { SimModule } from '../core/sim-module.js';
 import { roundTo } from '../utils/math-helpers.js';
-import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 const KB = 1.380649e-23; // J/K
 const AMU = 1.660539e-27; // kg
@@ -25,6 +24,9 @@ const AMU = 1.660539e-27; // kg
 const KVIS = 90;
 /** Radio de partícula en el mundo. */
 const R = 0.22;
+/** Filtros por especie para `scene.dots` (sin clausuras por frame). */
+const isLight = (q) => q.id !== 1;
+const isHeavy = (q) => q.id === 1;
 
 /** Velocidad (rapidez, m/s) muestreada de la CDF 2D de Maxwell-Boltzmann. */
 function sampleSpeed(m, T, rng = Math.random) {
@@ -76,11 +78,14 @@ export default class KineticTheory extends SimModule {
     this.p = [];
     this.Tmeas = 0;
     this.t = 0;
+    /** Histograma de rapidez: se recalcula ~10 veces/s, no en cada frame. */
+    this._histSpec = null;
+    this._histT = -Infinity;
   }
 
   init(meta = null) {
     this.reset();
-    setModuleInfo(this.ui, {
+    this.setModuleInfo({
       title: 'Teoría cinética',
       blurb: 'Moléculas en movimiento: temperatura como energía cinética media y Maxwell-Boltzmann.',
       story:
@@ -92,7 +97,7 @@ export default class KineticTheory extends SimModule {
         'T medida (de ⟨½mv²⟩) sigue a T ajustada gracias al termostato.'
       ]
     });
-    setModuleFormulas(this.ui, {
+    this.setModuleFormulas({
       title: 'Teoría cinética',
       items: [
         {
@@ -117,7 +122,7 @@ export default class KineticTheory extends SimModule {
         }
       ]
     });
-    clearChallenges(this.ui);
+    this.clearChallenges();
   }
 
   reset() {
@@ -320,12 +325,13 @@ export default class KineticTheory extends SimModule {
       dash: [4, 4]
     });
 
-    for (const q of this.p) {
-      scene.body(q.x, q.y, {
-        shape: 'circle',
-        r: R,
-        color: bin && q.id === 1 ? 'force' : 'mass'
-      });
+    // Nube de moléculas en una llamada por especie (`dots`): antes eran hasta
+    // 320 `body()` con `save/restore` y degradado cada uno.
+    if (bin) {
+      scene.dots(this.p, R, { color: 'mass', filter: isLight });
+      scene.dots(this.p, R, { color: 'force', filter: isHeavy });
+    } else {
+      scene.dots(this.p, R, { color: 'mass' });
     }
 
     const hud = scene.hud;
@@ -336,52 +342,66 @@ export default class KineticTheory extends SimModule {
       { label: 'v_rms (2D)', value: roundTo(this.vRms(this.p[0]?.m || AMU * 28), 0), unit: 'm/s' }
     ];
     if (bin && this.p.length) {
-      const slow = Math.min(...new Set(this.p.map((q) => q.m)));
-      const fast = Math.max(...new Set(this.p.map((q) => q.m)));
+      let slow = Infinity;
+      let fast = 0;
+      for (const q of this.p) {
+        if (q.m < slow) slow = q.m;
+        if (q.m > fast) fast = q.m;
+      }
       rows.push({ label: '⟨v⟩ ligero', value: roundTo(this.vRms(slow), 0), unit: 'm/s' });
       rows.push({ label: '⟨v⟩ pesado', value: roundTo(this.vRms(fast), 0), unit: 'm/s' });
     }
     hud.readout(rows, 'bottom-left');
 
-    // Histograma de rapidez versus la curva teórica.
+    // Histograma de rapidez versus la curva teórica. Recalcular las cajas y
+    // las series cada frame costaba más que dibujar el gas entero: se
+    // refresca cada 0,1 s (o tras un reset) y entre medias se reutiliza.
     const vp = scene.viewport();
     if (vp.w > 430) {
-      const { dx, series, theory, vmax } = this._bins();
-      const serieList = series.map((s) => {
-        const pts = [];
-        for (let k = 0; k < s.counts.length; k++) {
-          pts.push({ x: k * dx, y: s.counts[k] });
-          pts.push({ x: (k + 1) * dx, y: s.counts[k] });
-        }
-        return {
-          points: pts,
-          color: s.id === 1 ? 'force' : 'mass',
-          fill: true,
-          label: s.id === 1 && bin ? 'pesado' : 'gas'
-        };
-      });
-      const theorySeries = theory.map((pts, i) => ({
-        points: pts,
-        color: i === 1 ? 'force' : 'energy',
-        dash: [3, 3],
-        width: 2
-      }));
-      let ymax = 1;
-      for (const s of series) {
-        for (const c of s.counts) if (c > ymax) ymax = c;
+      if (!this._histSpec || this.t - this._histT > 0.1 || this.t < this._histT) {
+        this._histSpec = this._histogramSpec(bin);
+        this._histT = this.t;
       }
-      hud.plot(
-        { x: vp.x + vp.w - 270, y: vp.y + vp.h - 140, w: 255, h: 126 },
-        {
-          title: 'Rapidez de las moléculas f(v)',
-          series: [...serieList, ...theorySeries],
-          xRange: [0, vmax * 1.06],
-          yRange: [0, ymax * 1.2],
-          xLabel: 'v (m/s)',
-          yLabel: 'N'
-        }
-      );
+      hud.plot({ x: vp.x + vp.w - 270, y: vp.y + vp.h - 140, w: 255, h: 126 }, this._histSpec);
     }
+  }
+
+  /** Especificación completa de `hud.plot` para el histograma (series planas). */
+  _histogramSpec(bin) {
+    const { dx, series, theory, vmax } = this._bins();
+    const serieList = series.map((s) => {
+      const pts = new Float64Array(s.counts.length * 4);
+      for (let k = 0; k < s.counts.length; k++) {
+        pts[k * 4] = k * dx;
+        pts[k * 4 + 1] = s.counts[k];
+        pts[k * 4 + 2] = (k + 1) * dx;
+        pts[k * 4 + 3] = s.counts[k];
+      }
+      return {
+        points: pts,
+        color: s.id === 1 ? 'force' : 'mass',
+        fill: true,
+        label: s.id === 1 && bin ? 'pesado' : 'gas'
+      };
+    });
+    const theorySeries = theory.map((pts, i) => ({
+      points: pts,
+      color: i === 1 ? 'force' : 'energy',
+      dash: [3, 3],
+      width: 2
+    }));
+    let ymax = 1;
+    for (const s of series) {
+      for (const c of s.counts) if (c > ymax) ymax = c;
+    }
+    return {
+      title: 'Rapidez de las moléculas f(v)',
+      series: [...serieList, ...theorySeries],
+      xRange: [0, vmax * 1.06],
+      yRange: [0, ymax * 1.2],
+      xLabel: 'v (m/s)',
+      yLabel: 'N'
+    };
   }
 
   /* ---------- datos numéricos (§3.1) ---------- */

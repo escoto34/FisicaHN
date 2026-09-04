@@ -12,7 +12,6 @@
 import { SimModule } from '../core/sim-module.js';
 import { TrailBuffer } from '../core/trail-buffer.js';
 import { roundTo } from '../utils/math-helpers.js';
-import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 export default class Oscillatory extends SimModule {
   static viewport = { width: 24, height: 10 };
@@ -43,7 +42,7 @@ export default class Oscillatory extends SimModule {
 
   init(meta = null) {
     this.reset();
-    setModuleInfo(this.ui, {
+    this.setModuleInfo({
       title: 'Oscilaciones y energía',
       blurb: 'MHS en un resorte: la ley de Hooke, el periodo y Em = Ec + Ep.',
       story:
@@ -55,7 +54,7 @@ export default class Oscillatory extends SimModule {
         'Con roce: la envolvente A·e^{−γt} envuelve la estela.'
       ]
     });
-    setModuleFormulas(this.ui, {
+    this.setModuleFormulas({
       title: 'Oscilaciones',
       items: [
         { name: 'Ley de Hooke', formula: 'F = −k·x' },
@@ -69,7 +68,7 @@ export default class Oscillatory extends SimModule {
         { name: 'Energía mecánica', formula: 'E_m = \\tfrac{1}{2} k A^2', note: 'Se conserva solo si γ = 0.' }
       ]
     });
-    clearChallenges(this.ui);
+    this.clearChallenges();
   }
 
   reset() {
@@ -142,13 +141,11 @@ export default class Oscillatory extends SimModule {
     const w = scene.world();
     const vp = scene.viewport();
 
-    // Piso de apoyo.
-    scene.line(wall - 0.5, -0.9, w.right - 0.8, -0.9, { color: 'textDim', width: 3 });
-    scene.line(-0.5, -0.9, 0.5, -1.4, { color: 'textDim', width: 3 });
-    scene.line(7.0, -0.9, 7.6, -1.4, { color: 'textDim', width: 3 });
+    // Piso de apoyo y pared fija (primitivas `ground`/`wall`, con rayado).
+    scene.ground(wall - 0.5, w.right - 0.8, -0.9, { width: 3 });
+    scene.wall(wall, -0.9, 0.9, { width: 3, side: 'left' });
 
     // Muelle real entre la pared y la masa (primitiva spring, tanda 5.2).
-    scene.line(wall, 0.5, wall, -0.5, { color: 'textDim', width: 4 });
     scene.spring(wall, 0, x - m * 0.35, 0, { color: 'spring', width: 2, coils: 14, amplitude: 0.35 });
 
     // Equilibrio (x = 0) punteado.

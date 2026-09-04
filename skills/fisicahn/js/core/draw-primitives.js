@@ -122,16 +122,18 @@ export function hatchLine(ctx, x1, y1, x2, y2, opts = {}) {
   ctx.moveTo(x1, y1);
   ctx.lineTo(x2, y2);
   ctx.stroke();
+  // Todos los trazos en un solo camino y un solo `stroke()`: un suelo de 30
+  // rayas costaba 30 trazados; el resultado dibujado es idéntico.
   const steps = Math.max(1, Math.round(segLen / spacing));
+  ctx.beginPath();
   for (let i = 0; i <= steps; i++) {
     const t = i / steps;
     const px = x1 + dx * t;
     const py = y1 + dy * t;
-    ctx.beginPath();
     ctx.moveTo(px, py);
     ctx.lineTo(px + hx * len, py + hy * len);
-    ctx.stroke();
   }
+  ctx.stroke();
 }
 
 /**
@@ -154,6 +156,66 @@ export function thermalColor(coldHex, hotHex, t) {
   const g = Math.round(g1 + (g2 - g1) * c);
   const b = Math.round(b1 + (b2 - b1) * c);
   return `rgb(${r}, ${g}, ${b})`;
+}
+
+/**
+ * Color aproximado de una longitud de onda (nm): tramos del espectro visible
+ * y tonos apagados fuera de él (UV violeta oscuro, IR rojo pálido). Es la
+ * paleta física de `atomic`, `photoelectric` y la radiación γ — el color
+ * lleva información real (λ), así que la primitiva que lo use debe acompañarlo
+ * siempre de una etiqueta con el valor numérico.
+ * @param {number|null} nm
+ * @returns {string} color CSS hex
+ */
+export function wavelengthColor(nm) {
+  if (nm == null || !Number.isFinite(nm)) return '#ce93d8';
+  if (nm < 380) return '#7e57c2'; // UV
+  if (nm < 450) return '#5c6bc0';
+  if (nm < 495) return '#26c6da';
+  if (nm < 570) return '#66bb6a';
+  if (nm < 590) return '#ffee58';
+  if (nm < 620) return '#ffb74d';
+  if (nm < 750) return '#ef5350';
+  return '#ef9a9a'; // IR
+}
+
+/**
+ * Garabato sinusoidal con punta de flecha: el símbolo de libro de texto para
+ * un fotón (γ) o una onda que viaja. Traza desde (x, y) a lo largo de
+ * `angle` durante `length` px; el llamador fija color y grosor.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {number} x @param {number} y - Cola del fotón (px).
+ * @param {number} angle - Dirección en radianes (sistema del lienzo).
+ * @param {number} length - Longitud total en px.
+ * @param {object} [opts]
+ * @param {number} [opts.amplitude=4] - Semiamplitud de la ondulación, px.
+ * @param {number} [opts.waves=3] - Número de ondas completas.
+ * @param {number} [opts.head=7] - Tamaño de la punta, px (0 = sin punta).
+ * @param {number} [opts.phase=0] - Fase inicial (anima el garabato).
+ */
+export function photonPath(ctx, x, y, angle, length, opts = {}) {
+  const amp = opts.amplitude ?? 4;
+  const waves = opts.waves ?? 3;
+  const head = opts.head ?? 7;
+  const phase = opts.phase ?? 0;
+  const ux = Math.cos(angle);
+  const uy = Math.sin(angle);
+  const nx = -uy;
+  const ny = ux;
+  const body = Math.max(1, length - head);
+  const steps = Math.max(6, Math.round(waves * 8));
+  ctx.beginPath();
+  for (let i = 0; i <= steps; i++) {
+    const s = (i / steps) * body;
+    const off = Math.sin(phase + (i / steps) * waves * Math.PI * 2) * amp;
+    const px = x + ux * s + nx * off;
+    const py = y + uy * s + ny * off;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.lineTo(x + ux * length, y + uy * length);
+  ctx.stroke();
+  if (head > 0) arrowHead(ctx, x + ux * length, y + uy * length, angle, head);
 }
 
 /**

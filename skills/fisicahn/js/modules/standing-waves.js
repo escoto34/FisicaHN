@@ -15,7 +15,6 @@
 
 import { SimModule } from '../core/sim-module.js';
 import { roundTo } from '../utils/math-helpers.js';
-import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 export default class StandingWaves extends SimModule {
   static viewport = { width: 24, height: 15 };
@@ -60,7 +59,7 @@ export default class StandingWaves extends SimModule {
 
   init(meta = null) {
     this.reset();
-    setModuleInfo(this.ui, {
+    this.setModuleInfo({
       title: 'Ondas estacionarias',
       blurb: 'Modos normales de una cuerda fija, nodos, armónicos y batidos por superposición.',
       story:
@@ -72,7 +71,7 @@ export default class StandingWaves extends SimModule {
         'La envolvente 2A·|cos(πΔf·t)| limita la onda sumada como una vaina.'
       ]
     });
-    setModuleFormulas(this.ui, {
+    this.setModuleFormulas({
       title: 'Ondas estacionarias',
       items: [
         {
@@ -97,7 +96,7 @@ export default class StandingWaves extends SimModule {
         }
       ]
     });
-    clearChallenges(this.ui);
+    this.clearChallenges();
   }
 
   reset() {
@@ -137,19 +136,13 @@ export default class StandingWaves extends SimModule {
     const f = this.fN();
     const x0 = -L / 2;
     const k = (2 * Math.PI * f * this.t) % (2 * Math.PI);
-    const pts = [];
-    const N = 90;
-    for (let i = 0; i <= N; i++) {
-      const x = x0 + (L * i) / N;
-      const u = (i / N) * Math.PI * n; // sin(nπ·x/L)
-      const y = A * Math.sin(u) * Math.cos(k);
-      pts.push({ x, y });
-    }
+    const cosK = Math.cos(k);
     // Poste izquierdo y derecho (extremos fijos).
     scene.rect(x0 - 0.3, -0.9, 0.3, 1.8, { color: 'textDim', width: 2 });
     scene.rect(x0 + L - 0.0, -0.9, 0.3, 1.8, { color: 'textDim', width: 2 });
 
-    scene.polyline(pts, { color: 'spring', width: 3 });
+    // y(x) = A·sin(nπ·x/L)·cos(ωt), muestreada por la escena.
+    scene.curve((x) => A * Math.sin(((x - x0) / L) * Math.PI * n) * cosK, x0, x0 + L, { samples: 90, color: 'spring', width: 3 });
 
     // Nodos (fijos) y vientres (máximo movimiento).
     for (let m = 0; m <= n; m++) {
@@ -205,32 +198,20 @@ export default class StandingWaves extends SimModule {
     const x1 = 9;
 
     const tStart = this.t - window;
-    const pts1 = [];
-    const pts2 = [];
-    const ptsSum = [];
-    const envPos = [];
-    const envNeg = [];
     const N = 120;
     const dF = Math.abs(f1 - f2);
-    for (let i = 0; i <= N; i++) {
-      const tt = tStart + (window * i) / N;
-      const x = x0 + (x1 - x0) * (i / N);
-      const y1 = A * Math.sin(2 * Math.PI * f1 * tt);
-      const y2 = A * Math.sin(2 * Math.PI * f2 * tt);
-      pts1.push({ x, y: y1 });
-      pts2.push({ x, y: y2 });
-      ptsSum.push({ x, y: y1 + y2 });
-      const env = 2 * A * Math.abs(Math.cos(Math.PI * dF * tt));
-      envPos.push({ x, y: env });
-      envNeg.push({ x, y: -env });
-    }
+    // El eje x del lienzo es el tiempo de la ventana: t(x) lineal.
+    const tOf = (x) => tStart + (window * (x - x0)) / (x1 - x0);
+    const y1 = (x) => A * Math.sin(2 * Math.PI * f1 * tOf(x));
+    const y2 = (x) => A * Math.sin(2 * Math.PI * f2 * tOf(x));
+    const env = (x) => 2 * A * Math.abs(Math.cos(Math.PI * dF * tOf(x)));
 
-    // Ejemplo de envolvente (contorno del batido).
-    scene.polyline(envPos, { color: 'energy', dash: [4, 3], width: 1.6 });
-    scene.polyline(envNeg, { color: 'energy', dash: [4, 3], width: 1.6 });
-    scene.polyline(ptsSum, { color: 'spring', width: 2 });
-    scene.polyline(pts1, { color: 'textDim', width: 1.5, alpha: 0.5 });
-    scene.polyline(pts2, { color: 'textDim', width: 1.5, alpha: 0.5 });
+    // Envolvente (contorno del batido), suma y componentes — muestreadas por la escena.
+    scene.curve(env, x0, x1, { samples: N, color: 'energy', dash: [4, 3], width: 1.6 });
+    scene.curve((x) => -env(x), x0, x1, { samples: N, color: 'energy', dash: [4, 3], width: 1.6 });
+    scene.curve((x) => y1(x) + y2(x), x0, x1, { samples: N, color: 'spring', width: 2 });
+    scene.curve(y1, x0, x1, { samples: N, color: 'textDim', width: 1.5, alpha: 0.5 });
+    scene.curve(y2, x0, x1, { samples: N, color: 'textDim', width: 1.5, alpha: 0.5 });
 
     scene.label(-0.2, 3.2, 'y₁ + y₂ con envolvente', { avoid: true, color: 'spring' });
     scene.label(-9.2, -2.2, `f₁ = ${f1} Hz · f₂ = ${f2} Hz`, { avoid: true, color: 'textDim' });

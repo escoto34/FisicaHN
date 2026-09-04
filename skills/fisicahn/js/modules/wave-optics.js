@@ -6,7 +6,6 @@
 
 import { SimModule } from '../core/sim-module.js';
 import { roundTo } from '../utils/math-helpers.js';
-import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 const N_SAMPLES = 120;
 
@@ -37,11 +36,15 @@ export default class WaveOptics extends SimModule {
     super(ctx);
     this.params = { mode: 'double', lambda: 0.55, d: 2.0, a: 0.6, L: 6 };
     this.t = 0;
+    /** Patrón I(y) muestreado y su curva, recalculados sólo al cambiar los parámetros. */
+    this._I = new Float64Array(N_SAMPLES + 1);
+    this._curvePts = new Float64Array((N_SAMPLES + 1) * 2);
+    this._sampleKey = '';
   }
 
   init(meta = null) {
     this.reset();
-    setModuleInfo(this.ui, {
+    this.setModuleInfo({
       title: meta?.title || 'Interferencia y difracción',
       blurb: meta?.blurb || 'Patrón de Young (doble rendija) e intensidad de difracción de una rendija.',
       story: 'La luz como onda interfiere. Young midió λ con franjas; la difracción limita la resolución de instrumentos.',
@@ -51,7 +54,7 @@ export default class WaveOptics extends SimModule {
         'Límite de difracción de un telescopio (apertura).'
       ]
     });
-    setModuleFormulas(this.ui, {
+    this.setModuleFormulas({
       items: [
         { name: 'Young (máximos)', formula: 'd \\sin\\theta = m \\lambda', note: 'm = 0, ±1, ±2…' },
         { name: 'Intensidad (2 rendijas, ideal)', formula: 'I \\propto \\cos^2(\\delta/2)', note: 'δ = (2π/λ) d senθ' },
@@ -59,7 +62,7 @@ export default class WaveOptics extends SimModule {
         { name: 'sinc', formula: 'I \\propto [\\sin\\beta/\\beta]^2', note: 'β = (π a senθ)/λ' }
       ]
     });
-    clearChallenges(this.ui);
+    this.clearChallenges();
   }
 
   reset() {
@@ -103,21 +106,23 @@ export default class WaveOptics extends SimModule {
       scene.body(0, 0, { shape: 'rect', r: 0.15, color: 'field', glow: false, label: 'a' });
     }
 
-    // Pantalla: barras de brillo según intensidad, más la curva I(y) a la derecha.
-    const screenX = 7;
-    const samples = [];
-    for (let i = 0; i <= N_SAMPLES; i++) {
-      const y = -4 + (8 * i) / N_SAMPLES;
-      samples.push({ y, I: this.intensity(y) });
+    // Pantalla: franja de brillo según intensidad, más la curva I(y) a la
+    // derecha. El patrón sólo depende de los parámetros: se remuestrea al
+    // cambiar y entre medias se reutilizan los búferes.
+    const screenX = 6.4;
+    const key = `${mode}|${d}|${L}|${this.params.lambda}|${this.params.a}`;
+    if (key !== this._sampleKey) {
+      for (let i = 0; i <= N_SAMPLES; i++) {
+        const y = -4 + (8 * i) / N_SAMPLES;
+        const I = this.intensity(y);
+        this._I[i] = I;
+        this._curvePts[i * 2] = screenX + 0.7 + I * 2.2;
+        this._curvePts[i * 2 + 1] = y;
+      }
+      this._sampleKey = key;
     }
-    for (const s of samples) {
-      const g = Math.round(255 * Math.pow(s.I, 0.7));
-      scene.rect(screenX, s.y, 0.22, 0.08, { fill: `rgb(${g}, ${g}, ${Math.min(255, g + 40)})`, stroke: false });
-    }
-    scene.polyline(
-      samples.map((s) => ({ x: screenX + 0.8 + s.I * 2.5, y: s.y })),
-      { color: 'field', width: 2 }
-    );
+    scene.intensityStrip(screenX, -4, 4, 0.22, this._I);
+    scene.polyline(this._curvePts, { color: 'field', width: 2 });
 
     // Animación de crestas cerca de la fuente (indicativa, no propagación real).
     const phase = this.t * 3;

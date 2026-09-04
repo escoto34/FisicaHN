@@ -9,7 +9,6 @@
 
 import { SimModule } from '../core/sim-module.js';
 import { roundTo } from '../utils/math-helpers.js';
-import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 /** Gravedad superficial (m/s²) y años luz de nombres cortos. */
 const ASTROS = [
@@ -20,6 +19,8 @@ const ASTROS = [
   { id: 'jupiter', label: 'Júpiter', g: 24.79 },
   { id: 'neptuno', label: 'Neptuno', g: 11.15 }
 ];
+/** Mayor g de la tabla: escala común de la gráfica de barras (constante). */
+const MAX_G = Math.max(...ASTROS.map((a) => a.g));
 
 export default class MassWeight extends SimModule {
   static viewport = { width: 22, height: 13 };
@@ -41,6 +42,8 @@ export default class MassWeight extends SimModule {
   constructor(ctx) {
     super(ctx);
     this.params = { m: 50, astro: 'tierra' };
+    /** Elementos de la gráfica de barras (etiquetas y colores fijos; sólo cambia `value`). */
+    this._barItems = ASTROS.map((a, i) => ({ value: 0, color: i % 2 ? 'mass2' : 'energy', label: a.label.slice(0, 3) }));
   }
 
   astro() {
@@ -53,7 +56,7 @@ export default class MassWeight extends SimModule {
 
   init(meta = null) {
     this.reset();
-    setModuleInfo(this.ui, {
+    this.setModuleInfo({
       title: 'Masa y peso',
       blurb: 'Distinguir masa (invariante) de peso (m·g, depende del astro).',
       story:
@@ -64,7 +67,7 @@ export default class MassWeight extends SimModule {
         'Por qué los saltos son más altos en la Luna aunque la masa sea la misma.'
       ]
     });
-    setModuleFormulas(this.ui, {
+    this.setModuleFormulas({
       title: 'Masa vs peso',
       items: [
         {
@@ -79,7 +82,7 @@ export default class MassWeight extends SimModule {
         }
       ]
     });
-    clearChallenges(this.ui);
+    this.clearChallenges();
   }
 
   reset() {
@@ -96,8 +99,8 @@ export default class MassWeight extends SimModule {
     // Suelo centrado en el mundo: la báscula queda sobre el origen (§17.1).
     const g = -1.9;
 
-    // Suelo.
-    scene.rect(0, g, w.right - w.left - 1.6, 0.3, { color: 'textDim', fill: true });
+    // Suelo con rayado de apoyo.
+    scene.ground(w.left + 0.8, w.right - 0.8, g, { width: 2.5 });
 
     // Báscula: pedestal + plato sobre el suelo (eje centrado en el origen).
     const bx = 0;
@@ -147,29 +150,18 @@ export default class MassWeight extends SimModule {
     );
   }
 
-  /** Barras W por astro, ancladas a la derecha (escala N). */
+  /** Barras W por astro, ancladas a la derecha (escala N): primitiva `bars`. */
   drawWeightBars(scene, w) {
     const { m } = this.params;
-    const maxW = this.weight(m, Math.max(...ASTROS.map((x) => x.g)));
     const barW = 0.5;
+    const gap = 0.32;
     const x0 = w.right - 8.6;
     const top = w.top - 1.1;
     const usable = 10.5;
-    let i = 0;
-    for (const a of ASTROS) {
-      const W = this.weight(m, a.g);
-      const h = Math.max(0.2, (W / maxW) * usable);
-      scene.rect(x0 + i * (barW + 0.32), top - h / 2, barW, h, {
-        color: i % 2 ? 'mass2' : 'energy',
-        fill: true
-      });
-      scene.label(x0 + i * (barW + 0.32), top - 0.75, a.label.slice(0, 3), { avoid: true,
-        color: 'textDim',
-        size: 9
-      });
-      i++;
-    }
-    scene.label(x0 + ((barW * 6 + 0.32 * 5) / 2), top + 0.6, 'Peso W por astro', { avoid: true,
+    const items = this._barItems;
+    for (let i = 0; i < ASTROS.length; i++) items[i].value = this.weight(m, ASTROS[i].g);
+    scene.bars(x0, top - usable, items, { max: this.weight(m, MAX_G), hMax: usable, barW, gap, minH: 0.2, labelSize: 9, labelOffset: 0.55 });
+    scene.label(x0 + ((barW * 6 + gap * 5) / 2), top + 0.6, 'Peso W por astro', { avoid: true,
       color: 'textDim',
       size: 10
     });

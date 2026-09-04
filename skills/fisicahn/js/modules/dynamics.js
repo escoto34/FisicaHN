@@ -1,284 +1,333 @@
 /**
  * @fileoverview Dinámica — F = m·a + espacio infinito.
+ *
+ * Migrado al contrato `SimModule` con `draw(scene)`: el estado vive en la
+ * instancia, los parámetros son un esquema declarativo (§2.7) y el dibujo usa
+ * el vocabulario de la escena (§2.4). La cámara libre («espacio infinito»)
+ * sigue al cuerpo vía `renderer.follow()`, igual que `kinematics`; con paredes
+ * el cuerpo rebota perdiendo un 20 % de velocidad en cada choque.
  */
 
-import { Vector2D } from '../utils/vector2d.js';
+import { SimModule } from '../core/sim-module.js';
 import { TrailBuffer } from '../core/trail-buffer.js';
-import { roundTo } from '../utils/math-helpers.js';
-import {
-  setModuleInfo,
-  setModuleFormulas,
-  paramControl,
-  bindParamControls,
-  clearChallenges
-} from '../module-ui.js';
+import { roundTo } from '../core/geometry.js';
 
-let pos = new Vector2D(0, 0);
-let vel = new Vector2D(0, 0);
-let accel = new Vector2D(0, 0);
-let force = new Vector2D(0, 0);
+/** Semiancho / semialto del recinto con paredes (unidades de mundo). */
+const WALL_X = 9.5;
+const WALL_Y = 7;
+/** Posición inicial del cuerpo. */
+const X0 = -6;
+const Y0 = 0;
+/** Escalas de dibujo de los vectores (unidades de mundo por N, m/s y m/s²). */
+const K_FORCE = 0.15;
+const K_VEL = 0.2;
+const K_ACC = 0.35;
 
-const MAX_TRAIL = 120;
-/** Estela en anillo: el `push`+`shift()` era O(n) por frame (§3.2). */
-const trail = new TrailBuffer(MAX_TRAIL);
-/** Punto de trabajo para worldToCanvas (bucle de estela, §3.2). */
-const _to = { x: 0, y: 0 };
-let isRunning = false;
-let unbounded = true;
-let _engine = null;
-let _renderer = null;
-let _ui = null;
+export default class DynamicsModule extends SimModule {
+  /** Encuadre: el recinto de paredes (19 × 14) cabe con margen. */
+  static viewport = { width: 22, height: 14 };
+  /** Punto fijo: el centro del recinto. */
+  static anchor = { x: 0, y: 0 };
 
-const params = {
-  mass: 2,
-  fx: 5,
-  fy: 0
-};
+  static params = [
+    { id: 'mass', label: 'Masa', latex: 'm', unit: 'kg', min: 0.5, max: 10, step: 0.5, value: 2 },
+    { id: 'fx', label: 'Fuerza horizontal', latex: 'F_x', unit: 'N', min: -20, max: 20, step: 0.5, value: 5 },
+    { id: 'fy', label: 'Fuerza vertical', latex: 'F_y', unit: 'N', min: -20, max: 20, step: 0.5, value: 0 }
+  ];
 
-export function init(engine, renderer, ui, meta = null) {
-  _engine = engine;
-  _renderer = renderer;
-  _ui = ui;
-
-  pos = new Vector2D(-6, 0);
-  vel = new Vector2D(0, 0);
-  isRunning = true;
-  unbounded = true;
-  trail.clear();
-  renderer.resetCamera();
-  applyForce();
-
-  setModuleInfo(ui, {
-    title: meta?.title || 'Fuerzas y movimiento',
-    blurb:
-      meta?.blurb ||
-      'Segunda ley de Newton: la fuerza neta determina la aceleración (F = m·a).',
-    story:
-      'Newton relacionó fuerza, masa y aceleración. Distinto de cinemática: aquí la causa del movimiento es F. Distinto de energía en el resorte: aquí se aplica una fuerza constante y se ve a = F/m.',
-    cases: [
-      'Empujar un carrito de supermercado (más masa → menos aceleración).',
-      'Frenar un camión vs una bicicleta con la misma fuerza de freno.',
-      'Cohete: empuje del motor menos el peso.'
-    ]
-  });
-  setModuleFormulas(ui, {
-    items: [
-      { name: 'Segunda ley', formula: 'F = m · a', note: 'Fuerza neta en newtons (N), masa en kg, a en m/s².' },
-      { name: 'Aceleración', formula: 'a = F / m', note: 'A mayor masa, menor aceleración para la misma F.' },
-      { name: 'Velocidad con a constante', formula: 'v = v<sub>0</sub> + a · t' }
-    ]
-  });
-  clearChallenges(ui);
-  ui.setData('<p class="tab-text">Ajusta los parámetros para ver los datos.</p>');
-
-  renderParams();
-}
-
-export function destroy() {
-  isRunning = false;
-  if (_renderer) _renderer.resetCamera();
-  _engine = _renderer = _ui = null;
-}
-
-export function reset(engine, renderer, ui) {
-  pos = new Vector2D(-6, 0);
-  vel = new Vector2D(0, 0);
-  trail.clear();
-  applyForce();
-  if (renderer) {
-    if (unbounded) renderer.follow(pos.x, pos.y);
-    else renderer.resetCamera();
-  }
-  engine.reset();
-}
-
-export function setTool(toolId) {
-  if (toolId === 'unbounded') setUnbounded(!unbounded);
-}
-
-export function getUnbounded() {
-  return unbounded;
-}
-
-export function getState() {
-  return {
-    pos: { x: pos.x, y: pos.y },
-    vel: { x: vel.x, y: vel.y },
-    accel: { x: accel.x, y: accel.y },
-    force: { x: force.x, y: force.y },
-    unbounded,
-    params: { ...params }
-  };
-}
-
-export function setState(s) {
-  if (!s || typeof s !== 'object') return;
-  if (s.params) {
-    if (s.params.mass != null) params.mass = s.params.mass;
-    if (s.params.fx != null) params.fx = s.params.fx;
-    if (s.params.fy != null) params.fy = s.params.fy;
-  }
-  applyForce();
-  if (s.pos) pos = new Vector2D(s.pos.x, s.pos.y);
-  if (s.vel) vel = new Vector2D(s.vel.x, s.vel.y);
-  if (typeof s.unbounded === 'boolean') setUnbounded(s.unbounded);
-  trail.clear();
-  renderParams();
-  updateData();
-}
-
-export function setUnbounded(on) {
-  unbounded = !!on;
-  if (_renderer) {
-    if (unbounded) _renderer.follow(pos.x, pos.y);
-    else _renderer.resetCamera();
-  }
-  const btn = document.getElementById('param_unbounded');
-  if (btn) {
-    btn.setAttribute('aria-pressed', unbounded ? 'true' : 'false');
-    btn.classList.toggle('active', unbounded);
-    btn.textContent = unbounded ? 'Espacio infinito: ON' : 'Espacio infinito: OFF';
-  }
-}
-
-function applyForce() {
-  const m = params.mass;
-  // Mutables: antes se creaban 2 Vector2D por llamada (§3.2).
-  force.set(params.fx, params.fy);
-  accel.set(force.x / m, force.y / m);
-}
-
-export function update(dt) {
-  if (!isRunning) return;
-  applyForce();
-  vel.addScaled(accel, dt);
-  pos.addScaled(vel, dt);
-
-  trail.push({ x: pos.x, y: pos.y });
-
-  if (!unbounded) {
-    if (pos.x > 9.5) {
-      pos.x = 9.5;
-      vel.x *= -0.8;
-    }
-    if (pos.x < -9.5) {
-      pos.x = -9.5;
-      vel.x *= -0.8;
-    }
-    if (pos.y > 7) {
-      pos.y = 7;
-      vel.y *= -0.8;
-    }
-    if (pos.y < -7) {
-      pos.y = -7;
-      vel.y *= -0.8;
-    }
-  } else if (_renderer) {
-    _renderer.follow(pos.x, pos.y);
+  constructor(ctx) {
+    super(ctx);
+    this.params = { mass: 2, fx: 5, fy: 0 };
+    this.t = 0;
+    this.x = X0;
+    this.y = Y0;
+    this.vx = 0;
+    this.vy = 0;
+    /** Aceleración y fuerza derivadas de los params (se recalculan por paso). */
+    this.ax = 0;
+    this.ay = 0;
+    this.isRunning = false;
+    /** Espacio infinito: la cámara sigue al cuerpo. Empieza activo (§5.5). */
+    this.unbounded = true;
+    /** Estela en anillo: sin `shift()` por frame (§3.2). */
+    this.trail = new TrailBuffer(120);
+    /** Historial |v|(t) para la gráfica del HUD. */
+    this.history = new TrailBuffer(240);
+    this.dragging = null;
   }
 
-  updateData();
-}
+  init(meta = null) {
+    this.isRunning = true;
+    this.unbounded = true;
+    this.reset();
+    this.renderer?.resetCamera?.();
 
-export function render(ctx, alpha, elapsed) {
-  if (!_renderer) return;
-  const r = _renderer;
-
-  if (trail.length > 1) {
-    ctx.save();
-    ctx.strokeStyle = 'rgba(255, 183, 77, 0.2)';
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath();
-    for (let i = 0; i < trail.length; i++) {
-      const p = r.worldToCanvas(trail.get(i).x, trail.get(i).y, _to);
-      if (i === 0) ctx.moveTo(p.x, p.y);
-      else ctx.lineTo(p.x, p.y);
-    }
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  const size = 0.3 + params.mass * 0.06;
-  r.drawObject(pos.x, pos.y, {
-    shape: 'circle',
-    size: Math.min(size, 0.8),
-    color: '#ffb74d',
-    label: `m = ${params.mass} kg`
-  });
-
-  // Fuerza y velocidad: etiquetas en lados opuestos del vector para no solaparse
-  if (force.magnitude() > 0.01) {
-    r.drawVector(pos.x, pos.y, force.x * 0.15, force.y * 0.15, {
-      color: '#ef5350',
-      width: 2.5,
-      label: `F = ${roundTo(force.magnitude(), 1)} N`,
-      labelSide: 1,
-      labelPad: 16
+    this.setModuleInfo({
+      title: meta?.title || 'Fuerzas y movimiento',
+      blurb:
+        meta?.blurb ||
+        'Segunda ley de Newton: la fuerza neta determina la aceleración (F = m·a).',
+      story:
+        'Newton relacionó fuerza, masa y aceleración. Distinto de cinemática: aquí la causa del movimiento es F. Distinto de energía en el resorte: aquí se aplica una fuerza constante y se ve a = F/m.',
+      cases: [
+        'Empujar un carrito de supermercado (más masa → menos aceleración).',
+        'Frenar un camión vs una bicicleta con la misma fuerza de freno.',
+        'Cohete: empuje del motor menos el peso.'
+      ]
     });
-  }
-
-  if (vel.magnitude() > 0.01) {
-    r.drawVector(pos.x, pos.y, vel.x * 0.2, vel.y * 0.2, {
-      color: '#66bb6a',
-      width: 2.5,
-      label: `v = ${roundTo(vel.magnitude(), 2)} m/s`,
-      labelSide: -1,
-      labelPad: 16
+    this.setModuleFormulas({
+      items: [
+        { name: 'Segunda ley', formula: 'F = m · a', note: 'Fuerza neta en newtons (N), masa en kg, a en m/s².' },
+        { name: 'Aceleración', formula: 'a = F / m', note: 'A mayor masa, menor aceleración para la misma F.' },
+        { name: 'Velocidad con a constante', formula: 'v = v<sub>0</sub> + a · t' }
+      ]
     });
+    this.clearChallenges();
   }
 
-  ctx.save();
-  ctx.font = '12px monospace';
-  ctx.fillStyle = 'rgba(255,255,255,0.6)';
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
-  [
-    `m = ${params.mass} kg`,
-    `F = ${roundTo(force.magnitude(), 1)} N`,
-    `a = ${roundTo(accel.magnitude(), 2)} m/s²`,
-    `v = ${roundTo(vel.magnitude(), 2)} m/s`,
-    unbounded ? 'espacio infinito' : 'con paredes'
-  ].forEach((line, i) => ctx.fillText(line, 10, 10 + i * 18));
-  ctx.restore();
-}
+  destroy() {
+    this.isRunning = false;
+    this.trail.clear();
+    this.history.clear();
+    this.renderer?.resetCamera?.();
+  }
 
-function updateData() {
-  if (!_ui) return;
-  _ui.setData(`
-    <div style="font-family:var(--font-mono);font-size:0.82rem;line-height:1.8">
-      <div>m = ${params.mass} kg</div>
-      <div>F<sub>x</sub> = ${params.fx} N · F<sub>y</sub> = ${params.fy} N</div>
-      <div>a = ${roundTo(accel.magnitude(), 3)} m/s²</div>
-      <div>v = ${roundTo(vel.magnitude(), 3)} m/s</div>
-      <div>x = ${roundTo(pos.x, 2)} m · y = ${roundTo(pos.y, 2)} m</div>
-    </div>
-  `);
-}
+  reset() {
+    this.t = 0;
+    this.x = X0;
+    this.y = Y0;
+    this.vx = 0;
+    this.vy = 0;
+    this.trail.clear();
+    this.history.clear();
+    this._applyForce();
+    if (this.unbounded) this.renderer?.follow?.(this.x, this.y);
+    else this.renderer?.resetCamera?.();
+    this.engine?.reset?.();
+  }
 
-function renderParams() {
-  if (!_ui) return;
-  const on = unbounded ? ' active' : '';
-  const txt = unbounded ? 'Espacio infinito: ON' : 'Espacio infinito: OFF';
-  _ui.setParams(`
-    <div class="control-group">
-      <button type="button" class="ctrl-btn unbounded-btn${on}" id="param_unbounded" aria-pressed="${unbounded}">
-        ${txt}
-      </button>
-    </div>
-    ${paramControl({ id: 'mass', labelTex: 'm', labelRest: 'masa', min: 0.5, max: 10, step: 0.5, value: params.mass, unit: 'kg' })}
-    ${paramControl({ id: 'fx', labelTex: 'F_x', labelRest: 'fuerza', min: -20, max: 20, step: 0.5, value: params.fx, unit: 'N' })}
-    ${paramControl({ id: 'fy', labelTex: 'F_y', labelRest: 'fuerza', min: -20, max: 20, step: 0.5, value: params.fy, unit: 'N' })}
-  `);
+  setTool(toolId) {
+    if (toolId === 'unbounded') this.setUnbounded(!this.unbounded);
+  }
 
-  setTimeout(() => {
-    document.getElementById('param_unbounded')?.addEventListener('click', () =>
-      setUnbounded(!unbounded)
+  /** Espacio infinito ON/OFF. Sin DOM: el anfitrión refleja el estado en el botón. */
+  setUnbounded(on) {
+    this.unbounded = !!on;
+    if (this.unbounded) this.renderer?.follow?.(this.x, this.y);
+    else this.renderer?.resetCamera?.();
+  }
+
+  getUnbounded() {
+    return this.unbounded;
+  }
+
+  _applyForce() {
+    const m = this.params.mass;
+    this.ax = this.params.fx / m;
+    this.ay = this.params.fy / m;
+  }
+
+  forceMagnitude() {
+    return Math.hypot(this.params.fx, this.params.fy);
+  }
+
+  speed() {
+    return Math.hypot(this.vx, this.vy);
+  }
+
+  accelMagnitude() {
+    return Math.hypot(this.ax, this.ay);
+  }
+
+  /** Radio del cuerpo, creciente con la masa (tope 0.8). */
+  radius() {
+    return Math.min(0.3 + this.params.mass * 0.06, 0.8);
+  }
+
+  update(dt) {
+    if (!this.isRunning || this.dragging) return;
+    this.t += dt;
+    this._applyForce();
+    this.vx += this.ax * dt;
+    this.vy += this.ay * dt;
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+
+    this.trail.push({ x: this.x, y: this.y });
+    this.history.push({ x: this.t, y: this.speed() });
+
+    if (!this.unbounded) {
+      // Rebote con pérdida del 20 % de velocidad en cada pared.
+      if (this.x > WALL_X) {
+        this.x = WALL_X;
+        this.vx *= -0.8;
+      }
+      if (this.x < -WALL_X) {
+        this.x = -WALL_X;
+        this.vx *= -0.8;
+      }
+      if (this.y > WALL_Y) {
+        this.y = WALL_Y;
+        this.vy *= -0.8;
+      }
+      if (this.y < -WALL_Y) {
+        this.y = -WALL_Y;
+        this.vy *= -0.8;
+      }
+    } else {
+      this.renderer?.follow?.(this.x, this.y);
+    }
+  }
+
+  /* ---------- interacción directa (§2.6) ---------- */
+
+  onPickStart(id) {
+    this.dragging = id;
+  }
+
+  onDrag(id, world) {
+    this.x = world.x;
+    this.y = world.y;
+    this.vx = 0;
+    this.vy = 0;
+    this.trail.clear();
+  }
+
+  onDragEnd() {
+    this.dragging = null;
+  }
+
+  /* ---------- dibujo declarativo (§2.4) ---------- */
+
+  draw(scene) {
+    const r = this.radius();
+    const F = this.forceMagnitude();
+    const v = this.speed();
+    const a = this.accelMagnitude();
+
+    // Recinto con paredes: sólo cuando el espacio no es infinito.
+    if (!this.unbounded) {
+      scene.rect(0, 0, WALL_X * 2, WALL_Y * 2, { color: 'textDim', width: 2, dash: [6, 4], alpha: 0.7 });
+      scene.hatch(-WALL_X, -WALL_Y, WALL_X, -WALL_Y, { color: 'textDim', side: 1, spacing: 14 });
+    }
+
+    // Marca del punto de partida: hace visible el desplazamiento acumulado.
+    scene.circle(X0, Y0, 0.12, { color: 'textDim', dash: [2, 2], width: 1 });
+
+    if (this.trail.length > 1) {
+      scene.trail(this.trail, { color: 'trail', width: 1.5, dash: [4, 4], fade: true });
+    }
+
+    scene.body(this.x, this.y, {
+      shape: 'circle',
+      r,
+      color: 'mass',
+      id: 'cuerpo',
+      label: `m = ${this.params.mass} kg`,
+      labelColor: 'mass'
+    });
+
+    // Fuerza (sólida) y velocidad (a trazos): etiquetas en lados opuestos.
+    if (F > 0.01) {
+      scene.vector(this.x, this.y, this.params.fx * K_FORCE, this.params.fy * K_FORCE, {
+        color: 'force',
+        width: 2.5,
+        label: `F = ${roundTo(F, 1)} N`,
+        labelSide: 1,
+        labelPad: 16
+      });
+      // Aceleración: misma dirección que F, más corta y punteada, para que se
+      // lea «a = F/m» sin tapar a la fuerza.
+      scene.vector(this.x, this.y, this.ax * K_ACC, this.ay * K_ACC, {
+        color: 'accel',
+        width: 2,
+        dash: [3, 3],
+        label: `a = ${roundTo(a, 2)} m/s²`,
+        labelSide: 1,
+        labelPad: 34
+      });
+    }
+    if (v > 0.01) {
+      scene.vector(this.x, this.y, this.vx * K_VEL, this.vy * K_VEL, {
+        color: 'velocity',
+        width: 2.5,
+        dash: [6, 3],
+        label: `v = ${roundTo(v, 2)} m/s`,
+        labelSide: -1,
+        labelPad: 16
+      });
+    }
+
+    // HUD: estado, lecturas y gráfica |v|(t).
+    const hud = scene.hud;
+    hud.chip(this.unbounded ? 'Espacio infinito: la cámara sigue al cuerpo' : 'Con paredes: rebote (−20 % de v)', 'top-left');
+    hud.readout(
+      [
+        { label: 'm', value: this.params.mass, unit: 'kg' },
+        { label: 'F', value: F, unit: 'N' },
+        { label: 'a', value: a, unit: 'm/s²' },
+        { label: 'v', value: v, unit: 'm/s' },
+        { label: 't', value: this.t, unit: 's' }
+      ],
+      'bottom-left'
     );
-    bindParamControls(['mass', 'fx', 'fy'], (id, val) => {
-      params[id] = val;
-      applyForce();
-      reset(_engine, _renderer, _ui);
-    });
-  }, 0);
+
+    const vp = scene.viewport();
+    if (vp.w > 420) {
+      const points = this.history.length > 1 ? this.history : [{ x: 0, y: v }, { x: 1, y: v }];
+      hud.plot(
+        { x: vp.x + vp.w - 210, y: vp.y + vp.h - 128, w: 195, h: 116 },
+        {
+          title: 'Rapidez |v| (m/s) frente a t (s)',
+          series: [{ points, color: 'velocity', label: '|v|' }]
+        }
+      );
+    }
+  }
+
+  /* ---------- datos numéricos (§1.1) ---------- */
+
+  readout() {
+    return {
+      m: { value: this.params.mass, unit: 'kg' },
+      'F_x': { value: this.params.fx, unit: 'N' },
+      'F_y': { value: this.params.fy, unit: 'N' },
+      a: { value: roundTo(this.accelMagnitude(), 3), unit: 'm/s²' },
+      v: { value: roundTo(this.speed(), 3), unit: 'm/s' },
+      x: { value: roundTo(this.x, 2), unit: 'm' },
+      y: { value: roundTo(this.y, 2), unit: 'm' },
+      t: { value: roundTo(this.t, 2), unit: 's' },
+      modo: { value: this.unbounded ? 'Espacio infinito ON' : 'Con paredes', unit: '' }
+    };
+  }
+
+  getState() {
+    return {
+      pos: { x: this.x, y: this.y },
+      vel: { x: this.vx, y: this.vy },
+      accel: { x: this.ax, y: this.ay },
+      force: { x: this.params.fx, y: this.params.fy },
+      t: this.t,
+      unbounded: this.unbounded,
+      params: { ...this.params }
+    };
+  }
+
+  setState(s) {
+    if (!s || typeof s !== 'object') return;
+    if (s.params) Object.assign(this.params, s.params);
+    this._applyForce();
+    if (s.pos) {
+      this.x = s.pos.x;
+      this.y = s.pos.y;
+    }
+    if (s.vel) {
+      this.vx = s.vel.x;
+      this.vy = s.vel.y;
+    }
+    if (Number.isFinite(s.t)) this.t = s.t;
+    if (typeof s.unbounded === 'boolean') this.setUnbounded(s.unbounded);
+    this.trail.clear();
+    this.history.clear();
+  }
 }

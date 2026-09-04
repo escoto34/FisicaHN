@@ -1,463 +1,372 @@
 /**
- * Campos magnéticos — carga con velocidad en B uniforme (F = q v × B).
- * B sale de la página (+z); movimiento en plano xy.
+ * @fileoverview Campos magnéticos — carga con velocidad en B uniforme
+ * (F = q·v × B). B perpendicular a la página (⊙ sale / ⊗ entra); movimiento
+ * en el plano xy.
  *
- * Importante (pedagogía): la órbita es circular, pero el centro NO es una masa.
- * A diferencia de gravedad/Kepler, no hay cuerpo en el centro: el “centro” es
- * solo el centro geométrico de la trayectoria (fuerza siempre ⊥ a v).
+ * Importante (pedagogía): la órbita es circular, pero el centro NO es una
+ * masa. A diferencia de gravedad/Kepler, no hay cuerpo en el centro: el
+ * «centro» es sólo el centro geométrico de la trayectoria (fuerza siempre
+ * ⊥ a v). Por eso se marca con una cruz y una llamada, no con un cuerpo.
+ *
+ * Migrado al contrato `SimModule` + `draw(scene)`: estado en la instancia,
+ * esquema declarativo, vocabulario de la escena y `readout()` numérico.
+ * `unbounded` («seguir carga») empieza en `true`, §17.3.
  */
 
-import { Vector2D } from '../utils/vector2d.js';
+import { SimModule } from '../core/sim-module.js';
 import { TrailBuffer } from '../core/trail-buffer.js';
-import {
-  setModuleInfo,
-  setModuleFormulas,
-  clearChallenges
-} from '../module-ui.js';
-import { roundTo } from '../utils/math-helpers.js';
+import { roundTo } from '../core/geometry.js';
 
-let _engine, _renderer, _ui;
-let pos, vel;
-/** Estela en anillo: el `push`+`shift()` era O(n) por frame (§3.2). */
-const trail = new TrailBuffer(400);
-/** Cámara fija en el centro de órbita (recomendado en clase). */
-let unbounded = true;
-/** Puntos de trabajo para worldToCanvas en bucles (§3.2). */
-const _bw = { x: 0, y: 0 }; // rejilla B
-const _tp = { x: 0, y: 0 }; // estela
+/** Radio dibujado de la carga (unidades de mundo). */
+const R_CHARGE = 0.38;
+/** Paso de la rejilla de símbolos de B (unidades de mundo). */
+const B_STEP = 1.6;
+/** Radio máximo con el que la órbita completa cabe en el encuadre 24 × 18. */
+const R_FITS = 8;
+/** Radio máximo para dibujar la guía (círculo, radio y centro). */
+const R_GUIDE = 12;
 
-const params = {
-  q: 1,
-  m: 1,
-  B: 1.2,
-  v0: 3
-};
+export default class MagneticModule extends SimModule {
+  static viewport = { width: 24, height: 18 };
 
-/** Radio ciclotrón r = m v / |q| B */
-function orbitRadius() {
-  return (params.m * params.v0) / (Math.abs(params.q * params.B) || 1e-9);
-}
+  /** El centro geométrico de la órbita se coloca en el origen (§17.1). */
+  static anchor = { x: 0, y: 0 };
 
-/**
- * Centro geométrico de la órbita (no es un objeto físico).
- * r_c = r + (m / (q B)) (v × ẑ),  v×ẑ = (vy, −vx).
- */
-function orbitCenter() {
-  const qB = params.q * params.B;
-  if (Math.abs(qB) < 1e-12) {
-    return { x: pos.x, y: pos.y, defined: false };
-  }
-  const factor = params.m / qB;
-  // v × ẑ = (vy, −vx)
-  return {
-    x: pos.x + factor * vel.y,
-    y: pos.y + factor * (-vel.x),
-    defined: true
-  };
-}
-
-export function init(engine, renderer, ui, meta = null) {
-  _engine = engine;
-  _renderer = renderer;
-  _ui = ui;
-  resetState();
-  renderer.resetCamera();
-  setModuleInfo(ui, {
-    title: meta?.title || 'Campos magnéticos',
-    blurb:
-      meta?.blurb ||
-      'Carga en B uniforme: F = q(v × B). Órbita circular sin masa en el centro.',
-    story:
-      'La fuerza de Lorentz es siempre perpendicular a la velocidad: curva la trayectoria pero no cambia |v|. ' +
-      'El círculo tiene un centro geométrico (marcador discontinuo), no un planeta ni una carga fija. ' +
-      'Eso lo distingue de Gravedad universal y de Kepler (atracción 1/r² hacia una masa central). ' +
-      'Ejemplo real: electrones en un tubo de rayos catódicos o iones en un ciclotrón.',
-    cases: [
-      'Tubo CRT / haz de electrones curvado por B.',
-      'Ciclotrón: órbitas con r = mv/|q|B (mayor v → mayor radio).',
-      'Cambia el signo de q: la órbita gira al revés (regla de la mano derecha).'
-    ]
-  });
-
-  setModuleFormulas(ui, {
-    items: [
-      {
-        name: 'Fuerza de Lorentz (B ⊥ v)',
-        formula: 'F = |q| · v · B',
-        note: 'Dirección: v × B (mano derecha). |v| no cambia.'
-      },
-      {
-        name: 'Radio de órbita',
-        formula: 'r = m·v / (|q|·B)',
-        note: 'Mayor B o |q| → círculo más chico. No hay masa en el centro.'
-      },
-      {
-        name: 'Periodo ciclotrón',
-        formula: 'T = 2π m / (|q| B)',
-        note: 'En B uniforme, T no depende de v.'
-      }
-    ]
-  });
-
-  clearChallenges(ui);
-  renderParams();
-  updateData();
-}
-
-/**
- * Coloca la carga de modo que el centro geométrico quede en el origen.
- * Así se ve la órbita completa y no parece “orbitar un objeto invisible en (0,0)”.
- */
-function resetState() {
-  const R = orbitRadius();
-  const speed = Math.max(0.05, params.v0);
-  // Sentido de giro: k = qB/m > 0 → a = k(vy, −vx) → sentido horario en pantalla
-  // (y canvas hacia abajo no aplica al mundo; en coords mundo y↑).
-  // Centro en (0,0), partícula en (R, 0):
-  //   a debe apuntar a −x → a_x < 0 → k·vy < 0.
-  //   Si k>0 → vy < 0; si k<0 → vy > 0. vx = 0.
-  const sense = params.q * params.B >= 0 ? -1 : 1;
-  pos = new Vector2D(R, 0);
-  vel = new Vector2D(0, sense * speed);
-  trail.clear();
-  if (_renderer) {
-    _renderer.resetCamera?.();
-    // Encuadrar el círculo (radio + margen)
-    try {
-      if (typeof _renderer.setZoom === 'function') {
-        /* optional */
-      }
-    } catch {
-      /* ignore */
+  static params = [
+    { id: 'q', label: 'Carga (signo y magnitud)', latex: 'q', unit: 'C', min: -3, max: 3, step: 0.5, value: 1 },
+    { id: 'm', label: 'Masa', latex: 'm', unit: 'kg', min: 0.4, max: 3, step: 0.1, value: 1 },
+    { id: 'B', label: 'Campo magnético', latex: 'B', unit: 'T', min: 0.2, max: 3, step: 0.1, value: 1.2 },
+    { id: 'v0', label: 'Rapidez', latex: 'v_0', unit: 'm/s', min: 0.5, max: 6, step: 0.1, value: 3 },
+    {
+      id: 'sentidoB',
+      type: 'select',
+      label: 'Sentido de B',
+      value: 'sale',
+      options: [
+        { value: 'sale', label: '⊙ Sale de la página (+z)' },
+        { value: 'entra', label: '⊗ Entra en la página (−z)' }
+      ]
     }
-  }
-}
-
-export function destroy() {
-  if (_renderer) _renderer.resetCamera();
-  _engine = _renderer = _ui = null;
-}
-export function reset(engine, renderer) {
-  resetState();
-  if (renderer) renderer.resetCamera();
-  engine.reset();
-  updateData();
-}
-export function setTool(id) {
-  if (id === 'unbounded') setUnbounded(!unbounded);
-}
-export function setUnbounded(on) {
-  unbounded = !!on;
-  const btn = document.getElementById('param_unbounded');
-  if (btn) {
-    btn.textContent = unbounded ? 'Seguir carga: ON' : 'Seguir carga: OFF';
-    btn.classList.toggle('active', unbounded);
-  }
-  if (!unbounded) _renderer?.resetCamera();
-}
-export function getUnbounded() {
-  return unbounded;
-}
-
-function updateData() {
-  const R = orbitRadius();
-  const c = orbitCenter();
-  const T =
-    (2 * Math.PI * params.m) / (Math.abs(params.q * params.B) || 1e-9);
-  _ui?.setData(`
-    <div style="font-family:var(--font-mono);font-size:0.82rem;line-height:1.7">
-      <div>q = ${params.q} · m = ${params.m} · B = ${params.B} (⊙ sale de la página)</div>
-      <div>|v| = ${roundTo(vel?.magnitude?.() ?? params.v0, 3)} · r = ${roundTo(R, 3)}</div>
-      <div>T ≈ ${roundTo(T, 3)} (periodo ciclotrón)</div>
-      <div>Centro geométrico ≈ (${roundTo(c.x, 2)}, ${roundTo(c.y, 2)}) — <em>no hay objeto ahí</em></div>
-      <div style="margin-top:4px;color:var(--accent)">F ⊥ v · |v| constante · ≠ gravedad (no hay masa central)</div>
-    </div>
-  `);
-}
-
-export function update(dt) {
-  // F = q (v × Bẑ) → a = (qB/m)(vy, −vx)
-  const k = (params.q * params.B) / params.m;
-  const ax = k * vel.y;
-  const ay = -k * vel.x;
-  // Mutables: antes se creaban 4 Vector2D por tick (§3.2).
-  vel.set(vel.x + ax * dt, vel.y + ay * dt);
-  // Renorm suave: |v| debe ser constante (F magnética no hace trabajo)
-  const speed = vel.magnitude();
-  if (speed > 1e-6) {
-    vel.scaleMut(params.v0 / speed);
-  }
-  pos.addScaled(vel, dt);
-  trail.push({ x: pos.x, y: pos.y });
-
-  if (unbounded && _renderer) _renderer.follow(pos.x, pos.y);
-
-  updateData();
-}
-
-function drawBField(ctx, r, w, h) {
-  // B uniforme saliendo de la página: símbolos ⊙ en rejilla
-  const camX = r.camera?.x ?? 0;
-  const camY = r.camera?.y ?? 0;
-  const step = 1.6;
-  const x0 = Math.floor((camX - 12) / step) * step;
-  const y0 = Math.floor((camY - 9) / step) * step;
-
-  ctx.save();
-  for (let x = x0; x <= camX + 12; x += step) {
-    for (let y = y0; y <= camY + 9; y += step) {
-      const p = r.worldToCanvas(x, y, _bw);
-      if (p.x < -20 || p.y < -20 || p.x > w + 20 || p.y > h + 20) continue;
-      // círculo con punto = B hacia nosotros
-      ctx.strokeStyle = 'rgba(129, 212, 250, 0.35)';
-      ctx.fillStyle = 'rgba(129, 212, 250, 0.55)';
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, 1.6, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-  ctx.restore();
-}
-
-function chip(ctx, text, x, y, fill) {
-  ctx.font = '600 12px system-ui, sans-serif';
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'middle';
-  const padX = 10;
-  const tw = ctx.measureText(text).width;
-  ctx.fillStyle = 'rgba(12, 15, 20, 0.62)';
-  ctx.beginPath();
-  if (ctx.roundRect) {
-    ctx.roundRect(x, y - 12, tw + padX * 2, 24, 8);
-    ctx.fill();
-  } else {
-    ctx.fillRect(x, y - 12, tw + padX * 2, 24);
-  }
-  ctx.fillStyle = fill;
-  ctx.fillText(text, x + padX, y);
-}
-
-export function render(ctx) {
-  if (!_renderer || !pos || !vel) return;
-  const r = _renderer;
-  const { w, h } = r.viewport();
-  const R = orbitRadius();
-  const c = orbitCenter();
-
-  // Campo B (uniforme en todo el plano)
-  drawBField(ctx, r, w, h);
-
-  // Título de escena
-  chip(
-    ctx,
-    'B uniforme ⊙ (sale de la página) · F = q(v × B)',
-    14,
-    22,
-    '#81d4fa'
-  );
-  chip(ctx, 'No hay masa ni imán en el centro del círculo', 14, 50, '#ffb74d');
-
-  // Círculo de órbita ideal + centro geométrico
-  if (c.defined && Number.isFinite(R) && R < 40) {
-    const pc = r.worldToCanvas(c.x, c.y);
-    const pEdge = r.worldToCanvas(c.x + R, c.y);
-    const radPx = Math.abs(pEdge.x - pc.x);
-
-    ctx.save();
-    // órbita guía
-    ctx.strokeStyle = 'rgba(206, 147, 216, 0.35)';
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([6, 5]);
-    ctx.beginPath();
-    ctx.arc(pc.x, pc.y, radPx, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    // radio r
-    const pPart = r.worldToCanvas(pos.x, pos.y);
-    ctx.strokeStyle = 'rgba(255, 183, 77, 0.55)';
-    ctx.lineWidth = 1.4;
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath();
-    ctx.moveTo(pc.x, pc.y);
-    ctx.lineTo(pPart.x, pPart.y);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.font = '11px system-ui, sans-serif';
-    ctx.fillStyle = 'rgba(255, 183, 77, 0.9)';
-    ctx.textAlign = 'center';
-    ctx.fillText('r', (pc.x + pPart.x) / 2, (pc.y + pPart.y) / 2 - 8);
-
-    // marcador del centro (cruz + etiqueta) — deja claro que NO es un objeto
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(pc.x - 10, pc.y);
-    ctx.lineTo(pc.x + 10, pc.y);
-    ctx.moveTo(pc.x, pc.y - 10);
-    ctx.lineTo(pc.x, pc.y + 10);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(pc.x, pc.y, 4, 0, Math.PI * 2);
-    ctx.stroke();
-
-    ctx.font = '600 11px system-ui, sans-serif';
-    ctx.fillStyle = 'rgba(255,255,255,0.75)';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'bottom';
-    const label = 'centro de órbita (geométrico)';
-    const tw = ctx.measureText(label).width;
-    ctx.fillStyle = 'rgba(12,15,20,0.55)';
-    if (ctx.roundRect) {
-      ctx.beginPath();
-      ctx.roundRect(pc.x + 12, pc.y - 22, tw + 12, 18, 6);
-      ctx.fill();
-    }
-    ctx.fillStyle = 'rgba(255,255,255,0.85)';
-    ctx.fillText(label, pc.x + 18, pc.y - 8);
-    ctx.restore();
-  }
-
-  // Trail
-  if (trail.length > 1) {
-    ctx.save();
-    ctx.strokeStyle = 'rgba(206,147,216,0.55)';
-    ctx.lineWidth = 2.2;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    for (let i = 0; i < trail.length; i++) {
-      const p = r.worldToCanvas(trail.get(i).x, trail.get(i).y, _tp);
-      if (i === 0) ctx.moveTo(p.x, p.y);
-      else ctx.lineTo(p.x, p.y);
-    }
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  // Carga
-  const chargeColor = params.q >= 0 ? '#ef5350' : '#4fc3f7';
-  const chargeLabel = params.q >= 0 ? `+q` : `−q`;
-  r.drawObject(pos.x, pos.y, {
-    shape: 'circle',
-    size: 0.38,
-    color: chargeColor,
-    label: chargeLabel
-  });
-
-  // Vectores v y F en la carga
-  r.drawVector(pos.x, pos.y, vel.x * 0.28, vel.y * 0.28, {
-    color: '#66bb6a',
-    label: 'v'
-  });
-  // F = q (v × Bẑ) = q B (vy, −vx) → dirección de a * m
-  const Fx = params.q * params.B * vel.y;
-  const Fy = -params.q * params.B * vel.x;
-  const Fmag = Math.hypot(Fx, Fy) || 1;
-  const fScale = 0.9 / Fmag; // longitud visual ~0.9
-  r.drawVector(pos.x, pos.y, Fx * fScale, Fy * fScale, {
-    color: '#ff7043',
-    label: 'F'
-  });
-
-  // Leyenda
-  const legend = [
-    { c: '#81d4fa', t: 'B ⊙ (uniforme)' },
-    { c: chargeColor, t: 'Carga en movimiento' },
-    { c: '#66bb6a', t: 'Velocidad v' },
-    { c: '#ff7043', t: 'Fuerza F ⊥ v' },
-    { c: 'rgba(255,255,255,0.7)', t: 'Centro (no es un objeto)' }
   ];
-  ctx.save();
-  let lx = w - 14;
-  const ly0 = 18;
-  ctx.font = '12px system-ui, sans-serif';
-  ctx.textAlign = 'right';
-  ctx.textBaseline = 'middle';
-  legend.forEach((item, i) => {
-    const y = ly0 + i * 22;
-    const tw = ctx.measureText(item.t).width;
-    ctx.fillStyle = 'rgba(12,15,20,0.55)';
-    ctx.fillRect(lx - tw - 28, y - 10, tw + 24, 20);
-    ctx.strokeStyle = item.c;
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(lx - tw - 20, y);
-    ctx.lineTo(lx - tw - 6, y);
-    ctx.stroke();
-    ctx.fillStyle = item.c;
-    ctx.fillText(item.t, lx - 4, y);
-  });
-  ctx.restore();
-}
 
-function renderParams() {
-  _ui.setParams(`
-    <div class="control-group">
-      <button type="button" class="ctrl-btn unbounded-btn ${unbounded ? 'active' : ''}" id="param_unbounded">${
-        unbounded ? 'Seguir carga: ON' : 'Seguir carga: OFF'
-      }</button>
-      <p class="control-hint" style="margin:6px 0 0;font-size:0.75rem;color:var(--text-secondary);line-height:1.35">
-        Por defecto la cámara está fija en el centro geométrico. Activa “Seguir” solo si quieres ir con la carga.
-      </p>
-    </div>
-    <div class="control-group"><label class="control-label">$q$ carga (signo / magnitud)</label>
-      <div class="slider-row"><input type="range" id="m_q" class="custom-slider" min="-3" max="3" step="0.5" value="${params.q}"><span id="md_q">${params.q}</span></div></div>
-    <div class="control-group"><label class="control-label">$m$ masa</label>
-      <div class="slider-row"><input type="range" id="m_m" class="custom-slider" min="0.4" max="3" step="0.1" value="${params.m}"><span id="md_m">${params.m}</span></div></div>
-    <div class="control-group"><label class="control-label">$B$ campo magnético (T)</label>
-      <div class="slider-row"><input type="range" id="m_B" class="custom-slider" min="0.2" max="3" step="0.1" value="${params.B}"><span id="md_B">${params.B}</span></div></div>
-    <div class="control-group"><label class="control-label">$v_0$ velocidad (m/s)</label>
-      <div class="slider-row"><input type="range" id="m_v" class="custom-slider" min="0.5" max="6" step="0.1" value="${params.v0}"><span id="md_v">${params.v0}</span></div></div>
-  `);
-  setTimeout(() => {
-    document.getElementById('param_unbounded')?.addEventListener('click', () =>
-      setUnbounded(!unbounded)
-    );
-    const bind = (id, key, d) => {
-      const el = document.getElementById(id);
-      el?.addEventListener('input', () => {
-        params[key] = parseFloat(el.value);
-        // q = 0 rompe la órbita; evitar exactamente 0 en el slider
-        if (key === 'q' && Math.abs(params.q) < 0.25) {
-          params.q = params.q >= 0 ? 0.5 : -0.5;
-          el.value = String(params.q);
+  constructor(ctx) {
+    super(ctx);
+    this.params = { q: 1, m: 1, B: 1.2, v0: 3, sentidoB: 'sale' };
+    this.t = 0;
+    this.x = 0;
+    this.y = 0;
+    this.vx = 0;
+    this.vy = 0;
+    /** Seguir la carga con la cámara (botón «espacio infinito»). */
+    this.unbounded = true;
+    this.trail = new TrailBuffer(400);
+    /** Historial v_x(t) y v_y(t): sinusoides con periodo T. */
+    this.histVx = new TrailBuffer(240);
+    this.histVy = new TrailBuffer(240);
+    this._sampleAcc = 0;
+  }
+
+  init(meta = null) {
+    this.reset();
+    this.renderer?.resetCamera?.();
+    this.setModuleInfo({
+      title: meta?.title || 'Campos magnéticos',
+      blurb: meta?.blurb || 'Carga en B uniforme: F = q(v × B). Órbita circular sin masa en el centro.',
+      story:
+        'La fuerza de Lorentz es siempre perpendicular a la velocidad: curva la trayectoria pero no cambia |v|. ' +
+        'El círculo tiene un centro geométrico (cruz discontinua), no un planeta ni una carga fija. ' +
+        'Eso lo distingue de Gravedad universal y de Kepler (atracción 1/r² hacia una masa central). ' +
+        'Ejemplo real: electrones en un tubo de rayos catódicos o iones en un ciclotrón.',
+      cases: [
+        'Tubo CRT / haz de electrones curvado por B.',
+        'Ciclotrón: órbitas con r = mv/|q|B (mayor v → mayor radio).',
+        'Cambia el signo de q o el sentido de B: la órbita gira al revés (mano derecha).',
+        'T = 2πm/|q|B no depende de v: la gráfica v(t) conserva su periodo al cambiar v₀.'
+      ]
+    });
+    this.setModuleFormulas({
+      items: [
+        { name: 'Fuerza de Lorentz (B ⊥ v)', formula: 'F = |q| · v · B', note: 'Dirección: v × B (mano derecha). |v| no cambia.' },
+        { name: 'Radio de órbita', formula: 'r = m·v / (|q|·B)', note: 'Mayor B o |q| → círculo más chico. No hay masa en el centro.' },
+        { name: 'Periodo ciclotrón', formula: 'T = 2π m / (|q| B)', note: 'En B uniforme, T no depende de v.' }
+      ]
+    });
+    this.clearChallenges();
+  }
+
+  /** Componente z de B con signo según el sentido elegido. */
+  Bz() {
+    return this.params.sentidoB === 'entra' ? -this.params.B : this.params.B;
+  }
+
+  /** Carga efectiva: q = 0 rompe la órbita, se evita como hacía el panel legacy. */
+  qEff() {
+    const q = this.params.q;
+    if (Math.abs(q) < 0.25) return q >= 0 ? 0.5 : -0.5;
+    return q;
+  }
+
+  /** Radio ciclotrón r = m v / |q B|. */
+  orbitRadius() {
+    return (this.params.m * this.params.v0) / (Math.abs(this.qEff() * this.Bz()) || 1e-9);
+  }
+
+  /** Periodo ciclotrón. */
+  period() {
+    return (2 * Math.PI * this.params.m) / (Math.abs(this.qEff() * this.Bz()) || 1e-9);
+  }
+
+  /** Magnitud de la fuerza de Lorentz. */
+  force() {
+    return Math.abs(this.qEff() * this.Bz()) * Math.hypot(this.vx, this.vy);
+  }
+
+  /**
+   * Centro geométrico de la órbita (no es un objeto físico).
+   * r_c = r + (m / (q B)) (v × ẑ),  v×ẑ = (vy, −vx).
+   */
+  orbitCenter() {
+    const qB = this.qEff() * this.Bz();
+    const f = this.params.m / qB;
+    return { x: this.x + f * this.vy, y: this.y + f * -this.vx };
+  }
+
+  /**
+   * Coloca la carga de modo que el centro geométrico quede en el origen.
+   * Así se ve la órbita completa y no parece «orbitar un objeto invisible».
+   * Si el círculo no cabe en el encuadre (r grande), la carga arranca en el
+   * origen y el centro queda a (−r, 0): lo importante es ver la carga.
+   */
+  reset() {
+    this.t = 0;
+    const R = this.orbitRadius();
+    const speed = Math.max(0.05, this.params.v0);
+    // a = k(vy, −vx) con k = qB/m; centro en (0,0), partícula en (R, 0):
+    // a debe apuntar a −x → k·vy < 0 → vy tiene el signo opuesto a k.
+    const sense = this.qEff() * this.Bz() >= 0 ? -1 : 1;
+    this.x = R <= R_FITS ? R : 0;
+    this.y = 0;
+    this.vx = 0;
+    this.vy = sense * speed;
+    this.trail.clear();
+    this.histVx.clear();
+    this.histVy.clear();
+    this._sampleAcc = 0;
+    if (!this.unbounded) this.renderer?.resetCamera?.();
+    this.engine?.reset?.();
+  }
+
+  destroy() {
+    this.trail.clear();
+    this.histVx.clear();
+    this.histVy.clear();
+    this.renderer?.resetCamera?.();
+  }
+
+  /* ---------- seguir carga (§17.3) ---------- */
+
+  setTool(id) {
+    if (id === 'unbounded') this.setUnbounded(!this.unbounded);
+  }
+
+  setUnbounded(on) {
+    this.unbounded = !!on;
+    if (this.unbounded) this.renderer?.follow?.(this.x, this.y);
+    else this.renderer?.resetCamera?.();
+  }
+
+  getUnbounded() {
+    return this.unbounded;
+  }
+
+  /* ---------- física ---------- */
+
+  update(dt) {
+    this.t += dt;
+    // F = q (v × Bẑ) → a = (qB/m)(vy, −vx)
+    const k = (this.qEff() * this.Bz()) / this.params.m;
+    const ax = k * this.vy;
+    const ay = -k * this.vx;
+    this.vx += ax * dt;
+    this.vy += ay * dt;
+    // Renormalización suave: |v| es constante (F magnética no hace trabajo).
+    const speed = Math.hypot(this.vx, this.vy);
+    if (speed > 1e-6) {
+      const s = this.params.v0 / speed;
+      this.vx *= s;
+      this.vy *= s;
+    }
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+    this.trail.push({ x: this.x, y: this.y });
+
+    this._sampleAcc += dt;
+    if (this._sampleAcc >= 0.05) {
+      this._sampleAcc = 0;
+      this.histVx.push({ x: this.t, y: this.vx });
+      this.histVy.push({ x: this.t, y: this.vy });
+    }
+
+    if (this.unbounded) this.renderer?.follow?.(this.x, this.y);
+  }
+
+  /* ---------- dibujo declarativo (§2.4) ---------- */
+
+  draw(scene) {
+    const sale = this.Bz() > 0;
+    const R = this.orbitRadius();
+    const c = this.orbitCenter();
+    const q = this.qEff();
+
+    // Campo B uniforme: rejilla de ⊙ (sale) o ⊗ (entra) sobre el área visible.
+    const w = scene.world();
+    const margin = 0.25; // los símbolos no asoman del lienzo
+    const x0 = Math.ceil((w.left + margin) / B_STEP) * B_STEP;
+    const y0 = Math.ceil((w.bottom + margin) / B_STEP) * B_STEP;
+    for (let x = x0; x <= w.right - margin; x += B_STEP) {
+      for (let y = y0; y <= w.top - margin; y += B_STEP) {
+        scene.circle(x, y, 0.13, { color: 'field', width: 1.2, alpha: 0.35 });
+        if (sale) {
+          scene.circle(x, y, 0.045, { color: 'field', fill: 'field', alpha: 0.55 });
+        } else {
+          scene.line(x - 0.08, y - 0.08, x + 0.08, y + 0.08, { color: 'field', width: 1.2, alpha: 0.5 });
+          scene.line(x - 0.08, y + 0.08, x + 0.08, y - 0.08, { color: 'field', width: 1.2, alpha: 0.5 });
         }
-        const disp = document.getElementById(d);
-        if (disp) disp.textContent = String(params[key]);
-        resetState();
-        _engine?.reset();
-        updateData();
-      });
-    };
-    bind('m_q', 'q', 'md_q');
-    bind('m_m', 'm', 'md_m');
-    bind('m_B', 'B', 'md_B');
-    bind('m_v', 'v0', 'md_v');
-  }, 0);
-}
+      }
+    }
 
-export function getState() {
-  return {
-    pos: pos ? { x: pos.x, y: pos.y } : null,
-    vel: vel ? { x: vel.x, y: vel.y } : null,
-    unbounded,
-    params: { ...params }
-  };
-}
-export function setState(s) {
-  if (!s || typeof s !== 'object') return;
-  if (s.params) Object.assign(params, s.params);
-  if (s.pos) pos = new Vector2D(s.pos.x, s.pos.y);
-  if (s.vel) vel = new Vector2D(s.vel.x, s.vel.y);
-  if (typeof s.unbounded === 'boolean') setUnbounded(s.unbounded);
-  // Si no hay estado de posición válido, re-centrar órbita
-  if (!s.pos || !s.vel) resetState();
-  trail.clear();
-  renderParams();
-  updateData();
+    // Órbita guía + radio + centro geométrico (cruz, no cuerpo).
+    if (Number.isFinite(R) && R <= R_GUIDE) {
+      scene.circle(c.x, c.y, R, { color: 'accel', width: 1.5, dash: [6, 5], alpha: 0.45 });
+      scene.line(c.x, c.y, this.x, this.y, { color: 'warn', width: 1.4, dash: [4, 4], alpha: 0.7 });
+      scene.label((c.x + this.x) / 2, (c.y + this.y) / 2, `r = ${roundTo(R, 2)} m`, { color: 'warn', size: 11, avoid: true });
+      scene.line(c.x - 0.3, c.y, c.x + 0.3, c.y, { color: 'text', width: 1.5, alpha: 0.6 });
+      scene.line(c.x, c.y - 0.3, c.x, c.y + 0.3, { color: 'text', width: 1.5, alpha: 0.6 });
+      scene.circle(c.x, c.y, 0.1, { color: 'text', width: 1.5, alpha: 0.6 });
+      // La llamada apunta hacia el lado del encuadre donde hay sitio.
+      scene.callout(c.x, c.y, 'centro geométrico (no hay objeto)', {
+        angle: c.x <= 0 ? Math.PI / 4 : (3 * Math.PI) / 4,
+        distance: 26,
+        color: 'textDim'
+      });
+    }
+
+    // Estela y carga.
+    if (this.trail.length > 1) scene.trail(this.trail, { color: 'accel', width: 2.2, alpha: 0.55 });
+    scene.body(this.x, this.y, {
+      shape: 'circle',
+      r: R_CHARGE,
+      color: q >= 0 ? 'force' : 'field',
+      label: q >= 0 ? `+q = ${roundTo(Math.abs(q), 2)} C` : `−q = ${roundTo(Math.abs(q), 2)} C`,
+      labelColor: q >= 0 ? 'force' : 'field',
+      id: 'carga'
+    });
+
+    // Vectores v y F (⊥ v) en la carga.
+    const v = Math.hypot(this.vx, this.vy);
+    if (v > 0.01) {
+      scene.vector(this.x, this.y, this.vx * 0.28, this.vy * 0.28, { color: 'velocity', label: `v = ${roundTo(v, 2)} m/s` });
+    }
+    const Fx = q * this.Bz() * this.vy;
+    const Fy = -q * this.Bz() * this.vx;
+    const Fmag = Math.hypot(Fx, Fy) || 1;
+    const fScale = 0.9 / Fmag;
+    scene.vector(this.x, this.y, Fx * fScale, Fy * fScale, { color: 'force', label: `F = ${roundTo(this.force(), 2)} N`, labelSide: -1 });
+
+    // HUD.
+    const hud = scene.hud;
+    hud.chip(`B uniforme ${sale ? '⊙ sale de' : '⊗ entra en'} la página · F = q(v × B)`, 'top-left');
+    hud.chip('No hay masa ni imán en el centro del círculo', 'top-left');
+    hud.readout(
+      [
+        { label: '|v|', value: v, unit: 'm/s' },
+        { label: 'r', value: R, unit: 'm' },
+        { label: 'T', value: this.period(), unit: 's' },
+        { label: 'F', value: this.force(), unit: 'N' }
+      ],
+      'bottom-left'
+    );
+    hud.legend(
+      [
+        { color: 'field', label: sale ? 'B ⊙ (uniforme, sale)' : 'B ⊗ (uniforme, entra)' },
+        { color: q >= 0 ? 'force' : 'field', label: 'Carga en movimiento' },
+        { color: 'velocity', label: 'Velocidad v' },
+        { color: 'force', label: 'Fuerza F ⊥ v' },
+        { color: 'accel', label: 'Órbita guía', dash: [6, 5] },
+        { color: 'text', label: 'Centro (no es un objeto)' }
+      ],
+      'top-right'
+    );
+
+    const vp = scene.viewport();
+    if (vp.w > 420) {
+      const hasHist = this.histVx.length > 1;
+      const span = this.params.v0 * 1.2;
+      hud.plot(
+        { x: vp.x + vp.w - 215, y: vp.y + vp.h - 128, w: 200, h: 116 },
+        {
+          title: `v_x, v_y (t) · T = ${roundTo(this.period(), 2)} s`,
+          series: [
+            { points: hasHist ? this.histVx : [{ x: 0, y: this.vx }, { x: 1, y: this.vx }], color: 'velocity', label: 'v_x' },
+            { points: hasHist ? this.histVy : [{ x: 0, y: this.vy }, { x: 1, y: this.vy }], color: 'accel', label: 'v_y', dash: [4, 3] }
+          ],
+          yRange: [-span, span]
+        }
+      );
+    }
+  }
+
+  /* ---------- manipulación directa ---------- */
+
+  /** Arrastrar la carga la reposiciona; la órbita se recentra desde ahí. */
+  onDrag(id, world) {
+    if (id !== 'carga') return;
+    this.x = world.x;
+    this.y = world.y;
+    this.trail.clear();
+  }
+
+  /* ---------- datos numéricos (§3.1) ---------- */
+
+  readout() {
+    const c = this.orbitCenter();
+    return {
+      q: { value: this.qEff(), unit: 'C' },
+      B: { value: this.Bz(), unit: 'T' },
+      '|v|': { value: roundTo(Math.hypot(this.vx, this.vy), 3), unit: 'm/s' },
+      r: { value: roundTo(this.orbitRadius(), 3), unit: 'm' },
+      T: { value: roundTo(this.period(), 3), unit: 's' },
+      F: { value: roundTo(this.force(), 3), unit: 'N' },
+      'centro x': { value: roundTo(c.x, 2), unit: 'm' },
+      'centro y': { value: roundTo(c.y, 2), unit: 'm' }
+    };
+  }
+
+  getState() {
+    return {
+      t: this.t,
+      pos: { x: this.x, y: this.y },
+      vel: { x: this.vx, y: this.vy },
+      unbounded: this.unbounded,
+      params: { ...this.params }
+    };
+  }
+
+  setState(s) {
+    if (!s || typeof s !== 'object') return;
+    if (s.params) Object.assign(this.params, s.params);
+    if (Number.isFinite(s.t)) this.t = s.t;
+    if (s.pos) {
+      this.x = s.pos.x;
+      this.y = s.pos.y;
+    }
+    if (s.vel) {
+      this.vx = s.vel.x;
+      this.vy = s.vel.y;
+    }
+    if (typeof s.unbounded === 'boolean') this.setUnbounded(s.unbounded);
+    this.trail.clear();
+    this.histVx.clear();
+    this.histVy.clear();
+  }
 }

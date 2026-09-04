@@ -25,7 +25,6 @@
 import { SimModule } from '../core/sim-module.js';
 import { roundTo } from '../utils/math-helpers.js';
 import { lensBulgeFromFocal } from '../core/draw-primitives.js';
-import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 const NP = 25; // punto próximo (cm)
 
@@ -76,7 +75,7 @@ export default class OpticalInstruments extends SimModule {
 
   init(meta = null) {
     this.reset();
-    setModuleInfo(this.ui, {
+    this.setModuleInfo({
       title: 'Instrumentos ópticos',
       blurb: 'Ojo, lupa, microscopio y telescopio: lentes encadenadas.',
       story:
@@ -88,7 +87,7 @@ export default class OpticalInstruments extends SimModule {
         'Telescopio: la razón fo/fe es el aumento: 50/5 = 10×.'
       ]
     });
-    setModuleFormulas(this.ui, {
+    this.setModuleFormulas({
       title: 'Instrumentos ópticos',
       items: [
         { name: 'Lente delgada', formula: '\\dfrac{1}{f} = \\dfrac{1}{d_o} + \\dfrac{1}{d_i}' },
@@ -100,7 +99,7 @@ export default class OpticalInstruments extends SimModule {
         { name: 'Aumento del telescopio', formula: 'M = \\dfrac{f_o}{f_e}' }
       ]
     });
-    clearChallenges(this.ui);
+    this.clearChallenges();
   }
 
   reset() {
@@ -367,43 +366,13 @@ export default class OpticalInstruments extends SimModule {
    * (ix, iy); el tramo de puntos marca la prolongación virtual.
    */
   _twoRays(scene, x0, y0, xL, f, ix, iy, color, solid) {
-    // Rayo paralelo: incide en (xL, y0) y va al foco (xL+f, 0) → imagen.
+    // Rayo paralelo: incide en (xL, y0) y se refracta hacia la imagen
+    // (sólido si es real; sólido + prolongación punteada si es virtual).
     scene.line(x0, y0, xL, y0, { color, width: 1.5, alpha: 0.8 });
-    const fx = xL + f;
-    const denom = fx - xL;
-    if (Math.abs(denom) > 1e-9) {
-      const tI = (ix - xL) / denom;
-      const yI = y0 * (1 - tI);
-      const viaF = { x: xL, y: y0, tx: fx, ty: 0 };
-      this._segToImage(scene, xL, y0, ix, iy, color, solid);
-    } else {
-      this._segToImage(scene, xL, y0, ix, iy, color, solid);
-    }
+    scene.rayTo(xL, y0, ix, iy, { color, virtual: !solid, width: 1.6, overshoot: 1.6, solid: 1.6, back: 5, dashAlpha: 0.85 });
 
     // Rayo por el centro: pasa sin desviarse (línea recta de O a la imagen).
     scene.line(x0, y0, ix, iy, { color, width: 1.5, alpha: 0.75 });
-  }
-
-  /** Segmento refractado hacia la imagen; si es virtual, de puntos. */
-  _segToImage(scene, xL, yL, ix, iy, color, solid) {
-    const dx = ix - xL;
-    const dy = iy - yL;
-    const len = Math.hypot(dx, dy);
-    if (len < 1e-6) return;
-    const ux = dx / len;
-    const uy = dy / len;
-    if (solid) {
-      scene.line(xL, yL, xL + ux * (len + 1.6), yL + uy * (len + 1.6), { color, width: 1.6 });
-    } else {
-      const seg = Math.min(len, 1.6);
-      scene.line(xL, yL, xL + ux * seg, yL + uy * seg, { color, width: 1.6 });
-      scene.line(xL + ux * (seg - 5), yL + uy * (seg - 5), ix, iy, {
-        color,
-        width: 1.4,
-        dash: [4, 3],
-        alpha: 0.85
-      });
-    }
   }
 
   /* ---------- datos numéricos ---------- */

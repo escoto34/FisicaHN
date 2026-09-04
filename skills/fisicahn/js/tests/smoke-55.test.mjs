@@ -62,6 +62,7 @@ function fakeCtx() {
   c.canvas = { width: 900, height: 700 };
   c.measureText = (t) => ({ width: String(t).length * 7 });
   c.createLinearGradient = () => ({ addColorStop() {} });
+  c.createRadialGradient = () => ({ addColorStop() {} });
   const handler = {
     get(t, p) {
       if (p === 'symbol') return undefined;
@@ -122,12 +123,21 @@ const MARGIN = 3;
 const LIMITS = { minX: -MARGIN, maxX: 900 + MARGIN, minY: -MARGIN, maxY: 700 + MARGIN };
 
 const FIXED = [
-  'mass-weight', 'fluids', 'inclined-plane', 'elasticity',
-  'units-error', 'oscillatory', 'projectile', 'vectors', 'kinetic-theory',
-  'hyperbola'
+  'atomic', 'blackbody', 'calorimetry', 'capacitors', 'circuits', 'collisions-2d',
+  'de-broglie', 'dynamics', 'elasticity', 'electricity', 'em-waves', 'fluids',
+  'force-kinetic', 'friction', 'gravity', 'hydraulics', 'hyperbola', 'inclined-plane',
+  'induction', 'kepler', 'kinematics', 'kinetic-theory', 'lenses', 'magnetic',
+  'mass-weight', 'mirrors', 'momentum', 'nuclear-energy', 'optical-instruments', 'optics',
+  'oscillatory', 'particles', 'pendulum', 'photoelectric', 'placeholder', 'projectile',
+  'quantum-history', 'radioactivity', 'rotational', 'simple-machines', 'sound', 'special-relativity',
+  'standing-waves', 'statics', 'thermal-expansion', 'thermodynamics', 'tunneling', 'units-error',
+  'vectors', 'wave-optics', 'work-energy'
 ];
+/* Override para verificar un subconjunto: FISICAHN_MODULES=a,b node --test … */
+const FIXED_SEL = (process.env.FISICAHN_MODULES || '').split(',').map((s) => s.trim()).filter(Boolean);
+const FIXED_RUN = FIXED_SEL.length ? FIXED_SEL : FIXED;
 
-for (const name of FIXED) {
+for (const name of FIXED_RUN) {
   test(`bbox 5.5: ${name} dentro del viewbox`, async () => {
     const { Camera } = await import(new URL('camera.js', CORE).href);
     const { Scene } = await import(new URL('scene.js', CORE).href);
@@ -181,22 +191,31 @@ test('defaults 5.5: unbounded=true en kinematics, dynamics y magnetic', async ()
   assert.equal(kin.unbounded, true, 'kinematics: unbounded debe iniciar en true');
 
   const dynNs = await import(base.href + 'dynamics.js');
-  dynNs.init(ctxSim.engine, ctxSim.renderer, ctxSim.ui, {});
-  assert.equal(dynNs.getState().unbounded, true, 'dynamics: unbounded debe iniciar en true');
+  const dyn = new dynNs.default(ctxSim);
+  dyn.init({});
+  assert.equal(dyn.getUnbounded(), true, 'dynamics: unbounded debe iniciar en true');
 
   const magNs = await import(base.href + 'magnetic.js');
-  magNs.init(ctxSim.engine, ctxSim.renderer, ctxSim.ui, {});
-  assert.equal(magNs.getUnbounded(), true, 'magnetic: unbounded debe iniciar en true');
+  const mag = new magNs.default(ctxSim);
+  mag.init({});
+  assert.equal(mag.getUnbounded(), true, 'magnetic: unbounded debe iniciar en true');
 });
 
 /* §17.1 — el punto fijo declarado por cada módulo cae a ≤0.5 u de mundo de (0,0). */
 const ANCHORED = [
-  'units-error', 'vectors', 'mass-weight', 'elasticity', 'statics', 'pendulum',
-  'standing-waves', 'fluids', 'calorimetry', 'kinetic-theory', 'thermal-expansion',
-  'mirrors', 'induction', 'wave-optics', 'optical-instruments', 'particles'
+  'atomic', 'blackbody', 'calorimetry', 'capacitors', 'collisions-2d', 'de-broglie',
+  'dynamics', 'elasticity', 'electricity', 'fluids', 'force-kinetic', 'friction',
+  'gravity', 'hydraulics', 'induction', 'kepler', 'kinetic-theory', 'lenses',
+  'magnetic', 'mass-weight', 'mirrors', 'nuclear-energy', 'optical-instruments', 'optics',
+  'particles', 'pendulum', 'photoelectric', 'placeholder', 'quantum-history', 'radioactivity',
+  'simple-machines', 'special-relativity', 'standing-waves', 'statics', 'thermal-expansion', 'thermodynamics',
+  'tunneling', 'units-error', 'vectors', 'wave-optics', 'work-energy'
 ];
+/* Override para verificar un subconjunto: FISICAHN_MODULES=a,b node --test … */
+const ANCHORED_SEL = (process.env.FISICAHN_MODULES || '').split(',').map((s) => s.trim()).filter(Boolean);
+const ANCHORED_RUN = ANCHORED_SEL.length ? ANCHORED_SEL : ANCHORED;
 
-for (const name of ANCHORED) {
+for (const name of ANCHORED_RUN) {
   test(`anchor 17.1: ${name} declara su punto fijo a ≤0.5 u del origen`, async () => {
     const mod = await import(base.href + name + '.js');
     const anchor = mod.default?.anchor ?? mod.anchor;
@@ -231,12 +250,14 @@ test('17.2: camera.reset() suspende follow() hasta resumeFollow()', async () => 
 test('17.3: dynamics exporta getUnbounded (botón de espacio infinito)', async () => {
   const ctxSim = { engine: { reset() {} }, renderer: { resetCamera() {}, follow() {} }, ui: uiStub() };
   const dynNs = await import(base.href + 'dynamics.js');
-  dynNs.init(ctxSim.engine, ctxSim.renderer, ctxSim.ui, {});
-  assert.equal(typeof dynNs.getUnbounded, 'function', 'dynamics: falta getUnbounded');
-  assert.equal(dynNs.getUnbounded(), true);
+  const dyn = new dynNs.default(ctxSim);
+  dyn.init({});
+  assert.equal(typeof dyn.getUnbounded, 'function', 'dynamics: falta getUnbounded');
+  assert.equal(dyn.getUnbounded(), true);
 
   const gravNs = await import(base.href + 'gravity.js');
-  gravNs.init(ctxSim.engine, ctxSim.renderer, ctxSim.ui, {});
-  assert.equal(typeof gravNs.getUnbounded, 'function');
-  assert.equal(gravNs.getUnbounded(), true);
+  const grav = new gravNs.default(ctxSim);
+  grav.init({});
+  assert.equal(typeof grav.getUnbounded, 'function');
+  assert.equal(grav.getUnbounded(), true);
 });

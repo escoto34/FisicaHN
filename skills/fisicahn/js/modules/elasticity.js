@@ -13,7 +13,6 @@
 
 import { SimModule } from '../core/sim-module.js';
 import { roundTo } from '../utils/math-helpers.js';
-import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 /** Presets por material: E (Pa), σy (Pa), σu (Pa), εu (adimensional). */
 const MATERIALS = {
@@ -47,11 +46,31 @@ export default class Elasticity extends SimModule {
   constructor(ctx) {
     super(ctx);
     this.params = { material: 'acero', L0: 1.5, A: 4, frac: 40 };
+    /** Curvas σ–ε cacheadas por material (sólo dependen de él). */
+    this._curveCache = null;
+    /** Marcador del estado actual sobre la curva (un solo punto, reutilizado). */
+    this._statePt = [{ x: 0, y: 0 }];
+  }
+
+  /** Curva σ–ε, tramo elástico y línea de fluencia del material actual (cacheados). */
+  _curves() {
+    const id = this.params.material;
+    if (this._curveCache && this._curveCache.id === id) return this._curveCache;
+    const { sy, E } = this.mat();
+    const pts = this._curvePoints();
+    const syM = sy / MPa;
+    this._curveCache = {
+      id,
+      pts,
+      elasticPts: pts.filter((p) => p.y <= syM),
+      yieldPts: [{ x: 0, y: syM }, { x: (sy / E) * 1.25, y: syM }]
+    };
+    return this._curveCache;
   }
 
   init(meta = null) {
     this.reset();
-    setModuleInfo(this.ui, {
+    this.setModuleInfo({
       title: 'Elasticidad',
       blurb: 'Curva tensión–deformación: ley de Hooke, frontera elástica y régimen plástico.',
       story:
@@ -63,7 +82,7 @@ export default class Elasticity extends SimModule {
         'Bajar la sección A sube la tensión para la misma fuerza: σ = F/A.'
       ]
     });
-    setModuleFormulas(this.ui, {
+    this.setModuleFormulas({
       title: 'Elasticidad',
       items: [
         {
@@ -88,7 +107,7 @@ export default class Elasticity extends SimModule {
         }
       ]
     });
-    clearChallenges(this.ui);
+    this.clearChallenges();
   }
 
   reset() {
@@ -199,16 +218,14 @@ export default class Elasticity extends SimModule {
     // Curva σ–ε con el área elástica resaltada (resiliencia).
     const hud = scene.hud;
     const vp = scene.viewport(); // el plot vive en px del HUD
-    const pts = this._curvePoints();
+    const { pts, elasticPts, yieldPts } = this._curves();
     const eu = this.mat().eu;
     const su = this.mat().su / MPa;
-    const sy = this.mat().sy / MPa;
-    const ey = Math.min(pts[pts.length - 1].x, this.mat().sy / this.mat().E * 1.5);
-    const rect = { x: vp.x + vp.w - 245, y: vp.y + 24, w: 230, h: 152 };
     const maxX = eu * 1.15;
     const maxY = su * 1.15;
-    const elasticPts = pts.filter((p) => p.y <= sy).map((p) => ({ x: p.x, y: p.y }));
-    const yieldPts = [{ x: 0, y: sy }, { x: (this.mat().sy / this.mat().E) * 1.25, y: sy }];
+    const cur = this._statePt[0];
+    cur.x = e;
+    cur.y = this.stress() / MPa;
     hud.plot({ x: vp.x + vp.w - 245, y: vp.y + 24, w: 230, h: 152 }, {
       title: 'Curva σ–ε — el área elástica es la resiliencia',
       xRange: [0, maxX],
@@ -217,7 +234,7 @@ export default class Elasticity extends SimModule {
         { points: pts, color: 'energy', label: 'σ(ε)', fill: true },
         { points: elasticPts, color: 'velocity', label: 'Hooke' },
         { points: yieldPts, color: 'textDim', dash: [3, 3] },
-        { points: [{ x: e, y: this.stress() / MPa }], color: 'danger', label: 'Estado actual', pointSize: 3.5 }
+        { points: this._statePt, color: 'danger', label: 'Estado actual', pointSize: 3.5 }
       ]
     });
 

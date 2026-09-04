@@ -92,6 +92,46 @@ export class SimModule {
 
   /** Libera recursos de la instancia. */
   destroy() {}
+
+  /* ---------- Puente declarativo hacia la capa de presentación (§3.1) ----------
+   * El módulo NO importa `module-ui.js`: describe su información como datos y
+   * el anfitrión (`ui.setModuleInfo` / `ui.setModuleFormulas`) los convierte
+   * en HTML. En los arneses de prueba el `ui` es un stub sin esos métodos y
+   * las llamadas son inofensivas. */
+
+  /**
+   * Pestaña Información: título, resumen, historia, casos y secciones fijas.
+   * @param {{ title: string, blurb: string, story?: string, cases?: string[],
+   *   sections?: { title: string, text: string, tone?: string }[] }} content
+   */
+  setModuleInfo(content) {
+    /** @type {any} */
+    const ui = this.ui;
+    if (!ui) return;
+    if (typeof ui.setModuleInfo === 'function') ui.setModuleInfo(content);
+    else if (typeof ui.setInfo === 'function') {
+      ui.setInfo(`<strong>${content?.title || ''}</strong> — ${content?.blurb || ''}`);
+    }
+  }
+
+  /**
+   * Pestaña Fórmulas.
+   * @param {{ title?: string, items: { name: string, formula?: string, latex?: string, note?: string }[] }} data
+   */
+  setModuleFormulas(data) {
+    /** @type {any} */
+    const ui = this.ui;
+    if (!ui) return;
+    if (typeof ui.setModuleFormulas === 'function') ui.setModuleFormulas(data);
+    else if (typeof ui.setFormulas === 'function') ui.setFormulas('');
+  }
+
+  /** Limpia la pestaña de retos (módulo sin pack de examen activo). */
+  clearChallenges() {
+    /** @type {any} */
+    const ui = this.ui;
+    if (ui && typeof ui.setChallenges === 'function') ui.setChallenges(null);
+  }
 }
 
 /**

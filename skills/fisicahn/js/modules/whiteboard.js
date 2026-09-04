@@ -1,4 +1,3 @@
-import { clearChallenges } from '../module-ui.js';
 /**
  * Pizarra docente — dibujo libre, selección/mover, borrador que no pinta el fondo.
  */
@@ -472,7 +471,7 @@ export function init(engine, renderer, ui) {
   `);
   ui.setFormulas('<p class="tab-text">Herramienta de enseñanza (sin fórmulas).</p>');
   ui.setData('<p class="tab-text">Dibuja en el canvas. Usa Seleccionar para mover objetos.</p>');
-  clearChallenges(ui);
+  if (ui && typeof ui.setChallenges === 'function') ui.setChallenges(null);
   ui.setChart(
     '<text x="150" y="90" text-anchor="middle" fill="var(--text-secondary)" font-size="11">Sin gráfica</text>'
   );

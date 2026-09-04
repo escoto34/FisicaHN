@@ -71,12 +71,21 @@ const LIMITS = { minX: -MARGIN, maxX: 900 + MARGIN, minY: -MARGIN, maxY: 700 + M
 
 /* Los 16 motores de §13.0 — todos ya son `SimModule` con `draw(scene)` tras la migración de la WAVE 13. */
 const MODULES = [
-  'units-error', 'vectors', 'mass-weight', 'elasticity', 'statics', 'pendulum',
-  'standing-waves', 'fluids', 'calorimetry', 'kinetic-theory', 'thermal-expansion',
-  'mirrors', 'induction', 'wave-optics', 'optical-instruments', 'particles'
+  'atomic', 'blackbody', 'calorimetry', 'capacitors', 'circuits', 'collisions-2d',
+  'de-broglie', 'dynamics', 'elasticity', 'electricity', 'em-waves', 'fluids',
+  'force-kinetic', 'friction', 'gravity', 'hydraulics', 'hyperbola', 'inclined-plane',
+  'induction', 'kepler', 'kinematics', 'kinetic-theory', 'lenses', 'magnetic',
+  'mass-weight', 'mirrors', 'momentum', 'nuclear-energy', 'optical-instruments', 'optics',
+  'oscillatory', 'particles', 'pendulum', 'photoelectric', 'placeholder', 'projectile',
+  'quantum-history', 'radioactivity', 'rotational', 'simple-machines', 'sound', 'special-relativity',
+  'standing-waves', 'statics', 'thermal-expansion', 'thermodynamics', 'tunneling', 'units-error',
+  'vectors', 'wave-optics', 'work-energy'
 ];
+/* Override para verificar un subconjunto: FISICAHN_MODULES=a,b node --test … */
+const MODULES_SEL = (process.env.FISICAHN_MODULES || '').split(',').map((s) => s.trim()).filter(Boolean);
+const MODULES_RUN = MODULES_SEL.length ? MODULES_SEL : MODULES;
 
-for (const name of MODULES) {
+for (const name of MODULES_RUN) {
   test(`legibility 13: ${name} sin solapes de texto ni salidas del viewbox`, async () => {
     const { Camera } = await import(new URL('camera.js', CORE).href);
     const { Scene } = await import(new URL('scene.js', CORE).href);

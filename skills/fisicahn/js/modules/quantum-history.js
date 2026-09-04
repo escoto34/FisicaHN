@@ -17,7 +17,6 @@
  */
 
 import { SimModule } from '../core/sim-module.js';
-import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 const MILESTONES = [
   {
@@ -166,7 +165,7 @@ export default class QuantumHistory extends SimModule {
 
   init(meta = null) {
     this.reset();
-    setModuleFormulas(this.ui, {
+    this.setModuleFormulas({
       items: [
         { name: 'Planck', formula: 'E = h f' },
         { name: 'Einstein (fotoeléctrico)', formula: 'K_{max} = hf - \\phi' },
@@ -175,7 +174,7 @@ export default class QuantumHistory extends SimModule {
         { name: 'Heisenberg', formula: '\\Delta x \\, \\Delta p \\geq \\hbar/2' }
       ]
     });
-    clearChallenges(this.ui);
+    this.clearChallenges();
     this._refreshInfo();
   }
 
@@ -197,7 +196,7 @@ export default class QuantumHistory extends SimModule {
     // Toda la ficha del hito va VISIBLE en la pestaña Información (barra bajo
     // la animación), sin desplegables: qué pasó, por qué se creía lo anterior
     // y por qué estaba mal (con el grado de certeza de que lo esté).
-    setModuleInfo(this.ui, {
+    this.setModuleInfo({
       title: 'Historia de la mecánica cuántica',
       blurb: `<strong>${m.year} — ${m.who}: ${m.title}.</strong> ${m.text}`,
       sections: [
@@ -255,14 +254,15 @@ export default class QuantumHistory extends SimModule {
     switch (kind) {
       case 'planck': {
         // Curva de radiación de cuerpo negro: sube y cae (sin catástrofe UV).
-        const pts = [];
-        for (let i = 0; i <= 40; i++) {
-          const x = -6 + (i / 40) * 12;
-          const u = (i / 40) * 4;
-          const y = cy - 2.5 + u * u * Math.exp(-u) * 3.2;
-          pts.push({ x, y });
-        }
-        scene.polyline(pts, { color: 'energy', width: 2.5 });
+        scene.curve(
+          (x) => {
+            const u = ((x + 6) / 12) * 4;
+            return cy - 2.5 + u * u * Math.exp(-u) * 3.2;
+          },
+          -6,
+          6,
+          { samples: 40, color: 'energy', width: 2.5 }
+        );
         scene.label(cx, cy - 3.2, 'Intensidad vs frecuencia — sin divergencia al cuantizar E = hf', { color: 'textDim', size: 11 });
         break;
       }
@@ -283,24 +283,19 @@ export default class QuantumHistory extends SimModule {
         break;
       }
       case 'debroglie': {
-        // Icono onda + partícula: una polilínea sinusoidal con un punto encima.
-        const pts = [];
-        for (let i = 0; i <= 40; i++) {
-          const x = -3.5 + (i / 40) * 7;
-          pts.push({ x, y: cy + Math.sin((i / 40) * Math.PI * 4) * 0.8 });
-        }
-        scene.polyline(pts, { color: 'field', width: 2 });
+        // Icono onda + partícula: una sinusoide con un punto encima.
+        scene.curve((x) => cy + Math.sin(((x + 3.5) / 7) * Math.PI * 4) * 0.8, -3.5, 3.5, { samples: 40, color: 'field', width: 2 });
         scene.body(0, cy, { shape: 'circle', r: 0.16, color: 'mass', glow: false, label: 'λ = h/p' });
         break;
       }
       case 'wavefunction': {
-        const pts = [];
-        for (let i = 0; i <= 60; i++) {
-          const x = -5 + (i / 60) * 10;
-          const envelope = Math.exp(-((x / 3) ** 2));
-          pts.push({ x, y: cy + Math.sin((i / 60) * Math.PI * 8 + this.t * 2) * envelope * 1.6 });
-        }
-        scene.polyline(pts, { color: 'field', width: 2 });
+        const ph = this.t * 2;
+        scene.curve(
+          (x) => cy + Math.sin(((x + 5) / 10) * Math.PI * 8 + ph) * Math.exp(-((x / 3) ** 2)) * 1.6,
+          -5,
+          5,
+          { samples: 60, color: 'field', width: 2 }
+        );
         scene.label(cx, cy - 2.4, 'ψ(x,t): paquete de onda — Schrödinger y Heisenberg predicen lo mismo', { color: 'textDim', size: 11 });
         break;
       }

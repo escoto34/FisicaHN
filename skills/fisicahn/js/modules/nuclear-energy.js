@@ -18,7 +18,6 @@
 
 import { SimModule } from '../core/sim-module.js';
 import { roundTo } from '../utils/math-helpers.js';
-import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 /** Coeficientes de Weizsäcker en MeV (sin término de apareamiento). */
 const A_VOL = 15.8;
@@ -72,11 +71,19 @@ export default class NuclearEnergy extends SimModule {
   constructor(ctx) {
     super(ctx);
     this.params = { proceso: 'fision', A: 236 };
+    // Curva BE/A(A): no depende de parámetros, se muestrea una sola vez.
+    const n = Math.floor((A_MAX - A_MIN) / 4) + 1;
+    this._curve = new Float64Array(n * 2);
+    for (let i = 0; i < n; i++) {
+      const a = A_MIN + i * 4;
+      this._curve[i * 2] = this.worldX(a);
+      this._curve[i * 2 + 1] = this.worldY(bindingPerNucleon(a));
+    }
   }
 
   init(meta = null) {
     this.reset();
-    setModuleInfo(this.ui, {
+    this.setModuleInfo({
       title: meta?.title || 'Fisión, fusión y E = mc²',
       blurb: meta?.blurb || 'Curva de energía de enlace por nucleón: por qué fisión y fusión liberan energía.',
       story:
@@ -87,7 +94,7 @@ export default class NuclearEnergy extends SimModule {
         'Por qué el hierro no sirve como combustible nuclear: ya está en el pico.'
       ]
     });
-    setModuleFormulas(this.ui, {
+    this.setModuleFormulas({
       items: [
         { name: 'Einstein', formula: 'E = m c^2', note: 'La masa que falta en el núcleo es energía de enlace.' },
         { name: 'Energía de enlace', formula: 'BE(A) = \\Delta m \\, c^2', note: 'Fórmula semi-empírica de Weizsäcker.' },
@@ -98,7 +105,7 @@ export default class NuclearEnergy extends SimModule {
         }
       ]
     });
-    clearChallenges(this.ui);
+    this.clearChallenges();
   }
 
   reset() {
@@ -131,12 +138,8 @@ export default class NuclearEnergy extends SimModule {
   draw(scene) {
     const { A, proceso } = this.params;
 
-    // Curva BE/A(A): el "mapa" del que salen fisión y fusión.
-    const pts = [];
-    for (let a = A_MIN; a <= A_MAX; a += 4) {
-      pts.push({ x: this.worldX(a), y: this.worldY(bindingPerNucleon(a)) });
-    }
-    scene.polyline(pts, { color: 'energy', width: 2.5 });
+    // Curva BE/A(A): el "mapa" del que salen fisión y fusión (precalculada).
+    scene.polyline(this._curve, { color: 'energy', width: 2.5 });
     scene.line(-10, -5, 10, -5, { color: 'textDim', width: 1 });
     scene.label(0, -5.4, 'A (número másico) →', { color: 'textDim', size: 11 });
 

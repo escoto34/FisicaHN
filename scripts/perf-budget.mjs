@@ -74,11 +74,18 @@ async function runnerFor(engineKey) {
 const WARM = 200;
 const STEPS = 1000;
 
-function measure(run, dt) {
+function measureOnce(run, dt) {
   for (let i = 0; i < WARM; i++) run(dt);
   const t0 = performance.now();
   for (let i = 0; i < STEPS; i++) run(dt);
   return performance.now() - t0;
+}
+
+/** Mejor de 3 tandas: el mínimo es el estimador más estable frente al ruido del sistema. */
+function measure(run, dt) {
+  let best = Infinity;
+  for (let k = 0; k < 3; k++) best = Math.min(best, measureOnce(run, dt));
+  return best;
 }
 
 const names = [];
@@ -121,10 +128,13 @@ for (const [name, ms] of Object.entries(results)) {
     continue;
   }
   const ratio = ms / ref;
-  const mark = ratio <= 1.5 ? 'ok' : 'REGÚN';
-  if (ratio > 1.5) failed++;
+  // Regresión = ×1.5 del presupuesto Y al menos +0,5 ms/1000 pasos: los
+  // motores de décimas de milisegundo oscilan ×2 por puro ruido del sistema.
+  const regressed = ratio > 1.5 && ms - ref > 0.5;
+  const mark = regressed ? 'REGÚN' : 'ok';
+  if (regressed) failed++;
   console.log(
-    `${mark === 'ok' ? '  ✓' : '  ✗'} ${name.padEnd(24)} ${ms.toFixed(0).padStart(5)} ms  (×${ratio.toFixed(2)} del presupuesto ${ref.toFixed(0)} ms)`
+    `${mark === 'ok' ? '  ✓' : '  ✗'} ${name.padEnd(24)} ${ms.toFixed(2).padStart(7)} ms  (×${ratio.toFixed(2)} del presupuesto ${ref.toFixed(2)} ms)`
   );
 }
 

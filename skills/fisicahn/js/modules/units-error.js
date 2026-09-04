@@ -14,7 +14,6 @@
 
 import { SimModule } from '../core/sim-module.js';
 import { roundTo } from '../utils/math-helpers.js';
-import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 /** Unidades por dimensión, todas con factor × unidad SI base. */
 const DIMENSIONS = {
@@ -123,7 +122,7 @@ export default class UnitsError extends SimModule {
 
   init(meta = null) {
     this.reset();
-    setModuleInfo(this.ui, {
+    this.setModuleInfo({
       title: 'Unidades y errores',
       blurb: 'Conversión de unidades, cifras significativas y propagación de errores.',
       story:
@@ -134,7 +133,7 @@ export default class UnitsError extends SimModule {
         'Velocidad en km/h convertida a m/s para un problema de MRU.'
       ]
     });
-    setModuleFormulas(this.ui, {
+    this.setModuleFormulas({
       title: 'Conversión y errores',
       items: [
         {
@@ -154,7 +153,7 @@ export default class UnitsError extends SimModule {
         }
       ]
     });
-    clearChallenges(this.ui);
+    this.clearChallenges();
   }
 
   reset() {

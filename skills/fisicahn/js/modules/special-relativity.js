@@ -10,7 +10,6 @@
 
 import { SimModule } from '../core/sim-module.js';
 import { roundTo } from '../utils/math-helpers.js';
-import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 /** Periodo visual de un "tic" del reloj de luz en reposo, en segundos de la simulación. */
 const T0 = 2;
@@ -51,7 +50,7 @@ export default class SpecialRelativity extends SimModule {
 
   init(meta = null) {
     this.reset();
-    setModuleInfo(this.ui, {
+    this.setModuleInfo({
       title: meta?.title || 'Relatividad especial',
       blurb: meta?.blurb || 'γ, dilatación temporal, contracción de longitud y simultaneidad.',
       story:
@@ -62,7 +61,7 @@ export default class SpecialRelativity extends SimModule {
         'Aceleradores de partículas: a β cercano a 1, γ crece sin límite.'
       ]
     });
-    setModuleFormulas(this.ui, {
+    this.setModuleFormulas({
       items: [
         { name: 'Factor de Lorentz', formula: '\\gamma = \\dfrac{1}{\\sqrt{1-\\beta^2}}', note: 'β = v/c.' },
         { name: 'Dilatación temporal', formula: '\\Delta t\'= \\gamma \\, \\Delta t_0', note: 'El reloj en movimiento tiquetea más lento, visto desde fuera.' },
@@ -70,7 +69,7 @@ export default class SpecialRelativity extends SimModule {
         { name: 'Simultaneidad', formula: '\\Delta t\' = \\gamma \\, \\beta \\, L_0 / c', note: 'Sucesos simultáneos en un sistema, no en otro.' }
       ]
     });
-    clearChallenges(this.ui);
+    this.clearChallenges();
   }
 
   reset() {

@@ -16,8 +16,8 @@
  */
 
 import { SimModule } from '../core/sim-module.js';
+import { TrailBuffer } from '../core/trail-buffer.js';
 import { roundTo } from '../utils/math-helpers.js';
-import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 export default class Induction extends SimModule {
   static viewport = { width: 24, height: 15 };
@@ -61,14 +61,15 @@ export default class Induction extends SimModule {
     };
     this.t = 0;
     this.dt = 1 / 60;
-    this.histPhi = [];
-    this.histEmf = [];
+    /** Historias Φ(t) y ε(t): anillo de 7 s a 60 Hz, sin `shift()` por frame. */
+    this.histPhi = new TrailBuffer(420);
+    this.histEmf = new TrailBuffer(420);
     this.fluxPrev = 0;
   }
 
   init(meta = null) {
     this.reset();
-    setModuleInfo(this.ui, {
+    this.setModuleInfo({
       title: 'Inducción electromagnética',
       blurb: 'Ley de Faraday-Lenz: fem por flujo variable, y el transformador.',
       story:
@@ -80,7 +81,7 @@ export default class Induction extends SimModule {
         'Transformador: V₂/V₁ = N₂/N₁. Con N₂ < N₁ bajas el voltaje y sube la corriente.'
       ]
     });
-    setModuleFormulas(this.ui, {
+    this.setModuleFormulas({
       title: 'Inducción electromagnética',
       items: [
         { name: 'Flujo magnético', formula: '\\Phi = B A \\cos\\theta' },
@@ -93,14 +94,14 @@ export default class Induction extends SimModule {
         }
       ]
     });
-    clearChallenges(this.ui);
+    this.clearChallenges();
   }
 
   reset() {
     this.t = 0;
     this.dt = 1 / 60;
-    this.histPhi = [];
-    this.histEmf = [];
+    this.histPhi.clear();
+    this.histEmf.clear();
     this.fluxPrev = this.fluxNow();
     this.engine?.reset?.();
   }
@@ -112,12 +113,9 @@ export default class Induction extends SimModule {
     const emf = this.modoFaraday() ? -this.params.N * ((flux - this.fluxPrev) / this.dt) : 0;
     this.fluxPrev = flux;
 
+    // Anillo O(1): `plot` acepta el TrailBuffer directamente (sin `shift()`).
     this.histPhi.push({ x: this.t, y: flux });
     this.histEmf.push({ x: this.t, y: emf });
-    if (this.histPhi.length > 420) {
-      this.histPhi.shift();
-      this.histEmf.shift();
-    }
   }
 
   modoFaraday() {
@@ -145,7 +143,7 @@ export default class Induction extends SimModule {
   /** EMF numérico del último update(). */
   emfNow() {
     if (!this.modoFaraday() || this.histEmf.length === 0) return 0;
-    return this.histEmf[this.histEmf.length - 1].y;
+    return this.histEmf.last().y;
   }
 
   /** dΦ/dt analítico incluyendo el movimiento del imán. */
@@ -223,7 +221,11 @@ export default class Induction extends SimModule {
   }
 
   _faradayYRange() {
-    const eMax = Math.max(...this.histEmf.map((p) => Math.abs(p.y)), 0.05);
+    let eMax = 0.05;
+    this.histEmf.forEach((p) => {
+      const a = Math.abs(p.y);
+      if (a > eMax) eMax = a;
+    });
     const y = eMax * 1.15;
     return [-y, y];
   }
@@ -262,22 +264,14 @@ export default class Induction extends SimModule {
     const vp = scene.viewport();
     if (vp.w > 430) {
       const t0 = this.t - 4;
-      const N = 160;
-      const s1 = [];
-      const s2 = [];
-      for (let i = 0; i <= N; i++) {
-        const tt = t0 + (4 * i) / N;
-        const s = Math.sin(w * tt);
-        s1.push({ x: tt, y: Vpk * s });
-        s2.push({ x: tt, y: Vpk * (N2 / N1) * s });
-      }
+      const ratio = N2 / N1;
       scene.hud.plot(
         { x: vp.x + vp.w - 300, y: vp.y + vp.h - 150, w: 290, h: 140 },
         {
           title: 'V₁ y V₂ (superpuestas)',
           series: [
-            { points: s1, color: 'mass', width: 1.8 },
-            { points: s2, color: 'energy', width: 1.8, dash: [4, 3] }
+            { fn: (tt) => Vpk * Math.sin(w * tt), samples: 160, color: 'mass', width: 1.8 },
+            { fn: (tt) => Vpk * ratio * Math.sin(w * tt), samples: 160, color: 'energy', width: 1.8, dash: [4, 3] }
           ],
           xRange: [t0, t0 + 4],
           yRange: [-(Vpk * Math.max(1, N2 / N1)) * 1.15, Vpk * Math.max(1, N2 / N1) * 1.15],
@@ -296,13 +290,9 @@ export default class Induction extends SimModule {
     );
   }
 
-  /** Bobina vertical: nLoops círculos apilados (vista de lado). */
+  /** Bobina vertical: nLoops espiras apiladas (vista de lado), en un trazo. */
   _coil(scene, cx, cy, loops, r, color) {
-    const spacing = r * 1.15;
-    const y0 = cy - ((loops - 1) * spacing) / 2;
-    for (let i = 0; i < loops; i++) {
-      scene.circle(cx, y0 + i * spacing, r, { color, width: 2 });
-    }
+    scene.coil(cx, cy, loops, r, { color, width: 2 });
   }
 
   /* ---------- datos numéricos ---------- */

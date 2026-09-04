@@ -14,7 +14,6 @@
 import { SimModule } from '../core/sim-module.js';
 import { TrailBuffer } from '../core/trail-buffer.js';
 import { roundTo } from '../utils/math-helpers.js';
-import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 const DEG = Math.PI / 180;
 
@@ -73,7 +72,7 @@ export default class Rotational extends SimModule {
 
   init(meta = null) {
     this.reset();
-    setModuleInfo(this.ui, {
+    this.setModuleInfo({
       title: 'Circular y rotacional',
       blurb: 'Torque τ = Iα, movimiento circular, momento angular L = Iω y precesión.',
       story:
@@ -85,7 +84,7 @@ export default class Rotational extends SimModule {
         'Peonza: Ω = τ/(Iω), más rapidez de giro = menos precesión.'
       ]
     });
-    setModuleFormulas(this.ui, {
+    this.setModuleFormulas({
       title: 'Rotacional',
       items: [
         { name: 'Segunda ley rotacional', formula: '\\tau = I \\cdot \\alpha', note: 'Análoga a F = m·a.' },
@@ -96,7 +95,7 @@ export default class Rotational extends SimModule {
         { name: 'Precesión (aprox.)', formula: '\\Omega = \\tau / (I\\omega)', note: 'Peonza con L ≈ Iω.' }
       ]
     });
-    clearChallenges(this.ui);
+    this.clearChallenges();
   }
 
   /** Momento de inercia de la varilla + dos masas (modo momentum). */
