@@ -5,7 +5,7 @@
  */
 
 import { roundTo } from '../utils/math-helpers.js';
-import { lensPath } from '../core/draw-primitives.js';
+import { lensPath, lensBulgeFromFocal } from '../core/draw-primitives.js';
 import {
   setModuleInfo,
   setModuleFormulas,
@@ -16,9 +16,29 @@ let _engine, _renderer, _ui;
 
 const params = {
   tipo: 'convergente', // convergente | divergente
+  forma: 'bi', // bi | plano | menisco → silueta de la lente
   f: 2.5,
   do_: 5,
   ho: 1.5
+};
+
+/**
+ * Silueta de la lente según tipo (signo de f) y forma elegida: la misma
+ * fórmula 1/f = 1/d₀ + 1/dᵢ vale para las seis, pero cada una tiene su
+ * dibujo de libro (biconvexa/bicóncava, plano-convexa/plano-cóncava,
+ * menisco convergente/divergente).
+ */
+function lensType() {
+  const conv = params.tipo === 'convergente';
+  if (params.forma === 'plano') return conv ? 'plano-convex' : 'plano-concave';
+  if (params.forma === 'menisco') return conv ? 'meniscus-convex' : 'meniscus-concave';
+  return conv ? 'biconvex' : 'biconcave';
+}
+
+const FORMA_LABEL = {
+  bi: { convergente: 'Biconvexa', divergente: 'Bicóncava' },
+  plano: { convergente: 'Plano-convexa', divergente: 'Plano-cóncava' },
+  menisco: { convergente: 'Menisco convergente', divergente: 'Menisco divergente' }
 };
 
 function image() {
@@ -84,9 +104,10 @@ function updateData() {
     : im.real
       ? 'Imagen REAL (lado opuesto; invertida si M&lt;0)'
       : 'Imagen VIRTUAL (mismo lado; rayos prolongados)';
+  const formaLabel = FORMA_LABEL[params.forma]?.[params.tipo] || '';
   _ui?.setData(`
     <div style="font-family:var(--font-mono);font-size:0.82rem;line-height:1.7">
-      <div><strong>${tipoLabel}</strong></div>
+      <div><strong>${tipoLabel}</strong> · ${formaLabel}</div>
       <div>f = ${roundTo(fSigned, 2)} · |f| = ${roundTo(params.f, 2)}</div>
       <div>d₀ = ${roundTo(params.do_, 2)} · h₀ = ${roundTo(params.ho, 2)}</div>
       <div>dᵢ = ${Number.isFinite(im.di) ? roundTo(im.di, 3) : '∞'}</div>
@@ -174,15 +195,11 @@ function drawVerticalArrow(ctx, r, x, y, color, label, dashed = false) {
 }
 
 /**
- * Excentricidad visual de la lente a partir de la focal: a menor |f| (lente más
- * potente) más abombado el óvalo; a mayor |f| más plana.
- * @param {number} fFocal - Distancia focal positiva (|f|).
+ * Silueta de la lente en x = 0: la forma la decide `lensType()` y la
+ * excentricidad la focal (|f| pequeña → caras muy curvas; |f| grande → casi
+ * planas), así el dibujo cambia con el deslizador de f.
  */
-function bulgeFromFocal(fFocal) {
-  return Math.max(0.15, Math.min(0.92, 1.15 - 0.25 * Math.sqrt(Math.max(0.1, fFocal))));
-}
-
-function drawLensShape(ctx, r, tipo) {
+function drawLensShape(ctx, r) {
   const top = r.worldToCanvas(0, 3.4);
   const bot = r.worldToCanvas(0, -3.4);
   const midY = (top.y + bot.y) / 2;
@@ -190,16 +207,14 @@ function drawLensShape(ctx, r, tipo) {
   const h = bot.y - top.y;
 
   ctx.save();
-  const bulge = bulgeFromFocal(params.f);
-  const rxPx = Math.abs(r.worldToCanvas(0.85, midY).x - cx);
-  const gradW = Math.abs(r.worldToCanvas(1.1, midY).x - cx);
-  // Óvalo de lente delgada: biconvexa (convergente) o bicóncava (divergente).
-  lensPath(ctx, cx, midY, rxPx, h / 2, tipo === 'convergente' ? 'biconvex' : 'biconcave', bulge);
-  const grad = ctx.createLinearGradient(cx - gradW, midY, cx + gradW, midY);
+  const bulge = lensBulgeFromFocal(params.f, 3);
+  const rxPx = Math.abs(r.worldToCanvas(0.9, midY).x - cx);
+  lensPath(ctx, cx, midY, rxPx, h / 2, lensType(), bulge);
   try {
-    grad.addColorStop(0, 'rgba(144, 202, 249, 0.10)');
-    grad.addColorStop(0.5, 'rgba(144, 202, 249, 0.30)');
-    grad.addColorStop(1, 'rgba(144, 202, 249, 0.10)');
+    const grad = ctx.createLinearGradient(cx - rxPx, midY, cx + rxPx, midY);
+    grad.addColorStop(0, 'rgba(144, 202, 249, 0.12)');
+    grad.addColorStop(0.5, 'rgba(210, 235, 255, 0.42)');
+    grad.addColorStop(1, 'rgba(144, 202, 249, 0.12)');
     ctx.fillStyle = grad;
   } catch {
     ctx.fillStyle = 'rgba(144, 202, 249, 0.22)';
@@ -207,6 +222,7 @@ function drawLensShape(ctx, r, tipo) {
   ctx.fill();
   ctx.strokeStyle = '#90caf9';
   ctx.lineWidth = 3;
+  ctx.lineJoin = 'round';
   ctx.stroke();
   ctx.restore();
 
@@ -283,11 +299,12 @@ export function render(ctx) {
   ctx.restore();
 
   // Lente
-  const lens = drawLensShape(ctx, r, params.tipo);
+  const lens = drawLensShape(ctx, r);
+  const formaLabel = FORMA_LABEL[params.forma]?.[params.tipo] || '';
   chip(
     ctx,
-    conv ? 'Lente CONVERGENTE (+f)' : 'Lente DIVERGENTE (−f)',
-    lens.cx - 90,
+    `${formaLabel} · ${conv ? 'CONVERGENTE (+f)' : 'DIVERGENTE (−f)'}`,
+    lens.cx - 110,
     Math.max(22, lens.top.y - 28),
     conv ? '#81d4fa' : '#ce93d8'
   );
@@ -475,6 +492,14 @@ function renderParams() {
         <option value="divergente" ${params.tipo === 'divergente' ? 'selected' : ''}>Divergente (−f) — dispersa</option>
       </select>
     </div>
+    <div class="control-group">
+      <label class="control-label">Forma de la lente</label>
+      <select id="ln_forma" class="custom-select">
+        <option value="bi" ${params.forma === 'bi' ? 'selected' : ''}>Biconvexa / bicóncava</option>
+        <option value="plano" ${params.forma === 'plano' ? 'selected' : ''}>Plano-convexa / plano-cóncava</option>
+        <option value="menisco" ${params.forma === 'menisco' ? 'selected' : ''}>Menisco (gafas)</option>
+      </select>
+    </div>
     <div class="control-group"><label class="control-label">$|f|$ (u)</label>
       <div class="slider-row"><input type="range" id="ln_f" class="custom-slider" min="1" max="6" step="0.1" value="${params.f}"><span id="ln_fd">${params.f}</span></div></div>
     <div class="control-group"><label class="control-label">$$d_0$$ distancia objeto (u)</label>
@@ -485,6 +510,10 @@ function renderParams() {
   setTimeout(() => {
     document.getElementById('ln_tipo')?.addEventListener('change', (e) => {
       params.tipo = e.target.value;
+      updateData();
+    });
+    document.getElementById('ln_forma')?.addEventListener('change', (e) => {
+      params.forma = e.target.value;
       updateData();
     });
     const bind = (id, key, d) => {

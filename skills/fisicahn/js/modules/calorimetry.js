@@ -27,6 +27,23 @@ const C_ICE = 2090; // J/(kg·K)
 const L_FUSION = 334000; // J/kg
 const SIGMA = 5.67e-8; // Stefan-Boltzmann
 
+/**
+ * Muestras metálicas «desconocidas» al estilo del calorímetro de educaplus:
+ * el alumno mide T_eq, despeja c con m₂·c·(T₂ − T_eq) = m₁·c_agua·(T_eq − T₁)
+ * y compara con la tabla de la pestaña Información para identificar el metal.
+ * c en J/(kg·K).
+ */
+export const SAMPLES = {
+  A: { c: 897, metal: 'aluminio' },
+  B: { c: 450, metal: 'hierro' },
+  C: { c: 385, metal: 'cobre' },
+  D: { c: 128, metal: 'plomo' },
+  E: { c: 388, metal: 'zinc' },
+  F: { c: 235, metal: 'plata' }
+};
+/** Segundos que tarda la muestra en caer al agua al iniciar (animación). */
+const T_DROP = 1.2;
+
 export default class Calorimetry extends SimModule {
   static viewport = { width: 24, height: 16 };
 
@@ -47,6 +64,22 @@ export default class Calorimetry extends SimModule {
         { value: 'radiacion', label: 'Radiación' }
       ]
     },
+    {
+      id: 'muestra',
+      type: 'select',
+      label: 'Muestra metálica',
+      value: 'manual',
+      options: [
+        { value: 'manual', label: 'Metal con c conocido (ajustable)' },
+        { value: 'A', label: 'Muestra desconocida A' },
+        { value: 'B', label: 'Muestra desconocida B' },
+        { value: 'C', label: 'Muestra desconocida C' },
+        { value: 'D', label: 'Muestra desconocida D' },
+        { value: 'E', label: 'Muestra desconocida E' },
+        { value: 'F', label: 'Muestra desconocida F' }
+      ]
+    },
+    { id: 'revelar', type: 'checkbox', label: 'Revelar c de la muestra', value: false },
     { id: 'm1', label: 'Masa de agua', latex: 'm_1', unit: 'kg', min: 0.1, max: 4, step: 0.1, value: 1 },
     { id: 'T1', label: 'T agua', latex: 'T_1', unit: '°C', min: -20, max: 90, step: 1, value: 20 },
     { id: 'm2', label: 'Masa del metal', latex: 'm_2', unit: 'kg', min: 0.1, max: 4, step: 0.1, value: 1 },
@@ -66,6 +99,8 @@ export default class Calorimetry extends SimModule {
     super(ctx);
     this.params = {
       modo: 'mezcla',
+      muestra: 'manual',
+      revelar: false,
       m1: 1,
       T1: 20,
       m2: 1,
@@ -94,6 +129,14 @@ export default class Calorimetry extends SimModule {
       blurb: 'Equilibrio térmico, calor latente con meseta de fusión y los tres modos de transferencia.',
       story:
         'El calor es energía en tránsito. Cuando dos cuerpos se tocan, el calor fluye hasta igualar temperaturas; cuando un sólido funde, la temperatura se detiene mientras el calor latente rompe los enlaces. Y hay tres caminos para transferir calor: conducción (contacto), convección (fluido que se mueve) y radiación (ondas que viajan en el vacío).',
+      sections: [
+        {
+          title: 'Práctica con el calorímetro:',
+          text:
+            'elige una muestra desconocida (A–F), fija masas y temperaturas, deja que se equilibre y despeja c con m₂·c·(T₂ − T_eq) = m₁·c_agua·(T_eq − T₁). Compara con la tabla: aluminio 897 · hierro 450 · zinc 388 · cobre 385 · plata 235 · plomo 128 J/(kg·K). Activa «Revelar c» para comprobar.',
+          tone: 'accent'
+        }
+      ],
       cases: [
         'Metal caliente en agua: T_eq entre ambos, la gráfica muestra el relajamiento exponencial.',
         'Hielo a 0 °C: la curva T–Q se queda horizontal mientras funde: esa meseta es el calor latente.',
@@ -146,17 +189,28 @@ export default class Calorimetry extends SimModule {
     this.engine?.reset?.();
   }
 
+  /** Calor específico efectivo del metal: el ajustable o el de la muestra oculta. */
+  cMetal() {
+    const sample = SAMPLES[this.params.muestra];
+    return sample ? sample.c : this.params.c2;
+  }
+
+  /** ¿Se muestra el valor de c? (metal conocido, o muestra revelada). */
+  cVisible() {
+    return !SAMPLES[this.params.muestra] || !!this.params.revelar;
+  }
+
   /** Temperatura de equilibrio de la mezcla (análitica, con C = m·c). */
   tEq() {
     const C1 = this.params.m1 * C_WATER;
-    const C2 = this.params.m2 * this.params.c2;
+    const C2 = this.params.m2 * this.cMetal();
     return (C1 * this.params.T1 + C2 * this.params.T2) / (C1 + C2);
   }
 
   /** Constante de tiempo del relajamiento térmico (s, arbitraria pero coherente). */
   tauMix() {
     const C1 = this.params.m1 * C_WATER;
-    const C2 = this.params.m2 * this.params.c2;
+    const C2 = this.params.m2 * this.cMetal();
     return 6 / (1 + (C1 + C2) / 5000);
   }
 
@@ -212,12 +266,17 @@ export default class Calorimetry extends SimModule {
 
   /** Temperatura del agua en el instante actual (aprox. exponencial a T_eq). */
   mixWater() {
-    return this.tEq() + (this.params.T1 - this.tEq()) * Math.exp(-Math.min(this.t, 90) / this.tauMix());
+    return this.tEq() + (this.params.T1 - this.tEq()) * Math.exp(-this.mixClock() / this.tauMix());
   }
 
   /** Temperatura del metal en el instante actual. */
   mixMetal() {
-    return this.tEq() + (this.params.T2 - this.tEq()) * Math.exp(-Math.min(this.t, 90) / this.tauMix());
+    return this.tEq() + (this.params.T2 - this.tEq()) * Math.exp(-this.mixClock() / this.tauMix());
+  }
+
+  /** Tiempo de intercambio: empieza cuando la muestra ya cayó al agua. */
+  mixClock() {
+    return Math.max(0, Math.min(this.t, 90) - T_DROP);
   }
 
   /* ---------- dibujo declarativo (§2.4) ---------- */
@@ -231,58 +290,121 @@ export default class Calorimetry extends SimModule {
     else this._drawTransfer(scene, hud, vp);
   }
 
-  /** Modo mezcla: calorímetro con agua + muestra metálica que se equilibran en vivo. */
+  /**
+   * Modo mezcla — calorímetro de laboratorio (al estilo de educaplus): vaso
+   * aislado con agua y termómetro, la muestra metálica caliente cae al agua
+   * al arrancar y las dos temperaturas convergen en vivo a T_eq. Con una
+   * muestra desconocida el objetivo es despejar su c a partir de T_eq.
+   */
   _drawMix(scene, hud, vp) {
     const { m1, T1, m2, T2 } = this.params;
     const Teq = this.tEq();
     const tau = this.tauMix();
     const Tw = this.mixWater();
     const Tm = this.mixMetal();
-    const prog = 1 - Math.exp(-Math.min(this.t, 90) / tau); // avance hacia el equilibrio
+    const clock = this.mixClock();
+    const prog = 1 - Math.exp(-clock / tau); // avance hacia el equilibrio
     const tLow = Math.min(T1, T2, Teq);
     const tHigh = Math.max(T1, T2, Teq);
     const span = Math.max(1e-6, tHigh - tLow);
+    const sample = SAMPLES[this.params.muestra];
+    const sampleName = sample ? `Muestra ${this.params.muestra}` : 'Metal';
+    // Caída de la muestra: de la pinza (arriba) al fondo del vaso.
+    const drop = Math.min(1, this.t / T_DROP);
+    const ease = drop * drop * (3 - 2 * drop);
 
-    // Calorímetro aislado (doble pared) centrado en el origen.
-    scene.rect(0, -0.4, 9.6, 7.4, { color: 'textDim', width: 2.4, fill: 'rgba(12,15,20,0.25)' });
-    scene.rect(0, -0.4, 8.9, 6.7, { color: 'textDim', width: 1.2 });
-
-    // Agua: nivel fijo; el tono sigue la temperatura viva (azul → naranja).
-    const waterTone = thermalColor('#1e6fd9', '#ff8a3d', (Tw - tLow) / span);
-    scene.fill(-4.45, -1.6, 8.9, 2.3, { color: waterTone, alpha: 0.5, waves: true });
-    scene.label(0, -0.8, `Agua ${m1} kg · ${roundTo(Tw, 1)} °C`, { avoid: true, color: 'field' });
-
-    // Muestra metálica sumergida (derecha) con su temperatura propia.
-    const metalTone = thermalColor('#5b6b7a', '#ff5a36', (Tm - tLow) / span);
-    scene.rect(3.2, -3.0, 1.6, 1.6, {
-      color: metalTone,
-      width: 2.4,
-      fill: metalTone,
-      fillAlpha: 0.6
-    });
-    scene.label(3.2, -0.9, `Metal ${m2} kg · ${roundTo(Tm, 1)} °C`, { avoid: true, color: 'force' });
-
-    // Flujo de calor Q que viaja del metal (caliente) al agua (fría).
-    if (prog > 0.02) {
-      const qx = 3.2 - 6.0 * prog;
-      scene.line(3.2, -0.4, qx, -0.4, { color: 'energy', width: 3, alpha: 0.9 });
-      scene.vector(qx, -0.4, -0.7 * prog, 0, { color: 'energy', alpha: 0.9 });
+    /* ---- Calorímetro: vaso exterior aislante, vaso interior y tapa ---- */
+    const cxV = -2.2;
+    const W = 8.4;
+    const Hh = 7.2;
+    const yC = -0.6;
+    scene.rect(cxV, yC, W + 1.2, Hh + 0.9, { color: 'textDim', width: 2.4, fill: 'rgba(90,100,120,0.18)', radius: 6 });
+    // Aislante: rayado entre las dos paredes del vaso.
+    for (let yy = yC - Hh / 2 - 0.3; yy <= yC + Hh / 2 + 0.3; yy += 0.5) {
+      scene.line(cxV - W / 2 - 0.6, yy, cxV - W / 2, yy + 0.35, { color: 'textDim', width: 1, alpha: 0.5 });
+      scene.line(cxV + W / 2, yy, cxV + W / 2 + 0.6, yy + 0.35, { color: 'textDim', width: 1, alpha: 0.5 });
     }
-    scene.label(0, -2.6, prog >= 0.985 ? `EQUILIBRIO: T_eq = ${roundTo(Teq, 1)} °C` : `T_eq → ${roundTo(Teq, 1)} °C`, {
-      avoid: true,
-      color: 'energy'
-    });
+    scene.rect(cxV, yC, W, Hh, { color: 'textDim', width: 1.6 });
+    scene.label(cxV, yC - Hh / 2 - 0.95, 'calorímetro (aislado)', { avoid: true, color: 'textDim', size: 11 });
+    // Tapa con agujeros para termómetro y pinza.
+    scene.rect(cxV, yC + Hh / 2 + 0.25, W + 1.2, 0.5, { color: 'textDim', fill: 'textDim', alpha: 0.7, width: 1 });
+
+    /* ---- Agua ---- */
+    const waterTone = thermalColor('#1e6fd9', '#ff8a3d', (Tw - tLow) / span);
+    const waterH = 4.2 + 0.8 * Math.min(1, m1 / 4);
+    const waterTop = yC - Hh / 2 + waterH;
+    scene.fill(cxV, waterTop, W, waterH, { color: waterTone, alpha: 0.5, waves: true });
+    scene.label(cxV + 1.3, waterTop - 0.7, `agua ${m1} kg · ${roundTo(Tw, 1)} °C`, { avoid: true, color: 'field', size: 11 });
+
+    /* ---- Muestra metálica: cuelga de la pinza y cae al agua ---- */
+    const side = 1.1 + 0.6 * Math.min(1, m2 / 4);
+    const yTopPos = yC + Hh / 2 + 2.4;
+    const yBottomPos = yC - Hh / 2 + side / 2 + 0.15;
+    const yM = yTopPos + (yBottomPos - yTopPos) * ease;
+    const xM = cxV + 1.9;
+    const metalTone = thermalColor('#5b6b7a', '#ff5a36', (Tm - tLow) / span);
+    // Hilo de la pinza.
+    scene.line(xM, yC + Hh / 2 + 3.6, xM, yM + side / 2, { color: 'textDim', width: 1.2 });
+    scene.rect(xM, yM, side, side, { color: metalTone, width: 2.2, fill: metalTone, fillAlpha: 0.75, radius: 3 });
+    scene.label(xM, yM + side / 2 + 0.45, `${sampleName} ${m2} kg · ${roundTo(Tm, 1)} °C`, { avoid: true, color: 'force', size: 11 });
+    if (drop >= 1 && prog < 0.985) {
+      // Ondas de calor del metal al agua.
+      for (let j = 0; j < 3; j++) {
+        const ph = (this.t * 0.8 + j / 3) % 1;
+        const rr = side * 0.7 + ph * 1.4;
+        scene.arc(xM, yM, rr, 0, Math.PI * 2, { color: 'energy', width: 1.2, alpha: 0.5 * (1 - ph), dash: [3, 3] });
+      }
+    }
+
+    /* ---- Termómetro del agua (columna proporcional a T agua) ---- */
+    const xT = cxV - 2.6;
+    const tTop = yC + Hh / 2 + 2.6;
+    const tBot = yC - Hh / 2 + 0.6;
+    const tScaleLo = Math.floor((tLow - 10) / 10) * 10;
+    const tScaleHi = Math.ceil((tHigh + 10) / 10) * 10;
+    const tFrac = (val) => Math.max(0, Math.min(1, (val - tScaleLo) / Math.max(1e-6, tScaleHi - tScaleLo)));
+    scene.rect(xT, (tTop + tBot) / 2, 0.5, tTop - tBot, { color: 'textDim', width: 1.4, fill: 'rgba(255,255,255,0.06)', radius: 4 });
+    const colH = (tTop - tBot - 0.3) * tFrac(Tw);
+    if (colH > 0.02) scene.rect(xT, tBot + 0.15 + colH / 2, 0.24, colH, { fill: 'force', stroke: false, alpha: 0.95 });
+    scene.circle(xT, tBot - 0.05, 0.38, { color: 'force', fill: 'force', alpha: 0.95, width: 1 });
+    for (let tv = tScaleLo; tv <= tScaleHi; tv += 10) {
+      const yy = tBot + 0.15 + (tTop - tBot - 0.3) * tFrac(tv);
+      const major = tv % 50 === 0;
+      scene.line(xT + 0.25, yy, xT + (major ? 0.6 : 0.42), yy, { color: 'textDim', width: 1 });
+      if (major) scene.label(xT - 0.75, yy, `${tv}`, { color: 'textDim', size: 9, avoid: false });
+    }
+    // Marca de T_eq en la escala.
+    const yEq = tBot + 0.15 + (tTop - tBot - 0.3) * tFrac(Teq);
+    scene.line(xT + 0.25, yEq, xT + 0.95, yEq, { color: 'energy', width: 2, dash: [3, 2] });
+    scene.label(xT + 1.05, yEq, 'T_eq', { color: 'energy', size: 10, align: 'left', avoid: false });
+    scene.label(xT, tTop + 0.55, `${roundTo(Tw, 1)} °C`, { color: 'force', size: 12, avoid: true });
+
+    /* ---- Estado ---- */
+    const status =
+      drop < 1
+        ? 'La muestra caliente cae al agua…'
+        : prog >= 0.985
+          ? `EQUILIBRIO: T_eq = ${roundTo(Teq, 1)} °C`
+          : `Intercambio de calor: T_eq → ${roundTo(Teq, 1)} °C`;
+    scene.chip(cxV, yC + Hh / 2 + 4.4, status, { avoid: true, color: 'energy' });
+    hud.chip(
+      sample && !this.params.revelar
+        ? `${sampleName}: c desconocido → despéjalo con T_eq`
+        : `${sampleName}: c = ${roundTo(this.cMetal(), 0)} J/(kg·K)${sample ? ' (' + sample.metal + ')' : ''}`,
+      'top-left',
+      { color: 'energy' }
+    );
 
     const rows = [
       { label: 'T_eq', value: roundTo(Teq, 2), unit: '°C' },
       { label: 'Q agua', value: roundTo(m1 * C_WATER * (Teq - T1), 0), unit: 'J' },
-      { label: 'Q metal', value: roundTo(m2 * this.params.c2 * (T2 - Teq), 0), unit: 'J' }
+      { label: 'Q metal', value: roundTo(m2 * this.cMetal() * (T2 - Teq), 0), unit: 'J' }
     ];
     hud.readout(rows, 'bottom-left');
 
     if (vp.w > 430) {
       // T(t) con relajamiento exponencial: la mezcla tiende a T_eq en vivo.
-      const horizon = Math.max(this.t, 1);
+      const horizon = Math.max(clock, 1);
       const mk = (T0) => {
         const pts = [];
         const N = 60;
@@ -292,7 +414,7 @@ export default class Calorimetry extends SimModule {
         }
         return pts;
       };
-      const last = { x: this.t, w: Tw, m: Tm };
+      const last = { x: clock, w: Tw, m: Tm };
       hud.plot(
         { x: vp.x + vp.w - 250, y: vp.y + vp.h - 128, w: 235, h: 116 },
         {
@@ -425,10 +547,17 @@ export default class Calorimetry extends SimModule {
     const modo = this.params.modo;
     if (modo === 'mezcla') {
       const Teq = this.tEq();
+      const sample = SAMPLES[this.params.muestra];
+      const cRow = this.cVisible()
+        ? { value: roundTo(this.cMetal(), 0), unit: sample ? `J/(kg·K) — ${sample.metal}` : 'J/(kg·K)' }
+        : { value: '?', unit: 'J/(kg·K) — calcúlalo con T_eq' };
       return {
         'T_eq': { value: roundTo(Teq, 2), unit: '°C' },
+        'T agua ahora': { value: roundTo(this.mixWater(), 1), unit: '°C' },
+        'T metal ahora': { value: roundTo(this.mixMetal(), 1), unit: '°C' },
         'Q agua': { value: roundTo(this.params.m1 * C_WATER * (Teq - this.params.T1), 0), unit: 'J' },
-        'Q metal': { value: roundTo(this.params.m2 * this.params.c2 * (this.params.T2 - Teq), 0), unit: 'J' }
+        'Q metal': { value: roundTo(this.params.m2 * this.cMetal() * (this.params.T2 - Teq), 0), unit: 'J' },
+        'c metal': cRow
       };
     }
     if (modo === 'fase') {

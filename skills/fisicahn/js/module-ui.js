@@ -352,21 +352,37 @@ function htmlToLatexKeepText(html) {
 
 /**
  * @param {object} ui
- * @param {{ title: string, blurb: string, story?: string, cases?: string[] }} content
+ * @param {{ title: string, blurb: string, story?: string, cases?: string[],
+ *   sections?: { title: string, text: string, tone?: string }[] }} content
+ *   `sections` son bloques SIEMPRE visibles (sin desplegar) bajo el blurb;
+ *   `tone` admite 'accent' | 'warn' | 'ok' para colorear el título.
  */
 export function setModuleInfo(ui, content) {
   const title = content.title || 'Módulo';
   const blurb = content.blurb || '';
   const story = content.story || '';
   const cases = Array.isArray(content.cases) ? content.cases : [];
+  const sections = Array.isArray(content.sections) ? content.sections : [];
 
   const casesHtml = cases.length
     ? `<ul class="info-cases">${cases.map((c) => `<li>${c}</li>`).join('')}</ul>`
+    : '';
+  const toneColor = { accent: 'var(--accent)', warn: 'var(--danger, #ff8a65)', ok: 'var(--success, #81c784)' };
+  const sectionsHtml = sections.length
+    ? `<div class="info-sections">${sections
+        .map(
+          (s) =>
+            `<p class="tab-text info-section"><strong style="color:${toneColor[s.tone] || 'inherit'}">${escapeHtml(
+              s.title || ''
+            )}</strong> ${s.text || ''}</p>`
+        )
+        .join('')}</div>`
     : '';
 
   ui.setInfo(`
     <div class="module-info-block">
       <p class="tab-text"><strong>${escapeHtml(title)}</strong> — ${blurb}</p>
+      ${sectionsHtml}
       <button type="button" class="ctrl-btn info-story-btn" id="moduleStoryBtn" aria-expanded="false">
         Historia y casos prácticos
       </button>

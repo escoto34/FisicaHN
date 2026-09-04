@@ -967,7 +967,7 @@ function parseAppRoute() {
   const parts = path.split('/').filter(Boolean);
   let mode = null;
   if (qs) {
-    const m = qs.match(/[?&]mode=([^&]+)/);
+    const m = ('&' + qs).match(/[?&]mode=([^&]+)/);
     if (m) {
       try {
         mode = decodeURIComponent(m[1]);

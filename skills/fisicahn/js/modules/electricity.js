@@ -77,15 +77,17 @@ export function update(dt) {
 export function render(ctx, alpha, elapsed) {
   if (!_renderer) return;
   const r = _renderer;
-  ctx.save();
-  // Líneas de campo trazadas desde el CENTRO de cada carga (streamlines):
-  // arrancan en la superficie de la carga y siguen la dirección de E (o la
-  // contraria) integrando paso a paso. Sale de las positivas y entra en las
-  // negativas, llenando todo el plano a partir del centro de las cargas.
-  const step = 0.13;
-  const maxSteps = 320;
-  const bounds = { minX: -10.5, maxX: 10.5, minY: -8, maxY: 8 };
-  const r0 = 0.55;
+  const R_CHARGE = 0.5; // radio dibujado de cada carga (unidades de mundo)
+
+  // Líneas de campo trazadas DESDE EL CENTRO de cada carga (streamlines):
+  // nacen en el centro, atraviesan el disco de la carga y siguen la dirección
+  // de E (positivas) o la contraria (negativas) integrando paso a paso, hasta
+  // entrar en otra carga o salir del área visible. Su número es proporcional
+  // a |q|, como manda el criterio de Faraday.
+  const step = 0.12;
+  const maxSteps = 420;
+  const wb = r.camera?.bounds?.() || { minX: -12, maxX: 12, minY: -9, maxY: 9 };
+  const bounds = { minX: wb.minX - 1, maxX: wb.maxX + 1, minY: wb.minY - 1, maxY: wb.maxY + 1 };
 
   const eField = (px, py, out) => {
     let ex = 0;
@@ -104,29 +106,62 @@ export function render(ctx, alpha, elapsed) {
     out.y = ey / m;
   };
 
-  const drawLine = (seedPos, dir) => {
+  /** Traza una línea desde el centro de `origin` en la dirección inicial `ang`. */
+  const traceLine = (origin, ang, dir) => {
     const pts = [];
-    let px = seedPos.x;
-    let py = seedPos.y;
-    const e = { x: 0, y: 0 };
+    // Primer tramo radial: del centro al borde del disco (dentro de la carga
+    // el campo es formalmente singular; se sale en línea recta).
+    let px = origin.pos.x;
+    let py = origin.pos.y;
+    const e = { x: Math.cos(ang), y: Math.sin(ang) };
+    pts.push(px, py);
+    px += e.x * R_CHARGE;
+    py += e.y * R_CHARGE;
     for (let i = 0; i < maxSteps; i++) {
       pts.push(px, py);
-      let enteredCharge = false;
+      let entered = false;
       for (const c of charges) {
-        if (Math.hypot(px - c.pos.x, py - c.pos.y) < 0.45 && i > 2) {
-          enteredCharge = true;
+        if (c === origin) continue;
+        if (Math.hypot(px - c.pos.x, py - c.pos.y) < R_CHARGE * 0.9) {
+          // Termina en el centro de la carga de llegada.
+          pts.push(c.pos.x, c.pos.y);
+          entered = true;
           break;
         }
       }
-      if (enteredCharge) break;
+      if (entered) break;
       if (px < bounds.minX || px > bounds.maxX || py < bounds.minY || py > bounds.maxY) break;
       eField(px, py, e);
       px += e.x * step * dir;
       py += e.y * step * dir;
     }
-    if (pts.length < 8) return;
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = 'rgba(79, 195, 247, 0.5)';
+    return pts;
+  };
+
+  const lines = [];
+  for (const c of charges) {
+    const dir = Math.sign(c.charge) || 1;
+    const seeds = Math.max(8, Math.round(16 * Math.sqrt(Math.abs(c.charge) * 1e6)));
+    for (let k = 0; k < seeds; k++) {
+      const a = ((k + 0.5) / seeds) * Math.PI * 2;
+      const pts = traceLine(c, a, dir);
+      if (pts.length >= 6) lines.push({ pts, dir });
+    }
+  }
+
+  // 1) Discos de las cargas (debajo de las líneas, para que éstas se vean
+  //    salir del centro).
+  for (const c of charges) {
+    r.drawObject(c.pos.x, c.pos.y, { shape: 'circle', size: R_CHARGE, color: c.color, glow: false });
+  }
+
+  // 2) Líneas de campo con puntas de flecha a lo largo del recorrido.
+  ctx.save();
+  ctx.lineWidth = 1.3;
+  ctx.lineJoin = 'round';
+  for (const { pts, dir } of lines) {
+    ctx.strokeStyle = 'rgba(79, 195, 247, 0.62)';
+    ctx.fillStyle = 'rgba(79, 195, 247, 0.85)';
     const p0 = r.worldToCanvas(pts[0], pts[1], _e1);
     ctx.beginPath();
     ctx.moveTo(p0.x, p0.y);
@@ -135,28 +170,45 @@ export function render(ctx, alpha, elapsed) {
       ctx.lineTo(qi.x, qi.y);
     }
     ctx.stroke();
-  };
-
-  for (const c of charges) {
-    const dir = Math.sign(c.charge) || 1;
-    const seeds = Math.max(20, Math.round(26 * Math.sqrt(Math.abs(c.charge) * 1e6)));
-    for (let k = 0; k < seeds; k++) {
-      const a = (k / seeds) * Math.PI * 2;
-      drawLine({ x: c.pos.x + Math.cos(a) * r0, y: c.pos.y + Math.sin(a) * r0 }, dir);
+    // Flechas: sentido de E (de + hacia −). Para una carga negativa la línea
+    // se recorre al revés, así que la flecha apunta hacia el origen.
+    const n = pts.length / 2;
+    const marks = n > 60 ? [Math.floor(n * 0.3), Math.floor(n * 0.7)] : [Math.floor(n * 0.5)];
+    for (const idx of marks) {
+      if (idx < 2 || idx >= n - 1) continue;
+      const a = r.worldToCanvas(pts[(idx - 1) * 2], pts[(idx - 1) * 2 + 1], _e1);
+      const b = r.worldToCanvas(pts[idx * 2], pts[idx * 2 + 1], _e2);
+      const ang = Math.atan2(b.y - a.y, b.x - a.x) + (dir > 0 ? 0 : Math.PI);
+      const size = 7;
+      ctx.beginPath();
+      ctx.moveTo(b.x + Math.cos(ang) * size * 0.5, b.y + Math.sin(ang) * size * 0.5);
+      ctx.lineTo(b.x - size * Math.cos(ang - 0.45), b.y - size * Math.sin(ang - 0.45));
+      ctx.lineTo(b.x - size * Math.cos(ang + 0.45), b.y - size * Math.sin(ang + 0.45));
+      ctx.closePath();
+      ctx.fill();
     }
   }
   ctx.restore();
 
-  // Dibujar cargas
+  // 3) Signo y etiqueta de cada carga encima de las líneas.
+  ctx.save();
   for (const c of charges) {
+    const p = r.worldToCanvas(c.pos.x, c.pos.y, _e1);
+    const rp = Math.max(6, r.camera?.toPixels?.(R_CHARGE) ?? 14);
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.font = `700 ${Math.max(11, rp * 1.1)}px system-ui, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(c.charge > 0 ? '+' : '−', p.x, p.y + 1);
     const label = `${c.charge > 0 ? '+' : ''}${c.charge.toExponential(1)} C`;
-    r.drawObject(c.pos.x, c.pos.y, {
-      shape: 'circle',
-      size: 0.5,
-      color: c.color,
-      label
-    });
+    ctx.font = '600 12px system-ui, sans-serif';
+    const tw = ctx.measureText(label).width;
+    ctx.fillStyle = 'rgba(12,15,20,0.65)';
+    ctx.fillRect(p.x - tw / 2 - 6, p.y + rp + 6, tw + 12, 18);
+    ctx.fillStyle = c.color;
+    ctx.fillText(label, p.x, p.y + rp + 15);
   }
+  ctx.restore();
 
   // Info
   ctx.save();
@@ -164,9 +216,9 @@ export function render(ctx, alpha, elapsed) {
   ctx.fillStyle = 'rgba(255,255,255,0.6)';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
-  ctx.fillText('Cargas: ' + charges.length, 10, 10);
+  ctx.fillText('Cargas: ' + charges.length + ' · líneas ∝ |q|, salen de + y entran en −', 10, 10);
   charges.forEach((c, i) => {
-    ctx.fillText(`q${i+1} = ${c.charge.toExponential(2)} C`, 10, 30 + i * 18);
+    ctx.fillText(`q${i + 1} = ${c.charge.toExponential(2)} C`, 10, 30 + i * 18);
   });
   ctx.restore();
 }

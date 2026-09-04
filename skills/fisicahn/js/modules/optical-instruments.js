@@ -24,6 +24,7 @@
 
 import { SimModule } from '../core/sim-module.js';
 import { roundTo } from '../utils/math-helpers.js';
+import { lensBulgeFromFocal } from '../core/draw-primitives.js';
 import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 const NP = 25; // punto próximo (cm)
@@ -136,7 +137,11 @@ export default class OpticalInstruments extends SimModule {
 
   microscopio() {
     const { fo, fe, L } = this.params;
-    const di1 = L - fe; // imagen intermedia en el foco del ocular
+    // La intermedia se forma un poco por dentro del foco del ocular, de modo
+    // que la imagen final virtual cae en el punto próximo (dᵢ₂ = −25 cm), que
+    // es como se define el aumento M = (L/f_o)·(N/f_e).
+    const do2 = (fe * NP) / (NP + fe);
+    const di1 = L - do2;
     const do1 = fo === di1 ? null : (fo * di1) / (di1 - fo);
     const mObj = -di1 / (do1 ?? 1);
     const mEye = NP / fe;
@@ -168,15 +173,20 @@ export default class OpticalInstruments extends SimModule {
   }
 
   /**
-   * Símbolo de lente delgada como óvalo de libro de texto. El tipo de lente y la
-   * excentricidad dependen del contexto del módulo:
-   *   - ojo / lupa / ocular ..... biconvexa (convergente)
-   *   - objetivo de telescopio . plano-convexa (plana por un lado, casi sin curva)
+   * Símbolo de lente delgada como silueta de libro de texto. El tipo de lente
+   * y la excentricidad dependen del contexto del instrumento:
+   *   - cristalino ............. biconvexa; se abomba al acomodar (f menor)
+   *   - lupa / ocular telesc. .. biconvexa, curvatura según f
+   *   - objetivo microscopio ... biconvexa muy curvada (f de milímetros)
+   *   - ocular microscopio ..... plano-convexa, cara plana hacia el ojo
+   *   - objetivo telescopio .... plano-convexa, cara curva hacia el objeto
    * A menor |f|, más abombada la lente (más potente); a mayor |f|, más plana.
+   * @param {object} spec - { type, fRef, flip, bulge? }
    */
-  _lens(scene, x, fCm, color, label, type = 'biconvex') {
-    const bulge = Math.max(0.15, Math.min(0.92, 1.15 - 0.25 * Math.sqrt(Math.max(0.1, Math.abs(fCm)))));
-    scene.lens(x, 0, 3, { type, bulge, color, fill: color, fillAlpha: 0.22, width: 2.4 });
+  _lens(scene, x, fCm, color, label, spec = {}) {
+    const type = spec.type || 'biconvex';
+    const bulge = spec.bulge ?? lensBulgeFromFocal(fCm, spec.fRef ?? 5);
+    scene.lens(x, 0, 3, { type, bulge, flip: !!spec.flip, color, fill: color, fillAlpha: 0.22, width: 2.4 });
     if (label) scene.label(x, 1.9, `${label} (f=${roundTo(fCm, 1)} cm)`, { avoid: true, color });
   }
 
@@ -188,7 +198,12 @@ export default class OpticalInstruments extends SimModule {
     // Retina (pantalla fija) y cristalino (lente que acomoda).
     scene.line(6.4, -1.6, 6.4, 1.6, { color: 'textDim', width: 3 });
     scene.label(7, 1.9, 'retina', { avoid: true, color: 'textDim', size: 11 });
-    this._lens(scene, 3.2, roundTo(f, 2), 'mass', 'cristalino');
+    // El cristalino se abomba al acomodar: la excentricidad sigue la fracción
+    // de acomodación entre "relajado" (objeto en ∞) y "al límite" (punto próximo).
+    const powRelax = 1 / L;
+    const powMax = 1 / NP + 1 / L;
+    const accom = Math.max(0, Math.min(1, (1 / f - powRelax) / (powMax - powRelax)));
+    this._lens(scene, 3.2, roundTo(f, 2), 'mass', 'cristalino', { type: 'biconvex', bulge: 0.3 + 0.62 * accom });
 
     // Objeto lejos (posición de dibujo comprimida).
     const xObj = -6.2;
@@ -223,7 +238,7 @@ export default class OpticalInstruments extends SimModule {
     const di = this.lupaDi();
     const M = this.lupaM();
 
-    this._lens(scene, 0, fLupa, 'mass', 'lupa');
+    this._lens(scene, 0, fLupa, 'mass', 'lupa', { type: 'biconvex', fRef: 8 });
 
     // Objeto entre F y la lente (x = −dLupa).
     const h = 1.1;
@@ -255,33 +270,40 @@ export default class OpticalInstruments extends SimModule {
   _drawMicroscopio(scene) {
     const { fo, fe, L } = this.params;
     const { di1, do1, mObj, mEye, mTotal } = this.microscopio();
-    const h = 0.5;
+    const h = 0.16;
+    // Escala de dibujo: el tubo L (cm) ocupa 15 unidades; así el ocular
+    // siempre entra en el lienzo aunque L cambie.
+    const S = 15 / L;
+    const xO = -6.5; // objetivo
+    const xE = xO + L * S; // ocular
 
-    // Objetivo en x = 0, ocular en x = L.
-    this._lens(scene, 0, fo, 'mass', 'objetivo');
-    this._lens(scene, L, fe, 'spring', 'ocular');
+    this._lens(scene, xO, fo, 'mass', 'objetivo', { type: 'biconvex', fRef: 1.6 });
+    this._lens(scene, xE, fe, 'spring', 'ocular', { type: 'plano-convex', flip: true, fRef: 2.5 });
+    scene.dimension(xO, -3.4, xE, -3.4, `L = ${roundTo(L, 1)} cm`, { color: 'textDim' });
 
     // Objeto muy cerca del foco del objetivo.
-    const xObj = -do1;
+    const xObj = xO - do1 * S;
     scene.vector(xObj, 0, 0, h, { color: 'mass', width: 2 });
     scene.label(xObj - 0.4, h / 2, 'O', { avoid: true, color: 'mass' });
 
-    // Imagen intermedia real en x = di1.
+    // Imagen intermedia real en x = di1 (desde el objetivo).
     const h1 = h * Math.abs(mObj);
-    scene.vector(di1, 0, 0, -h1, { color: 'energy', width: 2.2 });
-    scene.label(di1 + 0.35, -h1 / 2 - 0.3, 'intermedia', { avoid: true, color: 'energy', size: 11 });
+    const xI1 = xO + di1 * S;
+    scene.vector(xI1, 0, 0, -h1, { color: 'energy', width: 2.2 });
+    scene.label(xI1 + 0.35, -h1 / 2 - 0.3, 'intermedia', { avoid: true, color: 'energy', size: 11 });
 
     // Final virtual (punto próximo) desde el ocular: objeto a do2 = L − di1.
     const do2 = L - di1;
     const di2 = this.thinLens(do2, fe);
     const h2 = -h1 * (-di2 / do2);
-    const x2 = L + di2; // di2 < 0 → la imagen está a la izquierda del ocular
-    scene.vector(x2, 0, 0, h2, { color: 'force', width: 2.2, dash: [5, 3] });
-    scene.label(x2 + 0.4, h2 / 2, 'I (virtual)', { avoid: true, color: 'force' });
+    const x2 = xE + di2 * S; // di2 < 0 → la imagen está a la izquierda del ocular
+    const x2Vis = Math.max(x2, -11.2); // la final está a −25 cm: se recorta al lienzo
+    scene.vector(x2Vis, 0, 0, Math.max(-6.2, Math.min(6.2, h2)), { color: 'force', width: 2.2, dash: [5, 3] });
+    scene.label(x2Vis + 0.5, Math.max(-6.2, Math.min(6.2, h2)) / 2, 'I (virtual, 25 cm)', { avoid: true, color: 'force' });
 
     // Rayos: objetivo (de O a la intermedia) y ocular (de la intermedia a la final).
-    this._twoRays(scene, xObj, h, 0, fo, di1, -h1, 'energy', true);
-    this._twoRays(scene, di1, -h1, L, fe, x2, h2, 'force', false);
+    this._twoRays(scene, xObj, h, xO, fo * S, xI1, -h1, 'energy', true);
+    this._twoRays(scene, xI1, -h1, xE, fe * S, x2Vis, Math.max(-6.2, Math.min(6.2, h2)), 'force', false);
 
     scene.hud.chip(`Microscopio: ${roundTo(mTotal, 0)}×`, 'top-left');
     scene.hud.readout(
@@ -298,27 +320,35 @@ export default class OpticalInstruments extends SimModule {
   _drawTelescopio(scene) {
     const { foT, feT } = this.params;
     const M = this.telescopioM();
+    // Escala: objetivo + ocular (f_o + f_e cm) ocupan 14 unidades.
+    const S = 14 / (foT + feT);
+    const xO = -5;
+    const xE = xO + (foT + feT) * S;
 
-    this._lens(scene, 0, foT, 'mass', 'objetivo', 'plano-convex');
-    this._lens(scene, foT + feT, feT, 'spring', 'ocular');
+    this._lens(scene, xO, foT, 'mass', 'objetivo', { type: 'plano-convex', flip: true, fRef: 40 });
+    this._lens(scene, xE, feT, 'spring', 'ocular', { type: 'biconvex', fRef: 5 });
+    scene.dimension(xO, -2.3, xO + foT * S, -2.3, `f_o = ${roundTo(foT, 0)} cm`, { color: 'mass' });
+    scene.dimension(xO + foT * S, -2.6, xE, -2.6, `f_e = ${roundTo(feT, 0)} cm`, { color: 'spring' });
 
     // Haz paralelo desde la izquierda (objeto en el infinito).
     const yTop = 1.3;
-    scene.label(-8, yTop + 0.4, 'objeto en ∞', { avoid: true, color: 'textDim', size: 11 });
+    scene.label(-9.5, yTop + 0.5, 'objeto en ∞', { avoid: true, color: 'textDim', size: 11 });
+    const xF = xO + foT * S;
     for (let i = 0; i < 3; i++) {
       const yIn = yTop * (1 - i * 0.4);
-      scene.line(-8, yIn, 0, yIn, { color: 'mass', width: 1.6, alpha: 0.8 });
-      // Refracción hacia el plano focal del objetivo.
-      scene.line(0, yIn, foT, 0, { color: 'mass', width: 1.6, alpha: 0.8 });
-      // Ocular: recollima hacia la derecha (paralelas más juntas).
-      const yOut = yIn * (feT / foT);
-      scene.line(foT + feT, yOut, 12, yOut, { color: 'spring', width: 1.6, alpha: 0.9 });
-      scene.label(11.5, yOut + 0.3, `M = ${roundTo(M, 1)}×`, { avoid: true, color: 'spring', size: 12 });
+      scene.line(-11, yIn, xO, yIn, { color: 'mass', width: 1.6, alpha: 0.8 });
+      // Refracción hacia el plano focal del objetivo y de ahí al ocular.
+      scene.line(xO, yIn, xF, 0, { color: 'mass', width: 1.6, alpha: 0.8 });
+      const yOut = -yIn * (feT / foT);
+      scene.line(xF, 0, xE, yOut, { color: 'mass', width: 1.6, alpha: 0.8 });
+      // Ocular: recollima hacia la derecha (paralelas más juntas e invertidas).
+      scene.line(xE, yOut, 11.5, yOut, { color: 'spring', width: 1.6, alpha: 0.9 });
     }
+    scene.label(10.4, -1.05, `haz de salida · M = ${roundTo(M, 1)}×`, { avoid: true, color: 'spring', size: 12 });
 
-    // Plano focal del objetivo marcado.
-    scene.body(foT, 0, { shape: 'circle', r: 0.12, color: 'textDim' });
-    scene.label(foT, -0.55, 'plano focal', { avoid: true, color: 'textDim', size: 11 });
+    // Plano focal común marcado.
+    scene.body(xF, 0, { shape: 'circle', r: 0.12, color: 'textDim' });
+    scene.label(xF - 1.2, -0.75, 'plano focal común', { avoid: true, color: 'textDim', size: 11 });
 
     scene.hud.chip(`Telescopio: M = f_o/f_e = ${roundTo(M, 2)}×`, 'top-left');
     scene.hud.readout(

@@ -242,20 +242,129 @@ export function legend(ctx, items, x, y, lineLength = 14) {
 }
 
 /**
- * Traza el contorno de una **lente delgada** como óvalo de libro de texto en
- * la posición (cx, cy): `2·ry` de alto y `2·rx` de ancho máximo. La excentricidad
- * visual `e` en [0,1] controla cuánto se abomba la cara: 0 → casi recta (lente
- * débil, |f| grande); 1 → muy curva (lente fuerte, |f| pequeño).
+ * Tipos de lente reconocidos por `lensPath` (los seis perfiles de libro de
+ * texto). Los tres primeros son convergentes (más gruesas en el centro), los
+ * tres últimos divergentes (más finas en el centro).
+ */
+export const LENS_TYPES = Object.freeze([
+  'biconvex',
+  'plano-convex',
+  'meniscus-convex',
+  'biconcave',
+  'plano-concave',
+  'meniscus-concave'
+]);
+
+/**
+ * Flecha de un arco esférico: desplazamiento de la cara respecto a su cuerda
+ * a la altura relativa `u ∈ [−1, 1]` (u = 0 en el eje óptico, ±1 en los
+ * bordes). La cara es un arco de circunferencia real —como la superficie de
+ * una lente esférica— con flecha `s` sobre una semicuerda `ry`, de modo que
+ * vale `s` en el centro y 0 en los bordes.
+ * @param {number} u
+ * @param {number} s - Flecha (sagitta) en px.
+ * @param {number} ry - Semialtura en px.
+ */
+function sagitta(u, s, ry) {
+  if (s <= 1e-6) return 0;
+  const R = (ry * ry + s * s) / (2 * s); // radio de curvatura de la cara
+  const y = u * ry;
+  return s - (R - Math.sqrt(Math.max(0, R * R - y * y)));
+}
+
+/**
+ * Perfil de una lente: para cada altura relativa `u ∈ [−1, 1]` devuelve la
+ * abscisa de la cara izquierda y de la derecha (px, relativas al centro
+ * óptico). Es la geometría que comparten `lensPath` y quien quiera medir la
+ * lente (p. ej. para colocar etiquetas).
  *
- * Tipos soportados:
- *  - `biconvex`     (convergente): gruesa en el centro — un óvalo.
- *  - `biconcave`    (divergente): delgada en el centro, caras hundidas.
- *  - `plano-convex` (objetivo de telescopio o mirada): una cara plana y una curva.
- *  - `plano-concave`: una cara plana y una hundida.
- *  - `meniscus`     : una cara convexa y la opuesta cóncava.
+ * `e ∈ [0, 1]` es la excentricidad visual: cuánto se abomba cada cara curva
+ * respecto al semiancho disponible `rx`. 0 → cara casi plana (lente débil,
+ * |f| grande); 1 → arco máximo (lente fuerte, |f| pequeño). En las
+ * bicóncavas es el hundimiento de la cara. El semiancho máximo de la
+ * silueta nunca supera `rx`.
+ *
+ * @param {number} rx - Semiancho máximo de la silueta (px).
+ * @param {number} ry - Semialto (px).
+ * @param {string} type - Uno de `LENS_TYPES` (alias: `meniscus` → convexo).
+ * @param {number} e - Excentricidad visual en [0, 1].
+ * @param {boolean} [flip=false] - Espeja la lente (cara curva al otro lado).
+ * @returns {(u: number) => { left: number, right: number }}
+ */
+export function lensProfile(rx, ry, type, e, flip = false) {
+  const t = Math.max(0.02, Math.min(1, e));
+  const edge = Math.max(1, rx * 0.12); // semiespesor mínimo en el borde
+  const core = Math.max(1, rx * 0.14); // semiespesor mínimo en el centro (divergentes)
+  const sMax = Math.max(0.5, rx - edge); // flecha máxima disponible
+  const s = t * sMax;
+  let faces;
+  switch (type) {
+    case 'plano-convex': {
+      // Cara plana a la izquierda y cara convexa a la derecha; la silueta se
+      // centra en el eje óptico para que O quede en medio del cristal.
+      const T = 2 * edge + s;
+      faces = (u) => ({ left: -T / 2, right: -T / 2 + 2 * edge + sagitta(u, s, ry) });
+      break;
+    }
+    case 'meniscus':
+    case 'meniscus-convex': {
+      // Ambas caras curvan hacia el mismo lado (media luna): la convexa con
+      // flecha s, la cóncava más suave (0.55·s) → más gruesa en el centro.
+      const s2 = 0.55 * s;
+      const T = 2 * edge;
+      faces = (u) => ({ left: -T / 2 + sagitta(u, s2, ry) - (s - s2) / 2, right: T / 2 + sagitta(u, s, ry) - (s - s2) / 2 });
+      break;
+    }
+    case 'biconcave': {
+      // Bordes gruesos (rx) y cintura fina en el centro: rx − s ≥ core.
+      const sc = Math.min(s, rx - core);
+      faces = (u) => ({ left: -rx + sagitta(u, sc, ry), right: rx - sagitta(u, sc, ry) });
+      break;
+    }
+    case 'plano-concave': {
+      const sc = Math.min(s, rx - core);
+      const T = rx; // espesor en el borde
+      faces = (u) => ({ left: -T / 2, right: T / 2 - sagitta(u, sc, ry) });
+      break;
+    }
+    case 'meniscus-concave': {
+      // Cóncava más curvada que la convexa → más fina en el centro.
+      const sc = Math.min(s, rx - core);
+      const s2 = 0.55 * sc;
+      const T = 2 * core + (sc - s2);
+      faces = (u) => ({ left: -T / 2 + sagitta(u, sc, ry) - (sc - s2) / 2, right: T / 2 + sagitta(u, s2, ry) - (sc - s2) / 2 });
+      break;
+    }
+    default: {
+      // biconvex: óvalo simétrico con semiespesor edge en el borde.
+      faces = (u) => ({ left: -edge - sagitta(u, s, ry), right: edge + sagitta(u, s, ry) });
+    }
+  }
+  if (!flip) return faces;
+  return (u) => {
+    const f = faces(u);
+    return { left: -f.right, right: -f.left };
+  };
+}
+
+/**
+ * Traza el contorno de una **lente delgada** como silueta de libro de texto en
+ * la posición (cx, cy): `2·ry` de alto y `2·rx` de ancho máximo. Cada cara
+ * es un arco de circunferencia (superficie esférica real), y la
+ * excentricidad visual `e ∈ [0,1]` controla cuánto se abomba: 0 → casi
+ * plana (lente débil, |f| grande); 1 → arco máximo (lente fuerte, |f|
+ * pequeño).
+ *
+ * Tipos (ver `LENS_TYPES`):
+ *  - `biconvex`         convergente: óvalo grueso en el centro.
+ *  - `plano-convex`     convergente: una cara plana (objetivos, colimadores).
+ *  - `meniscus-convex`  convergente: media luna gruesa en el centro (gafas +).
+ *  - `biconcave`        divergente: cintura fina, bordes gruesos.
+ *  - `plano-concave`    divergente: una cara plana y otra hundida.
+ *  - `meniscus-concave` divergente: media luna fina en el centro (gafas −).
  *
  * Traza con `bezierCurveTo` (presente en canvas y en la exportación SVG) para
- * no depender de `ctx.ellipse`, y el relleno/contorno se aplica fuera.
+ * no depender de `ctx.ellipse`; el relleno/contorno se aplica fuera.
  * @param {CanvasRenderingContext2D} ctx
  * @param {number} cx
  * @param {number} cy
@@ -263,49 +372,31 @@ export function legend(ctx, items, x, y, lineLength = 14) {
  * @param {number} ry - Semialto (px).
  * @param {string} [type='biconvex']
  * @param {number} [e=0.6] - Excentricidad visual de la curvatura en [0,1].
+ * @param {boolean} [flip=false] - Espeja la lente horizontalmente.
  */
-export function lensPath(ctx, cx, cy, rx, ry, type = 'biconvex', e = 0.6) {
-  const t = Math.max(0.02, Math.min(1, e));
-  const N = 24;
-  // Perfil horizontal de cada cara según y: devuelve el ancho al nivel u∈[0,1].
-  // u=0 en el borde superior, u=1 en el inferior.
-  const face = (u) => {
-    const v = (1 - 2 * u) ** 2; // 1 en el centro, 0 en los extremos
-    switch (type) {
-      case 'biconcave':
-        return 1 - t * v; // cintura estrecha en el centro
-      case 'plano-convex':
-        return 1;
-      case 'plano-concave':
-        return 1;
-      case 'meniscus':
-        return 1 - t * v * 0.5;
-      default:
-        return Math.sqrt(1 - (1 - 2 * u) ** 2); // elipse: 0 en los extremos
-    }
-  };
-
-  ctx.beginPath();
+export function lensPath(ctx, cx, cy, rx, ry, type = 'biconvex', e = 0.6, flip = false) {
+  const faces = lensProfile(rx, ry, type, e, flip);
+  const N = 28;
   const pts = [];
-  // Cara izquierda (de abajo arriba) y derecha (de arriba abajo): el contorno
-  // se recorre completo en el sentido de las agujas del reloj.
+  // Cara izquierda de arriba abajo y cara derecha de abajo arriba: el
+  // contorno se recorre en un solo sentido y cierra sin cruzarse.
   for (let i = 0; i <= N; i++) {
-    const u = i / N;
-    const y = cy + ry * (1 - 2 * u);
-    pts.push({ x: cx - rx * face(u), y });
+    const u = -1 + (2 * i) / N;
+    pts.push({ x: cx + faces(u).left, y: cy + u * ry });
   }
-  for (let i = 0; i <= N; i++) {
-    const u = i / N;
-    const y = cy + ry * (1 - 2 * u);
-    pts.push({ x: cx + rx * face(u), y });
+  for (let i = N; i >= 0; i--) {
+    const u = -1 + (2 * i) / N;
+    pts.push({ x: cx + faces(u).right, y: cy + u * ry });
   }
-  // Suavizado Catmull-Rom→Bézier: cada punto de la polilínea queda en la curva.
+  ctx.beginPath();
   ctx.moveTo(pts[0].x, pts[0].y);
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[Math.max(0, i - 1)];
+  // Suavizado Catmull-Rom→Bézier cerrado: cada vértice queda sobre la curva.
+  const n = pts.length;
+  for (let i = 0; i < n; i++) {
+    const p0 = pts[(i - 1 + n) % n];
     const p1 = pts[i];
-    const p2 = pts[i + 1];
-    const p3 = pts[Math.min(pts.length - 1, i + 2)];
+    const p2 = pts[(i + 1) % n];
+    const p3 = pts[(i + 2) % n];
     const c1x = p1.x + (p2.x - p0.x) / 6;
     const c1y = p1.y + (p2.y - p0.y) / 6;
     const c2x = p2.x - (p3.x - p1.x) / 6;
@@ -313,4 +404,20 @@ export function lensPath(ctx, cx, cy, rx, ry, type = 'biconvex', e = 0.6) {
     ctx.bezierCurveTo(c1x, c1y, c2x, c2y, p2.x, p2.y);
   }
   ctx.closePath();
+}
+
+/**
+ * Excentricidad visual de una lente a partir de su distancia focal, en la
+ * escala que usan los módulos (unidades o cm): a menor |f| (lente más
+ * potente) más abombada; a mayor |f| más plana. `fRef` es la focal que se
+ * dibuja con curvatura media (0.5).
+ * @param {number} f - Distancia focal (se usa |f|).
+ * @param {number} [fRef=4]
+ * @returns {number} e ∈ [0.12, 0.95]
+ */
+export function lensBulgeFromFocal(f, fRef = 4) {
+  const a = Math.max(1e-3, Math.abs(f));
+  // Curva suave en log: f = fRef/4 → ~0.9, f = fRef → 0.5, f = 4·fRef → ~0.15.
+  const e = 0.5 - 0.25 * Math.log2(a / fRef);
+  return Math.max(0.12, Math.min(0.95, e));
 }

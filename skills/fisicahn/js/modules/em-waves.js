@@ -60,8 +60,9 @@ export default class EMWaves extends SimModule {
       story:
         'Maxwell unificó electricidad y magnetismo: la luz es una onda EM donde E y B oscilan en fase y perpendiculares. Y una antena polarizada solo deja pasar la componente de E que coincide con su dirección: por eso dos gafas polarizadas giradas 90° se oscurecen. La del tercero es la ley de Malus: I = I₁·cos²θ, un coseno al cuadrado que a 45° divide la luz por dos y a 90° la apaga.',
       cases: [
-        'Boja la frecuencia f: λ = c/f crece y la onda se estira.',
+        'Baja la frecuencia f: λ = c/f crece y la onda se estira.',
         'Plana: E va en y, B representado perpendicular, luz avanza por +x.',
+        'Polarización: sube I₁ y la onda entre P₁ y P₂ crece (E ∝ √I); gira θ y la onda tras P₂ se inclina y se apaga como cos²θ.',
         'Malus a 45°: la intensidad cae a la mitad (cos²45° = 0.5).',
         'Malus a 90°: I = 0: dos polarizadores cruzados apagan la luz.'
       ]
@@ -148,53 +149,139 @@ export default class EMWaves extends SimModule {
     );
   }
 
+  /**
+   * Polarización y ley de Malus. Todo lo dibujado sale de los parámetros:
+   *  - `I1` fija la amplitud de la onda entre polarizadores (E ∝ √I₁) y el
+   *    brillo del haz;
+   *  - `theta` gira el eje de P₂ (medido desde la vertical de P₁), inclina la
+   *    onda transmitida y reduce su amplitud a E₁·cosθ (intensidad I₁·cos²θ);
+   *  - `f` y `c` animan la onda viajera: λ = c/f y fase kx − ωt.
+   * Los ángulos de los polarizadores y de la onda se miden todos desde la
+   * vertical, así P₁ (0°) se ve vertical y P₂ a 90° queda cruzado.
+   */
   _drawPolarizacion(scene) {
     const { theta, I1 } = this.params;
     const rad = (theta * Math.PI) / 180;
+    const cosT = Math.cos(rad);
+    const sinT = Math.sin(rad);
     const I2 = this.i2();
+    const ratio = I1 > 0 ? I2 / I1 : 0; // cos²θ
+    const k = this.k();
+    const w = this.omega();
     // Amplitud de E ∝ √I₁: el dibujo refleja el parámetro de intensidad.
-    const amp = 1.5 * Math.sqrt(Math.max(I1, 0) / 100);
+    const A1 = 1.7 * Math.sqrt(Math.max(I1, 0) / 100);
+    const A2 = A1 * Math.abs(cosT);
 
-    // Haz a lo largo del eje.
-    scene.line(-8, 0, 8, 0, { color: 'textDim', width: 1.2 });
+    const xP1 = -4.5;
+    const xP2 = 2.5;
+    const xScreen = 9.5;
 
-    // Antes del primer polarizador: campo vertical (luz ya polarizada), I₁.
-    scene.line(-8, 0, 0, 0, { color: 'textDim', alpha: 0.4 });
-    for (let x = -7; x <= -1; x += 0.9) {
-      scene.line(x, -amp, x, amp, { color: 'mass', width: 1.6 });
+    // Eje del haz.
+    scene.line(-10.5, 0, xScreen, 0, { color: 'textDim', width: 1.2, alpha: 0.6 });
+
+    // Fuente de luz natural (no polarizada): vibra en todas direcciones.
+    const xS = -9.2;
+    scene.body(xS, 0, { shape: 'circle', r: 0.42, color: 'energy', glow: true });
+    for (let i = 0; i < 6; i++) {
+      const a = (i * Math.PI) / 6 + this.t * 0.6;
+      scene.line(xS - Math.cos(a) * 0.95, -Math.sin(a) * 0.95, xS + Math.cos(a) * 0.95, Math.sin(a) * 0.95, {
+        color: 'energy',
+        width: 1.2,
+        alpha: 0.7
+      });
+    }
+    scene.label(xS, -1.6, 'luz natural', { color: 'textDim', size: 11, avoid: true });
+    // Tramo no polarizado: trazos en direcciones aleatorias fijas.
+    for (let x = xS + 1.2; x < xP1 - 0.5; x += 0.7) {
+      const a = ((x * 7.3) % Math.PI) + this.t * 0.3;
+      scene.line(x - Math.cos(a) * 0.35, -Math.sin(a) * 0.35, x + Math.cos(a) * 0.35, Math.sin(a) * 0.35, {
+        color: 'energy',
+        width: 1.3,
+        alpha: 0.55
+      });
     }
 
-    // Primer polarizador (vertical) en x = 0.
-    this._polarizer(scene, 0, 0, 'mass');
-    scene.label(0, -2.1, 'P₁ vertical', { color: 'mass', size: 11 });
+    // P₁ vertical.
+    this._polarizer(scene, xP1, 0, 'mass', 0);
+    scene.label(xP1, -2.3, 'P₁ (vertical)', { color: 'mass', size: 11, avoid: true });
 
-    // Entre polarizadores: E vertical con I₁ completa.
-    for (let x = 0.8; x <= 3.2; x += 0.9) {
-      scene.line(x, -amp, x, amp, { color: 'force', width: 1.6 });
+    // Entre P₁ y P₂: onda viajera polarizada vertical, amplitud A₁ ∝ √I₁.
+    const N = 48;
+    const pts1 = [];
+    for (let i = 0; i <= N; i++) {
+      const x = xP1 + 0.25 + ((xP2 - 0.25 - xP1 - 0.25) * i) / N;
+      pts1.push({ x, y: A1 * Math.cos(k * x - w * this.t) });
+    }
+    scene.polyline(pts1, { color: 'force', width: 2.4 });
+    // Envolvente ±A₁ (punteada) para que la amplitud se lea aunque la onda viaje.
+    scene.line(xP1 + 0.25, A1, xP2 - 0.25, A1, { color: 'force', width: 1, dash: [3, 4], alpha: 0.5 });
+    scene.line(xP1 + 0.25, -A1, xP2 - 0.25, -A1, { color: 'force', width: 1, dash: [3, 4], alpha: 0.5 });
+    scene.label((xP1 + xP2) / 2, A1 + 0.35, `I₁ = ${roundTo(I1, 0)} % · E₁ ∝ √I₁`, { color: 'force', size: 11, avoid: true });
+
+    // P₂ girado θ respecto a P₁.
+    this._polarizer(scene, xP2, 0, 'spring', theta);
+    scene.label(xP2, -2.3, `P₂ a θ = ${theta}°`, { color: 'spring', size: 11, avoid: true });
+    if (theta > 0) {
+      scene.angleArc(xP2, 0, Math.PI / 2 - rad, Math.PI / 2, 1.05, { color: 'energy', label: `θ = ${theta}°` });
     }
 
-    // Segundo polarizador a θ en x = 4.
-    this._polarizer(scene, 4, 0, 'force', theta);
-    scene.label(4, -2.1, `P₂ a ${theta}°`, { color: 'force', size: 11 });
-
-    // Después: E sigue la dirección de P₂ con amplitud E·cosθ (ley de Malus).
-    // Las franjas se dibujan GIradas según θ con longitud 2·E₂, no verticales.
-    const E2 = amp * Math.cos(rad);
-    const sx = Math.sin(rad);
-    const cy2 = Math.cos(rad);
-    for (let x = 4.9; x <= 7.4; x += 0.9) {
-      scene.polyline(
-        [
-          { x: x - sx * E2, y: -cy2 * E2 },
-          { x: x + sx * E2, y: cy2 * E2 }
-        ],
-        { color: 'spring', width: 1.6 }
-      );
+    // Descomposición de E₁ en el plano de P₂ (vista frontal, a la derecha de
+    // P₂): la componente paralela al eje (E₁·cosθ) pasa; la perpendicular
+    // (E₁·sinθ) se absorbe. Es la ley de Malus dibujada.
+    const xV = xP2 + 1.2;
+    const yV = 3.6;
+    const Lv = 1.7;
+    scene.vector(xV, yV, 0, Lv, { color: 'force', width: 2 });
+    scene.label(xV - 0.45, yV + Lv, 'E₁', { color: 'force', size: 12, avoid: true });
+    const tx = xV + sinT * Lv * cosT;
+    const ty = yV + cosT * Lv * cosT;
+    scene.vector(xV, yV, sinT * Lv * cosT, cosT * Lv * cosT, { color: 'spring', width: 2.4 });
+    scene.label(tx + 0.75, ty + 0.15, 'E₁cosθ', { color: 'spring', size: 12, avoid: true });
+    if (theta > 0 && theta < 90) {
+      const bx = xV - cosT * Lv * sinT;
+      const by = yV + sinT * Lv * sinT;
+      scene.vector(xV, yV, bx - xV, by - yV, { color: 'textDim', width: 1.4, dash: [3, 3] });
+      scene.label(bx - 0.75, by + 0.1, 'E₁sinθ (absorbida)', { color: 'textDim', size: 11, avoid: true });
+      scene.line(tx, ty, xV, yV + Lv, { color: 'textDim', width: 1, dash: [2, 3], alpha: 0.7 });
+      scene.line(bx, by, xV, yV + Lv, { color: 'textDim', width: 1, dash: [2, 3], alpha: 0.7 });
     }
-    scene.vector(7.6, 0, Math.cos(rad) * 1.2, Math.sin(rad) * 1.2, {
-      color: 'spring',
-      label: `E·cos${theta}° = ${E2.toFixed(2)}`
-    });
+    scene.label(xV, yV - 0.55, 'plano de P₂', { color: 'textDim', size: 10, avoid: true });
+
+    // Tras P₂: onda inclinada θ con amplitud A₂ = A₁·cosθ y brillo ∝ cos²θ.
+    const alpha2 = Math.max(0.12, ratio);
+    if (A2 > 0.02) {
+      const pts2 = [];
+      for (let i = 0; i <= N; i++) {
+        const x = xP2 + 0.25 + ((xScreen - 0.4 - xP2 - 0.25) * i) / N;
+        const e = A2 * Math.cos(k * x - w * this.t);
+        // Oscilación a lo largo de la dirección del eje de P₂ (sinθ, cosθ).
+        pts2.push({ x: x + sinT * e, y: cosT * e });
+      }
+      scene.polyline(pts2, { color: 'spring', width: 2.4, alpha: alpha2 });
+      scene.label((xP2 + xScreen) / 2, A2 + 0.45, `I₂ = I₁cos²θ = ${roundTo(I2, 0)} %`, {
+        color: 'spring',
+        size: 11,
+        avoid: true
+      });
+    } else {
+      scene.label((xP2 + xScreen) / 2, 0.55, 'polarizadores cruzados: nada pasa', { color: 'textDim', size: 11, avoid: true });
+    }
+
+    // Pantalla/detector: su brillo es la intensidad transmitida.
+    scene.rect(xScreen, 0, 0.35, 4.4, { color: 'textDim', width: 1.5, fill: 'textDim' });
+    scene.circle(xScreen + 0.6, 0, 0.75, { color: 'spring', fill: 'spring', alpha: 0.1 + 0.9 * (I2 / 100), width: 1.5 });
+    scene.label(xScreen + 0.4, -2.85, `detector · ${roundTo(I2, 0)} %`, { color: 'textDim', size: 11, avoid: true });
+
+    // Barras de intensidad I₁ → I₂.
+    const bar = (x, val, color, name) => {
+      const hMax = 2.6;
+      scene.rect(x, -4.9 + hMax / 2, 0.7, hMax, { color: 'textDim', width: 1, stroke: true });
+      const hh = (hMax * Math.max(0, val)) / 100;
+      if (hh > 0.01) scene.rect(x, -4.9 + hh / 2, 0.7, hh, { color, fill: color, alpha: 0.75, stroke: false });
+      scene.label(x, -5.35, `${name} ${roundTo(val, 0)} %`, { color, size: 10, avoid: true });
+    };
+    bar(-1.4, I1, 'force', 'I₁');
+    bar(-0.2, I2, 'spring', 'I₂');
 
     // Curva cos²θ con el punto actual.
     const vp = scene.viewport();
@@ -241,25 +328,39 @@ export default class EMWaves extends SimModule {
     );
   }
 
-  /** Símbolo de un polarizador en (x, y); orientación θ en grados. */
+  /**
+   * Símbolo de un polarizador en (x, y): disco con su eje de transmisión y
+   * una rejilla de líneas paralelas a él. `degrees` se mide desde la
+   * VERTICAL (0° = eje vertical, igual que P₁), de modo que coincide con el
+   * θ de Malus y con la inclinación de la onda transmitida.
+   */
   _polarizer(scene, x, y, color, degrees = 0) {
     const rad = (degrees * Math.PI) / 180;
-    const R = 1.6;
-    // Anillo del polarizador y eje de transmisión (θ) marcado con rejilla.
+    const R = 1.7;
+    // Dirección del eje de transmisión (desde la vertical) y su perpendicular.
+    const ax = Math.sin(rad);
+    const ay = Math.cos(rad);
+    const px = Math.cos(rad);
+    const py = -Math.sin(rad);
+    scene.circle(x, y, R, { color, width: 2, fill: color, alpha: 0.14, stroke: false });
     scene.circle(x, y, R, { color, width: 2 });
-    const cx = Math.cos(rad);
-    const sy = Math.sin(rad);
-    scene.line(x - cx * R, y - sy * R, x + cx * R, y + sy * R, { color, width: 3 });
-    // Rejilla de alambres paralelos a la dirección permitida.
-    const n = 5;
-    for (let i = 1; i < n; i++) {
-      const t = -R + (2 * R * i) / n;
-      scene.line(x + cx * t - sy * 0.35, y + sy * t + cx * 0.35, x + cx * t + sy * 0.35, y + sy * t - cx * 0.35, {
+    // Rejilla: líneas paralelas al eje, repartidas a lo ancho del disco.
+    const n = 7;
+    for (let i = -(n - 1) / 2; i <= (n - 1) / 2; i++) {
+      const d = (R * 0.82 * i) / ((n - 1) / 2);
+      const half = Math.sqrt(Math.max(0, R * R - d * d)) * 0.92;
+      scene.line(x + px * d - ax * half, y + py * d - ay * half, x + px * d + ax * half, y + py * d + ay * half, {
         color,
-        width: 1,
-        alpha: 0.7
+        width: i === 0 ? 3 : 1.1,
+        alpha: i === 0 ? 1 : 0.55
       });
     }
+    // Flecha doble del eje de transmisión, ligeramente fuera del disco.
+    scene.line(x - ax * (R + 0.35), y - ay * (R + 0.35), x + ax * (R + 0.35), y + ay * (R + 0.35), {
+      color,
+      width: 1.2,
+      alpha: 0.8
+    });
   }
 
   /* ---------- datos numéricos ---------- */

@@ -356,32 +356,60 @@ export class Surface {
    * @param {number} y - Centro óptico.
    * @param {number} h - Altura total de la lente (unidades de mundo).
    * @param {object} [opts]
-   * @param {string} [opts.type='biconvex'] - biconvex | biconcave | plano-convex | plano-concave | meniscus.
-   * @param {number} [opts.bulge=0.6] - Excentricidad visual de la curvatura en [0,1].
-   * @param {number} [opts.halfWidth] - Semiancho máximo (mundo); por defecto h × 0.14.
+   * @param {string} [opts.type='biconvex'] - biconvex | plano-convex | meniscus-convex | biconcave | plano-concave | meniscus-concave.
+   * @param {number} [opts.bulge=0.6] - Excentricidad visual de la curvatura en [0,1] (ver `lensBulgeFromFocal`).
+   * @param {boolean} [opts.flip=false] - Espeja la lente (cara curva hacia el otro lado).
+   * @param {number} [opts.halfWidth] - Semiancho máximo (mundo); por defecto h × 0.16.
    * @param {string|number} [opts.color='mass'] - Color del contorno.
    * @param {string|number} [opts.fill] - Relleno del cristal (ej. translúcido).
    * @param {number} [opts.fillAlpha=0.25] - Opacidad del relleno.
+   * @param {boolean} [opts.ticks=true] - Marcas horizontales en los extremos (estilo libro).
    * @param {number} [opts.width=2.4] - Grosor del contorno.
    */
   lens(x, y, h, opts = {}) {
     const ctx = this.ctx;
     if (!ctx) return this;
     const p = this.project(x, y, _a);
-    const hp = this.screenSpace ? h : this.px(h) / 2; // hp = semialto en px
-    const half = (opts.halfWidth ?? h * 0.14) / 2;
+    const hp = this.screenSpace ? h / 2 : this.px(h) / 2; // hp = semialto en px
+    const half = opts.halfWidth ?? h * 0.16;
     const rxp = this.screenSpace ? half : this.px(half);
     const bulge = Math.max(0.02, Math.min(1, opts.bulge ?? 0.6));
+    const ry = Math.max(0.5, hp);
+    const rx = Math.max(0.5, rxp);
     ctx.save();
     this._style(opts, 'mass');
-    lensPath(ctx, p.x, p.y, Math.max(0.5, rxp), Math.max(0.5, hp), opts.type || 'biconvex', bulge);
+    lensPath(ctx, p.x, p.y, rx, ry, opts.type || 'biconvex', bulge, !!opts.flip);
     if (opts.fill) {
-      ctx.fillStyle = this.color(opts.fill, 'mass');
-      ctx.globalAlpha = opts.fillAlpha ?? 0.25;
+      // Brillo de cristal: más denso en el eje óptico, tenue en los bordes.
+      const fillColor = this.color(opts.fill, 'mass');
+      const alpha = opts.fillAlpha ?? 0.25;
+      ctx.globalAlpha = alpha;
+      try {
+        const g = ctx.createLinearGradient(p.x - rx, p.y, p.x + rx, p.y);
+        g.addColorStop(0, fillColor);
+        g.addColorStop(0.5, '#ffffff');
+        g.addColorStop(1, fillColor);
+        ctx.fillStyle = g;
+        ctx.fill();
+        ctx.globalAlpha = alpha * 0.6;
+      } catch {
+        /* el grabador SVG no expone gradientes */
+      }
+      ctx.fillStyle = fillColor;
       ctx.fill();
       ctx.globalAlpha = 1;
     }
     if (opts.stroke !== false) ctx.stroke();
+    if (opts.ticks !== false) {
+      // Marcas de libro en los vértices superior e inferior.
+      const tick = Math.max(4, rx * 0.9);
+      ctx.beginPath();
+      ctx.moveTo(p.x - tick, p.y - ry);
+      ctx.lineTo(p.x + tick, p.y - ry);
+      ctx.moveTo(p.x - tick, p.y + ry);
+      ctx.lineTo(p.x + tick, p.y + ry);
+      ctx.stroke();
+    }
     ctx.restore();
     return this;
   }
@@ -398,7 +426,17 @@ export class Surface {
     const ryp = this.screenSpace ? ry : this.px(ry);
     ctx.save();
     this._style(opts, 'mass');
-    lensPath(ctx, p.x, p.y, Math.max(0.5, rxp), Math.max(0.5, ryp), 'biconvex', 1);
+    // Elipse exacta con 4 Bézier (constante kappa), válida en canvas y SVG.
+    const ex = Math.max(0.5, rxp);
+    const ey = Math.max(0.5, ryp);
+    const k = 0.5522847498;
+    ctx.beginPath();
+    ctx.moveTo(p.x + ex, p.y);
+    ctx.bezierCurveTo(p.x + ex, p.y + k * ey, p.x + k * ex, p.y + ey, p.x, p.y + ey);
+    ctx.bezierCurveTo(p.x - k * ex, p.y + ey, p.x - ex, p.y + k * ey, p.x - ex, p.y);
+    ctx.bezierCurveTo(p.x - ex, p.y - k * ey, p.x - k * ex, p.y - ey, p.x, p.y - ey);
+    ctx.bezierCurveTo(p.x + k * ex, p.y - ey, p.x + ex, p.y - k * ey, p.x + ex, p.y);
+    ctx.closePath();
     if (opts.fill) {
       ctx.fillStyle = this.color(opts.fill, 'mass');
       ctx.globalAlpha = opts.fillAlpha ?? 0.25;

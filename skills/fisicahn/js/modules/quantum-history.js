@@ -29,7 +29,8 @@ const MILESTONES = [
       'Se trataba la radiación del cuerpo negro como ondas continuas de todas las frecuencias: el cálculo clásico predecía que la emisión se disparaba sin límite hacia el ultravioleta, algo absurdo que la medida desmentía una y otra vez.',
     reality:
       'La energía no se intercambia de forma continua: cada oscilador solo puede emitir o absorber paquetes de energía hf. Con esa única hipótesis la curva medida se reproduce exactamente. La continuidad era una extrapolación clásica falsa a escala atómica.',
-    sketch: 'planck'
+    sketch: 'planck',
+    verdict: { status: 'refutada', certainty: 'alta', note: 'La radiación clásica continua (Rayleigh–Jeans) está refutada: la curva de Planck se mide en cada cuerpo negro, del horno al fondo cósmico de microondas.' }
   },
   {
     year: 1905,
@@ -40,7 +41,8 @@ const MILESTONES = [
       'Si la luz es una onda continua, su energía depende de la intensidad: un foco intenso debería arrancar electrones a cualquier frecuencia y con solo esperar un poco.',
     reality:
       'La energía del haz viaja en fotones de energía hf. Si hf es menor que la función de trabajo φ del metal, ningún fotón puede arrancar un electrón por intenso que sea el foco. El umbral de frecuencia (no la intensidad) decide el efecto: la imagen ondulatoria clásica estaba equivocada.',
-    sketch: 'photoelectric'
+    sketch: 'photoelectric',
+    verdict: { status: 'refutada', certainty: 'alta', note: 'La imagen ondulatoria clásica del efecto fotoeléctrico está refutada: Millikan midió K_max = hf − φ en 1916 y la frecuencia umbral se comprueba en cualquier laboratorio docente.' }
   },
   {
     year: 1913,
@@ -51,7 +53,8 @@ const MILESTONES = [
       'El átomo de Rutherford tenía electrones orbitando como planetas; clásicamente un electrón acelerado irradiaría energía y colapsaría al núcleo en ~10⁻¹¹ s. Se creía que ese colapso era inevitable.',
     reality:
       'Los átomos no colapsan: los electrones solo ocupan órbitas cuantizadas y radian únicamente al saltar entre niveles (Eₙ = −13,6 eV/n²). La predicción clásica de colapso es falsa; la estabilidad de la materia es un efecto cuántico.',
-    sketch: 'bohr'
+    sketch: 'bohr',
+    verdict: { status: 'refutada', certainty: 'alta', note: 'El colapso clásico del átomo está refutado por la simple existencia de la materia estable. El propio modelo de Bohr fue luego superado por la mecánica cuántica (orbitales, no órbitas), pero sus niveles de energía para el hidrógeno siguen siendo correctos.' }
   },
   {
     year: 1924,
@@ -62,7 +65,8 @@ const MILESTONES = [
       'Se creía que la dualidad onda-partícula era exclusiva de la luz; la materia eran partículas con trayectorias bien definidas y sin ninguna longitud de onda asociada.',
     reality:
       'No: toda partícula lleva asociada una onda de materia λ = h/p. La idea dejó de ser especulación en 1927: el haz de electrones de Davisson y Germer difractaba como lo haría una onda. La creencia clásica era incompleta.',
-    sketch: 'debroglie'
+    sketch: 'debroglie',
+    verdict: { status: 'refutada', certainty: 'alta', note: 'La idea de partícula sin onda asociada está refutada: la difracción de electrones (1927), de neutrones y hasta de moléculas grandes (C₆₀, 1999) se observa de forma rutinaria.' }
   },
   {
     year: 1926,
@@ -73,7 +77,8 @@ const MILESTONES = [
       'Al nacer dos formalismos aparentemente incompatibles (ecuación de onda y mecánica matricial), se dudaba si solo uno podía ser el correcto o si acaso la teoría entera estaba mal planteada.',
     reality:
       'Ambas formulaciones resultan matemáticamente equivalentes: describen exactamente la misma física. La duda era un problema de lenguaje, no de contenido: ninguna estaba mal; eran la misma teoría en dos notaciones.',
-    sketch: 'wavefunction'
+    sketch: 'wavefunction',
+    verdict: { status: 'vigente', certainty: 'alta', note: 'Aquí no había una creencia equivocada: la sospecha de incompatibilidad se disolvió cuando Schrödinger (1926) y Dirac demostraron que ambos formalismos son equivalentes. Ambos siguen vigentes.' }
   },
   {
     year: 1927,
@@ -84,7 +89,8 @@ const MILESTONES = [
       'Se creía que toda imprecisión era un límite del instrumento y que, en principio, se podía conocer el estado exacto de un sistema: un universo determinista al estilo de Laplace.',
     reality:
       'La incertidumbre es intrínseca a la naturaleza, no al aparato de medida: precisar la posición perturba el momento y viceversa. El determinismo clásico a escala atómica es imposible.',
-    sketch: 'uncertainty'
+    sketch: 'uncertainty',
+    verdict: { status: 'refutada', certainty: 'alta', note: 'El determinismo laplaciano a escala atómica está refutado: la relación Δx·Δp ≥ ħ/2 es un teorema de la teoría y se ha verificado con fotones, átomos y osciladores mecánicos.' }
   },
   {
     year: 1927,
@@ -95,7 +101,8 @@ const MILESTONES = [
       'Los electrones son partículas puntuales; la difracción y la interferencia eran fenómenos reservados a las ondas.',
     reality:
       'El patrón de difracción del haz de electrones en el níquel confirmó la onda de materia λ = h/p. La imagen corpuscular clásica, sin onda asociada, era incompleta.',
-    sketch: 'debroglie'
+    sketch: 'debroglie',
+    verdict: { status: 'refutada', certainty: 'alta', note: 'La idea de partícula sin onda asociada está refutada: la difracción de electrones (1927), de neutrones y hasta de moléculas grandes (C₆₀, 1999) se observa de forma rutinaria.' }
   },
   {
     year: 1928,
@@ -106,7 +113,8 @@ const MILESTONES = [
       'La ecuación de Dirac predecía estados de energía negativa; se los consideró un artefacto matemático sin sentido físico, un error de la teoría.',
     reality:
       'Esos estados son reales: en 1932 Anderson descubrió el positrón (e⁺), la misma masa del electrón con carga opuesta. La antimateria existe; descartar los estados de energía negativa era el error.',
-    sketch: 'dirac'
+    sketch: 'dirac',
+    verdict: { status: 'refutada', certainty: 'alta', note: 'Tratar los estados de energía negativa como un artefacto fue un error: el positrón se detectó en 1932 y hoy la antimateria se produce y usa a diario (tomografía PET).' }
   },
   {
     year: 1928,
@@ -117,7 +125,8 @@ const MILESTONES = [
       'Clásicamente, si una partícula no tiene energía para superar una barrera, no puede cruzarla jamás: siempre se refleja. Así se explicaban las colisiones ordinarias.',
     reality:
       'En mecánica cuántica la función de onda decae dentro de la barrera pero no llega a cero: hay probabilidad finita de aparecer al otro lado (factor exponencial). El decaimiento alfa solo se explica así. La prohibición clásica se viola a escala nuclear.',
-    sketch: 'tunneling'
+    sketch: 'tunneling',
+    verdict: { status: 'refutada', certainty: 'alta', note: 'La prohibición clásica de cruzar la barrera está refutada: el túnel explica el decaimiento alfa, sostiene la fusión del Sol y es la base del microscopio de efecto túnel (1981) y de la memoria flash.' }
   },
   {
     year: 1935,
@@ -128,7 +137,8 @@ const MILESTONES = [
       'EPR creían que, si el entrelazamiento correlaciona partículas al instante a cualquier distancia, la cuántica debía estar incompleta: para preservar la localidad tenía que haber «variables ocultas» aún por descubrir. Por eso se creía que la teoría era provisional.',
     reality:
       'El teorema de Bell (1964) y los experimentos posteriores muestran que ninguna teoría local de variables ocultas reproduce las correlaciones cuánticas: la cuántica es completa y el entrelazamiento es real. La conclusión EPR está refutada con alta confianza (sin que ello permita transmitir información instantánea).',
-    sketch: 'epr'
+    sketch: 'epr',
+    verdict: { status: 'refutada', certainty: 'alta', note: 'La conclusión EPR (variables ocultas locales) está refutada con alta certeza: las desigualdades de Bell se violan en los experimentos de Aspect, Zeilinger y Clauser (Nobel 2022), incluidos los «libres de lagunas» de 2015. Sigue abierto, eso sí, el debate sobre la interpretación.' }
   }
 ];
 
@@ -177,14 +187,26 @@ export default class QuantumHistory extends SimModule {
 
   _refreshInfo() {
     const m = this.milestone();
+    const v = m.verdict || {};
+    const statusLabel =
+      v.status === 'refutada'
+        ? `Creencia REFUTADA (certeza ${v.certainty || 'alta'})`
+        : v.status === 'vigente'
+          ? 'No estaba mal: sigue vigente'
+          : `Creencia incompleta (certeza ${v.certainty || 'media'})`;
+    // Toda la ficha del hito va VISIBLE en la pestaña Información (barra bajo
+    // la animación), sin desplegables: qué pasó, por qué se creía lo anterior
+    // y por qué estaba mal (con el grado de certeza de que lo esté).
     setModuleInfo(this.ui, {
       title: 'Historia de la mecánica cuántica',
-      blurb: `Hito ${m.year} — ${m.who}: ${m.title}.`,
-      story: [
-        `<strong>Qué ocurrió:</strong> ${m.text}`,
-        `<strong>Lo que se creía:</strong> ${m.belief}`,
-        `<strong>Por qué estaba mal (o qué mostró la realidad):</strong> ${m.reality}`
-      ].join('<br>'),
+      blurb: `<strong>${m.year} — ${m.who}: ${m.title}.</strong> ${m.text}`,
+      sections: [
+        { title: 'Por qué se creía así:', text: m.belief, tone: 'accent' },
+        { title: 'Por qué estaba mal:', text: m.reality, tone: 'warn' },
+        { title: `${statusLabel}.`, text: v.note || '', tone: v.status === 'vigente' ? 'ok' : 'warn' }
+      ],
+      story:
+        'Cada hito de la línea de tiempo dibuja un boceto simplificado de la idea (no una simulación completa): el módulo hermano indicado en el texto la explora a fondo.',
       cases: [
         'Por qué el LED de tu teléfono emite un color y no otro (niveles de Bohr).',
         'Por qué un microscopio electrónico ve más detalle que uno óptico (de Broglie).',
@@ -320,7 +342,8 @@ export default class QuantumHistory extends SimModule {
     return {
       año: { value: m.year, unit: '' },
       quién: { value: m.who, unit: '' },
-      hito: { value: m.title, unit: '' }
+      hito: { value: m.title, unit: '' },
+      'creencia previa': { value: m.verdict?.status === 'vigente' ? 'vigente' : `${m.verdict?.status || '—'} (certeza ${m.verdict?.certainty || '—'})`, unit: '' }
     };
   }
 

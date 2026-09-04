@@ -174,93 +174,134 @@ export default class ThermalExpansion extends SimModule {
 
   _drawLine(scene) {
     const { L0, T } = this.params;
-    const dL = this.alphaOf(this.params.material) * L0 * this.dT();
-    // Deformación visual amplificada y acotada a la mitad de la longitud base.
+    const alpha = this.alphaOf(this.params.material);
+    const dT = this.dT();
+    const dL = alpha * L0 * dT;
+    // Deformación visual amplificada y acotada a un 40 % de la longitud base.
     const vis = Math.max(-L0 * 0.4, Math.min(L0 * 0.4, dL * GAIN));
     // Animación suave de la expansión al abrir o cambiar parámetros.
     const k = 1 - Math.exp(-Math.min(this.t, 80) * 1.6);
-    const Lvis = L0 + vis * k;
-    const x0 = -9;
-    const yBar = -0.6;
+    const dVis = vis * k;
+    const Lvis = L0 + dVis;
+    // Escala de dibujo: la barra de L₀ ocupa ~12 unidades de mundo.
+    const S = 12 / 5; // 5 m → 12 u (L0 ∈ [0.5, 5])
+    const x0 = -9.5; // extremo fijo (pared) a la izquierda
+    const yBar = 0.4;
+    const H = 1.5; // diámetro del cilindro
+    const w0 = L0 * S;
+    const w1 = Lvis * S;
+    const dW = dVis * S;
 
-    // Fondo: gradiente de temperatura azul (izquierda) → naranja/rojo (derecha).
-    const cold = '#2b6cb0';
-    const hot = '#e05d2f';
-    const nBands = 46;
+    /* ---- Fondo: gradiente térmico frío (izq, azul) → caliente (der, rojo) ---- */
+    const cold = '#1f5fbf';
+    const hot = '#e8442a';
+    const nBands = 48;
+    const wv = scene.world();
+    const left = wv.left;
+    const right = wv.right;
+    const top = wv.top;
+    const bottom = wv.bottom;
+    const bandW = (right - left) / nBands;
     for (let i = 0; i < nBands; i++) {
-      const bx = -11 + (i + 0.5) * (22 / nBands);
-      const t = i / (nBands - 1);
-      const c = thermalColor(cold, hot, t);
-      scene.rect(bx, 0, 22 / nBands + 0.05, 16, { fill: c, stroke: false, alpha: 0.10 });
+      const bx = left + (i + 0.5) * bandW;
+      const c = thermalColor(cold, hot, i / (nBands - 1));
+      scene.rect(bx, (top + bottom) / 2, bandW + 0.04, Math.abs(top - bottom), { fill: c, stroke: false, alpha: 0.16 });
     }
+    scene.label(left + 1.6, top - 2.1, 'frío', { color: 'mass', size: 11, avoid: true });
+    scene.label(right - 1.9, top - 2.1, 'caliente', { color: 'force', size: 11, avoid: true });
 
-    // Fuente de calor: llama a la derecha, sobre el extremo caliente.
+    /* ---- Fuente de calor: llama bajo el extremo derecho de la barra ---- */
     const flick = 1 + 0.12 * Math.sin(this.t * 9) + 0.06 * Math.sin(this.t * 17);
-    const fx = 10.4;
-    const fy = 2.6;
-    scene.emphasisHalo(fx, fy + 0.4, 1.5, { color: 'rgba(255,140,80,0.35)' });
-    const flame = [];
-    for (let i = 0; i <= 16; i++) {
-      const u = i / 16;
-      flame.push({ x: fx + Math.sin(u * Math.PI) * 0.7 * flick, y: fy - u * 2.8 * flick });
+    const fx = x0 + w1 + 0.9;
+    const fy = yBar - H / 2 - 2.6;
+    scene.emphasisHalo(fx, fy + 1, 1.6, { color: 'rgba(255,140,80,0.35)' });
+    const flame = (scale, hgt) => {
+      const pts = [];
+      for (let i = 0; i <= 18; i++) {
+        const u = i / 18;
+        const wobble = 1 + 0.08 * Math.sin(this.t * 11 + u * 6);
+        pts.push({ x: fx + Math.sin(u * Math.PI) * 0.75 * scale * wobble, y: fy + u * hgt * flick });
+      }
+      for (let i = 18; i >= 0; i--) {
+        const u = i / 18;
+        const wobble = 1 + 0.08 * Math.sin(this.t * 13 + u * 5);
+        pts.push({ x: fx - Math.sin(u * Math.PI) * 0.75 * scale * wobble, y: fy + u * hgt * flick });
+      }
+      return pts;
+    };
+    scene.polygon(flame(1, 2.6), { color: 'ray', fill: 'ray', alpha: 0.75, width: 1 });
+    scene.polygon(flame(0.55, 1.7), { color: 'force', fill: 'force', alpha: 0.9, width: 1 });
+    scene.polygon(flame(0.25, 0.9), { color: '#fff3c4', fill: '#fff3c4', alpha: 0.9, width: 1 });
+    // Mechero: base de la llama.
+    scene.rect(fx, fy - 0.35, 0.9, 0.5, { color: 'textDim', fill: 'textDim', alpha: 0.8, width: 1 });
+    scene.rect(fx, fy - 1.1, 0.35, 1.1, { color: 'textDim', fill: 'textDim', alpha: 0.8, width: 1 });
+    scene.label(fx, fy - 2.1, `fuente de calor · T = ${T} °C`, { avoid: true, color: 'energy', size: 11 });
+    // Ondas de calor subiendo hacia la barra.
+    for (let j = 0; j < 3; j++) {
+      const ph = (this.t * 0.9 + j * 0.33) % 1;
+      const yy = fy + 2.6 + ph * 1.4;
+      scene.line(fx - 0.5 + j * 0.5, yy, fx - 0.2 + j * 0.5, yy + 0.35, { color: 'force', width: 1.2, alpha: 0.6 * (1 - ph) });
     }
-    flame.push({ x: fx, y: fy + 0.9 });
-    scene.polygon(flame, { color: 'ray', fill: 'ray', alpha: 0.8, width: 1 });
-    scene.polygon(
-      flame.map((p) => ({ x: fx + (p.x - fx) * 0.55, y: p.y })),
-      { color: 'force', fill: 'force', alpha: 0.9, width: 1 }
-    );
-    scene.label(fx, fy + 1.8, `T = ${T} °C`, { avoid: true, color: 'energy', size: 11 });
 
-    // Barra cilíndrica horizontal: el objeto en estudio que se expande.
-    const barColor = thermalColor(cold, hot, Math.max(0, Math.min(1, (T - 0) / 400)));
-    scene.rect(x0 + Lvis / 2, yBar, Lvis, 0.9, {
-      color: barColor,
-      fill: barColor,
-      fillAlpha: 0.45,
-      width: 2.5,
-      radius: 0.45
-    });
-    // Detalle de brillo cilíndrico.
-    scene.line(x0 + 0.3, yBar - 0.18, x0 + Lvis - 0.3, yBar - 0.18, {
-      color: 'textDim',
-      width: 1.4,
-      alpha: 0.5
-    });
-    scene.label(x0 + Lvis / 2, yBar - 1.1, `${roundTo(Lvis, 3)} m`, { avoid: true, color: 'textDim' });
+    /* ---- Pared fija a la izquierda ---- */
+    scene.rect(x0 - 0.35, yBar, 0.7, H + 2.2, { color: 'textDim', fill: 'textDim', alpha: 0.85, width: 1 });
+    for (let yy = yBar - H / 2 - 1.0; yy <= yBar + H / 2 + 1.0; yy += 0.45) {
+      scene.line(x0 - 0.7, yy, x0 - 1.15, yy - 0.4, { color: 'textDim', width: 1, alpha: 0.7 });
+    }
 
-    // Flecha superior bidireccional: dirección del aumento de dimensión.
-    scene.dimension(x0, yBar + 1.9, x0 + L0, yBar + 1.9, '', {
-      offset: 0.35,
-      color: 'textDim'
-    });
-    scene.label(x0 + L0 / 2, yBar + 2.55, `← L₀ = ${roundTo(L0, 1)} m →`, { avoid: true, color: 'textDim' });
+    /* ---- Barra cilíndrica horizontal (el objeto en estudio) ---- */
+    const tone = Math.max(0, Math.min(1, (T + 50) / 450));
+    const barColor = thermalColor('#5b8fd6', '#ff6a3d', tone);
+    const cx = x0 + w1 / 2;
+    // Sombreado cilíndrico: bandas horizontales de claro (arriba) a oscuro (abajo).
+    const nShade = 10;
+    for (let i = 0; i < nShade; i++) {
+      const u = (i + 0.5) / nShade;
+      const shade = thermalColor('#ffffff', barColor, 0.35 + 0.65 * Math.abs(u - 0.32) * 1.5);
+      scene.rect(cx, yBar + H / 2 - u * H, w1, H / nShade + 0.03, { fill: shade, stroke: false, alpha: 0.95 });
+    }
+    // Zona ΔL resaltada (la parte nueva de la barra).
+    if (Math.abs(dW) > 0.02) {
+      scene.rect(x0 + w0 + dW / 2, yBar, Math.abs(dW), H, { fill: 'energy', stroke: false, alpha: 0.35 });
+      scene.line(x0 + w0, yBar - H / 2, x0 + w0, yBar + H / 2, { color: 'energy', width: 1.6, dash: [4, 3] });
+    }
+    // Contorno y tapas elípticas (perspectiva de cilindro).
+    scene.rect(cx, yBar, w1, H, { color: barColor, width: 2.2, stroke: true });
+    scene.ellipse(x0 + w1, yBar, 0.32, H / 2, { color: barColor, fill: barColor, fillAlpha: 0.9, width: 2.2 });
+    scene.ellipse(x0, yBar, 0.32, H / 2, { color: barColor, width: 2.2, alpha: 0.6 });
+    scene.label(cx, yBar + H / 2 + 0.55, `L = ${roundTo(L0 + dL, 4)} m`, { avoid: true, color: 'text', size: 12 });
 
-    // Flecha inferior segmentada: relación entre L₀ y el ΔL añadido.
-    if (Math.abs(vis) > 0.01) {
-      scene.dimension(x0 + L0, yBar - 1.9, x0 + Lvis, yBar - 1.9, '', {
-        offset: 0.35,
-        dash: [5, 4],
-        color: 'energy'
+    /* ---- Flecha superior bidireccional: dirección del aumento de longitud ---- */
+    const yTop = yBar + H / 2 + 2.1;
+    scene.dimension(x0, yTop, x0 + w1, yTop, '', { color: 'energy' });
+    scene.label(cx, yTop + 0.55, `⟵ la longitud crece a lo largo del eje ⟶`, { avoid: true, color: 'energy', size: 11 });
+
+    /* ---- Flecha inferior segmentada: L₀ + ΔL ---- */
+    const yBot = yBar - H / 2 - 1.5;
+    scene.dimension(x0, yBot, x0 + w0, yBot, `L₀ = ${roundTo(L0, 2)} m`, { color: 'textDim', dash: [6, 4], offset: 0 });
+    if (Math.abs(dW) > 0.02) {
+      scene.dimension(x0 + w0, yBot, x0 + w1, yBot, `ΔL = ${roundTo(dL * 1000, 2)} mm`, {
+        color: 'energy',
+        dash: [3, 3],
+        offset: 0
       });
-      scene.dimension(x0, yBar - 1.35, x0 + L0, yBar - 1.35, `ΔL = ${roundTo(dL * 1000, 2)} mm`, {
-        dash: [5, 4],
-        color: 'energy'
-      });
-      scene.chip(x0 + L0 / 2, -3.7, `Deformación ×${GAIN} para que se vea`, { avoid: true, color: 'energy' });
+      scene.line(x0 + w0, yBot - 0.45, x0 + w0, yBot + 0.45, { color: 'energy', width: 1.4 });
+      scene.chip(cx, yBot - 1.15, `ΔL = α·L₀·ΔT (dibujo ×${GAIN})`, { avoid: true, color: 'energy' });
     } else {
-      scene.chip(x0 + L0 / 2, yBar - 1.35, `ΔT = ${roundTo(this.dT(), 0)} °C → aún sin dilatación visible`, {
+      scene.chip(cx, yBot - 1.15, `ΔT = ${roundTo(dT, 0)} °C → aún sin dilatación visible`, {
         avoid: true,
         color: 'textDim'
       });
     }
 
-    scene.hud.chip(`Dilatación lineal — ${this.params.material.toUpperCase()} (α = ${this.alphaOf(this.params.material) * 1e6}×10⁻⁶/°C)`, 'top-left', {
-      color: 'energy'
-    });
+    scene.hud.chip(
+      `Dilatación lineal — ${this.params.material.toUpperCase()} (α = ${alpha * 1e6}×10⁻⁶/°C)`,
+      'top-left',
+      { color: 'energy' }
+    );
     scene.hud.readout(
       [
-        { label: 'ΔT', value: roundTo(this.dT(), 0), unit: 'K' },
+        { label: 'ΔT', value: roundTo(dT, 0), unit: 'K' },
         { label: 'ΔL real', value: roundTo(dL * 1000, 3), unit: 'mm' },
         { label: 'L final', value: roundTo(L0 + dL, 5), unit: 'm' }
       ],
