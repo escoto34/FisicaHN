@@ -240,3 +240,77 @@ export function legend(ctx, items, x, y, lineLength = 14) {
   ctx.restore();
   return lineHeight;
 }
+
+/**
+ * Traza el contorno de una **lente delgada** como óvalo de libro de texto en
+ * la posición (cx, cy): `2·ry` de alto y `2·rx` de ancho máximo. La excentricidad
+ * visual `e` en [0,1] controla cuánto se abomba la cara: 0 → casi recta (lente
+ * débil, |f| grande); 1 → muy curva (lente fuerte, |f| pequeño).
+ *
+ * Tipos soportados:
+ *  - `biconvex`     (convergente): gruesa en el centro — un óvalo.
+ *  - `biconcave`    (divergente): delgada en el centro, caras hundidas.
+ *  - `plano-convex` (objetivo de telescopio o mirada): una cara plana y una curva.
+ *  - `plano-concave`: una cara plana y una hundida.
+ *  - `meniscus`     : una cara convexa y la opuesta cóncava.
+ *
+ * Traza con `bezierCurveTo` (presente en canvas y en la exportación SVG) para
+ * no depender de `ctx.ellipse`, y el relleno/contorno se aplica fuera.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {number} cx
+ * @param {number} cy
+ * @param {number} rx - Semiancho máximo (px).
+ * @param {number} ry - Semialto (px).
+ * @param {string} [type='biconvex']
+ * @param {number} [e=0.6] - Excentricidad visual de la curvatura en [0,1].
+ */
+export function lensPath(ctx, cx, cy, rx, ry, type = 'biconvex', e = 0.6) {
+  const t = Math.max(0.02, Math.min(1, e));
+  const N = 24;
+  // Perfil horizontal de cada cara según y: devuelve el ancho al nivel u∈[0,1].
+  // u=0 en el borde superior, u=1 en el inferior.
+  const face = (u) => {
+    const v = (1 - 2 * u) ** 2; // 1 en el centro, 0 en los extremos
+    switch (type) {
+      case 'biconcave':
+        return 1 - t * v; // cintura estrecha en el centro
+      case 'plano-convex':
+        return 1;
+      case 'plano-concave':
+        return 1;
+      case 'meniscus':
+        return 1 - t * v * 0.5;
+      default:
+        return Math.sqrt(1 - (1 - 2 * u) ** 2); // elipse: 0 en los extremos
+    }
+  };
+
+  ctx.beginPath();
+  const pts = [];
+  // Cara izquierda (de abajo arriba) y derecha (de arriba abajo): el contorno
+  // se recorre completo en el sentido de las agujas del reloj.
+  for (let i = 0; i <= N; i++) {
+    const u = i / N;
+    const y = cy + ry * (1 - 2 * u);
+    pts.push({ x: cx - rx * face(u), y });
+  }
+  for (let i = 0; i <= N; i++) {
+    const u = i / N;
+    const y = cy + ry * (1 - 2 * u);
+    pts.push({ x: cx + rx * face(u), y });
+  }
+  // Suavizado Catmull-Rom→Bézier: cada punto de la polilínea queda en la curva.
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(pts.length - 1, i + 2)];
+    const c1x = p1.x + (p2.x - p0.x) / 6;
+    const c1y = p1.y + (p2.y - p0.y) / 6;
+    const c2x = p2.x - (p3.x - p1.x) / 6;
+    const c2y = p2.y - (p3.y - p1.y) / 6;
+    ctx.bezierCurveTo(c1x, c1y, c2x, c2y, p2.x, p2.y);
+  }
+  ctx.closePath();
+}

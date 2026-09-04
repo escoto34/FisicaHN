@@ -25,6 +25,10 @@ const MILESTONES = [
     who: 'Planck',
     title: 'Cuantización de la energía',
     text: 'Para explicar el espectro de un cuerpo negro sin la "catástrofe ultravioleta", Planck propone que la energía se intercambia en paquetes E = hf, no de forma continua.',
+    belief:
+      'Se trataba la radiación del cuerpo negro como ondas continuas de todas las frecuencias: el cálculo clásico predecía que la emisión se disparaba sin límite hacia el ultravioleta, algo absurdo que la medida desmentía una y otra vez.',
+    reality:
+      'La energía no se intercambia de forma continua: cada oscilador solo puede emitir o absorber paquetes de energía hf. Con esa única hipótesis la curva medida se reproduce exactamente. La continuidad era una extrapolación clásica falsa a escala atómica.',
     sketch: 'planck'
   },
   {
@@ -32,6 +36,10 @@ const MILESTONES = [
     who: 'Einstein',
     title: 'Efecto fotoeléctrico',
     text: 'La luz misma está cuantizada en fotones de energía hf. Explica por qué la luz de baja frecuencia no arranca electrones sin importar la intensidad. Ver el módulo "Efecto fotoeléctrico".',
+    belief:
+      'Si la luz es una onda continua, su energía depende de la intensidad: un foco intenso debería arrancar electrones a cualquier frecuencia y con solo esperar un poco.',
+    reality:
+      'La energía del haz viaja en fotones de energía hf. Si hf es menor que la función de trabajo φ del metal, ningún fotón puede arrancar un electrón por intenso que sea el foco. El umbral de frecuencia (no la intensidad) decide el efecto: la imagen ondulatoria clásica estaba equivocada.',
     sketch: 'photoelectric'
   },
   {
@@ -39,6 +47,10 @@ const MILESTONES = [
     who: 'Bohr',
     title: 'Modelo atómico cuantizado',
     text: 'Los electrones sólo ocupan órbitas de momento angular cuantizado; saltan entre niveles emitiendo o absorbiendo un fotón de energía exacta. Ver el módulo "Física atómica".',
+    belief:
+      'El átomo de Rutherford tenía electrones orbitando como planetas; clásicamente un electrón acelerado irradiaría energía y colapsaría al núcleo en ~10⁻¹¹ s. Se creía que ese colapso era inevitable.',
+    reality:
+      'Los átomos no colapsan: los electrones solo ocupan órbitas cuantizadas y radian únicamente al saltar entre niveles (Eₙ = −13,6 eV/n²). La predicción clásica de colapso es falsa; la estabilidad de la materia es un efecto cuántico.',
     sketch: 'bohr'
   },
   {
@@ -46,6 +58,10 @@ const MILESTONES = [
     who: 'de Broglie',
     title: 'Dualidad onda-partícula',
     text: 'Si la luz (onda) se comporta como partícula, quizás la materia (partícula) se comporte como onda: λ = h/p. Ver el módulo "Dualidad onda-partícula".',
+    belief:
+      'Se creía que la dualidad onda-partícula era exclusiva de la luz; la materia eran partículas con trayectorias bien definidas y sin ninguna longitud de onda asociada.',
+    reality:
+      'No: toda partícula lleva asociada una onda de materia λ = h/p. La idea dejó de ser especulación en 1927: el haz de electrones de Davisson y Germer difractaba como lo haría una onda. La creencia clásica era incompleta.',
     sketch: 'debroglie'
   },
   {
@@ -53,6 +69,10 @@ const MILESTONES = [
     who: 'Schrödinger / Heisenberg',
     title: 'Mecánica cuántica moderna',
     text: 'Dos formulaciones equivalentes nacen casi a la vez: la ecuación de onda de Schrödinger y la mecánica matricial de Heisenberg. Ambas describen la misma física con matemática distinta.',
+    belief:
+      'Al nacer dos formalismos aparentemente incompatibles (ecuación de onda y mecánica matricial), se dudaba si solo uno podía ser el correcto o si acaso la teoría entera estaba mal planteada.',
+    reality:
+      'Ambas formulaciones resultan matemáticamente equivalentes: describen exactamente la misma física. La duda era un problema de lenguaje, no de contenido: ninguna estaba mal; eran la misma teoría en dos notaciones.',
     sketch: 'wavefunction'
   },
   {
@@ -60,6 +80,10 @@ const MILESTONES = [
     who: 'Heisenberg',
     title: 'Principio de incertidumbre',
     text: 'No se puede conocer a la vez, con precisión arbitraria, la posición y el momento de una partícula: Δx·Δp ≥ ħ/2. No es un límite del instrumento, es de la naturaleza.',
+    belief:
+      'Se creía que toda imprecisión era un límite del instrumento y que, en principio, se podía conocer el estado exacto de un sistema: un universo determinista al estilo de Laplace.',
+    reality:
+      'La incertidumbre es intrínseca a la naturaleza, no al aparato de medida: precisar la posición perturba el momento y viceversa. El determinismo clásico a escala atómica es imposible.',
     sketch: 'uncertainty'
   },
   {
@@ -67,6 +91,10 @@ const MILESTONES = [
     who: 'Davisson y Germer',
     title: 'Difracción de electrones confirmada',
     text: 'Un haz de electrones reflejado en un cristal de níquel produce un patrón de difracción: la hipótesis de de Broglie deja de ser especulación y pasa a ser medida.',
+    belief:
+      'Los electrones son partículas puntuales; la difracción y la interferencia eran fenómenos reservados a las ondas.',
+    reality:
+      'El patrón de difracción del haz de electrones en el níquel confirmó la onda de materia λ = h/p. La imagen corpuscular clásica, sin onda asociada, era incompleta.',
     sketch: 'debroglie'
   },
   {
@@ -74,6 +102,10 @@ const MILESTONES = [
     who: 'Dirac',
     title: 'Ecuación relativista del electrón',
     text: 'Al combinar mecánica cuántica y relatividad especial, la ecuación de Dirac predice una partícula nueva: el positrón, la antimateria del electrón (confirmado en 1932).',
+    belief:
+      'La ecuación de Dirac predecía estados de energía negativa; se los consideró un artefacto matemático sin sentido físico, un error de la teoría.',
+    reality:
+      'Esos estados son reales: en 1932 Anderson descubrió el positrón (e⁺), la misma masa del electrón con carga opuesta. La antimateria existe; descartar los estados de energía negativa era el error.',
     sketch: 'dirac'
   },
   {
@@ -81,6 +113,10 @@ const MILESTONES = [
     who: 'Gamow, Condon y Gurney',
     title: 'Teoría cuántica del túnel',
     text: 'El decaimiento alfa se explica porque la partícula "atraviesa" una barrera de energía que clásicamente sería infranqueable. Ver el módulo "Túnel cuántico".',
+    belief:
+      'Clásicamente, si una partícula no tiene energía para superar una barrera, no puede cruzarla jamás: siempre se refleja. Así se explicaban las colisiones ordinarias.',
+    reality:
+      'En mecánica cuántica la función de onda decae dentro de la barrera pero no llega a cero: hay probabilidad finita de aparecer al otro lado (factor exponencial). El decaimiento alfa solo se explica así. La prohibición clásica se viola a escala nuclear.',
     sketch: 'tunneling'
   },
   {
@@ -88,6 +124,10 @@ const MILESTONES = [
     who: 'Einstein, Podolsky y Rosen',
     title: 'La paradoja EPR',
     text: 'Einstein cuestiona si la mecánica cuántica está completa: dos partículas entrelazadas parecen influirse instantáneamente pese a la distancia — "acción fantasmal a distancia". Abre el debate que sigue hoy.',
+    belief:
+      'EPR creían que, si el entrelazamiento correlaciona partículas al instante a cualquier distancia, la cuántica debía estar incompleta: para preservar la localidad tenía que haber «variables ocultas» aún por descubrir. Por eso se creía que la teoría era provisional.',
+    reality:
+      'El teorema de Bell (1964) y los experimentos posteriores muestran que ninguna teoría local de variables ocultas reproduce las correlaciones cuánticas: la cuántica es completa y el entrelazamiento es real. La conclusión EPR está refutada con alta confianza (sin que ello permita transmitir información instantánea).',
     sketch: 'epr'
   }
 ];
@@ -116,17 +156,6 @@ export default class QuantumHistory extends SimModule {
 
   init(meta = null) {
     this.reset();
-    setModuleInfo(this.ui, {
-      title: meta?.title || 'Historia de la mecánica cuántica',
-      blurb: meta?.blurb || 'Línea de tiempo 1900-1935: los diez hitos que construyeron la física cuántica.',
-      story:
-        'En 35 años, la física pasó de un ajuste técnico a la radiación de cuerpo negro a una teoría completa de la materia que predice la antimateria y cuestiona qué significa "realidad" a escala atómica. Cada hito de esta línea de tiempo resuelve una grieta que dejó el anterior — y varias siguen abiertas.',
-      cases: [
-        'Por qué el LED de tu teléfono emite un color y no otro (niveles de Bohr).',
-        'Por qué un microscopio electrónico ve más detalle que uno óptico (de Broglie).',
-        'Por qué el decaimiento radiactivo es impredecible para un átomo individual (túnel cuántico).'
-      ]
-    });
     setModuleFormulas(this.ui, {
       items: [
         { name: 'Planck', formula: 'E = h f' },
@@ -137,11 +166,31 @@ export default class QuantumHistory extends SimModule {
       ]
     });
     clearChallenges(this.ui);
+    this._refreshInfo();
   }
 
   reset() {
     this.t = 0;
     this.engine?.reset?.();
+    this._refreshInfo?.();
+  }
+
+  _refreshInfo() {
+    const m = this.milestone();
+    setModuleInfo(this.ui, {
+      title: 'Historia de la mecánica cuántica',
+      blurb: `Hito ${m.year} — ${m.who}: ${m.title}.`,
+      story: [
+        `<strong>Qué ocurrió:</strong> ${m.text}`,
+        `<strong>Lo que se creía:</strong> ${m.belief}`,
+        `<strong>Por qué estaba mal (o qué mostró la realidad):</strong> ${m.reality}`
+      ].join('<br>'),
+      cases: [
+        'Por qué el LED de tu teléfono emite un color y no otro (niveles de Bohr).',
+        'Por qué un microscopio electrónico ve más detalle que uno óptico (de Broglie).',
+        'Por qué el decaimiento radiactivo es impredecible para un átomo individual (túnel cuántico).'
+      ]
+    });
   }
 
   update(dt) {

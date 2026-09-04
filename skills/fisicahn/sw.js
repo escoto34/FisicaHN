@@ -16,7 +16,7 @@
  *  - El contenido del catálogo y los 46 módulos viven en js/ y se cachean
  *    con la misma regla al primer fetch (import dinámico incluido).
  */
-const VERSION = 'fisicahn-v1.4.2';
+const VERSION = 'fisicahn-v1.5.0';
 const CACHE = `fisica-hn-${VERSION}`;
 
 const SHELL = ['./', './index.html', './js/app.js', './js/physics-engine.js', './js/renderer.js', './css/main.css', './css/catalog.css', './manifest.webmanifest', './assets/favicon.svg', './assets/logo.svg'];

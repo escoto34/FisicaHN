@@ -77,39 +77,73 @@ export function update(dt) {
 export function render(ctx, alpha, elapsed) {
   if (!_renderer) return;
   const r = _renderer;
-
-  // Dibujar líneas de campo (simplificado)
   ctx.save();
-  for (let step = 0; step < 60; step++) {
-    const angle = (step / 60) * Math.PI * 2;
-    const startX = 4 * Math.cos(angle);
-    const startY = 4 * Math.sin(angle);
+  // Líneas de campo trazadas desde el CENTRO de cada carga (streamlines):
+  // arrancan en la superficie de la carga y siguen la dirección de E (o la
+  // contraria) integrando paso a paso. Sale de las positivas y entra en las
+  // negativas, llenando todo el plano a partir del centro de las cargas.
+  const step = 0.13;
+  const maxSteps = 320;
+  const bounds = { minX: -10.5, maxX: 10.5, minY: -8, maxY: 8 };
+  const r0 = 0.55;
 
-    // Calcular campo en ese punto
-    let ex = 0, ey = 0;
+  const eField = (px, py, out) => {
+    let ex = 0;
+    let ey = 0;
     for (const c of charges) {
-      const dx = startX - c.pos.x;
-      const dy = startY - c.pos.y;
-      const r2 = dx * dx + dy * dy;
-      if (r2 < 0.01) continue;
-      const eMag = K * c.charge / (r2);
-      ex += eMag * dx / Math.sqrt(r2);
-      ey += eMag * dy / Math.sqrt(r2);
+      const dx = px - c.pos.x;
+      const dy = py - c.pos.y;
+      const r2 = dx * dx + dy * dy + 1e-6;
+      const eMag = K * c.charge / r2;
+      const inv = 1 / Math.sqrt(r2);
+      ex += eMag * dx * inv;
+      ey += eMag * dy * inv;
     }
-    const eTotal = Math.sqrt(ex * ex + ey * ey);
-    if (eTotal < 0.01) continue;
-    const normX = ex / eTotal;
-    const normY = ey / eTotal;
+    const m = Math.hypot(ex, ey) || 1e-9;
+    out.x = ex / m;
+    out.y = ey / m;
+  };
 
-    const p1 = r.worldToCanvas(startX, startY, _e1);
-    const p2 = r.worldToCanvas(startX + normX * 0.8, startY + normY * 0.8, _e2);
-
-    ctx.strokeStyle = 'rgba(79, 195, 247, 0.12)';
-    ctx.lineWidth = 0.5;
+  const drawLine = (seedPos, dir) => {
+    const pts = [];
+    let px = seedPos.x;
+    let py = seedPos.y;
+    const e = { x: 0, y: 0 };
+    for (let i = 0; i < maxSteps; i++) {
+      pts.push(px, py);
+      let enteredCharge = false;
+      for (const c of charges) {
+        if (Math.hypot(px - c.pos.x, py - c.pos.y) < 0.45 && i > 2) {
+          enteredCharge = true;
+          break;
+        }
+      }
+      if (enteredCharge) break;
+      if (px < bounds.minX || px > bounds.maxX || py < bounds.minY || py > bounds.maxY) break;
+      eField(px, py, e);
+      px += e.x * step * dir;
+      py += e.y * step * dir;
+    }
+    if (pts.length < 8) return;
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(79, 195, 247, 0.5)';
+    const p0 = r.worldToCanvas(pts[0], pts[1], _e1);
     ctx.beginPath();
-    ctx.moveTo(p1.x, p1.y);
-    ctx.lineTo(p2.x, p2.y);
+    ctx.moveTo(p0.x, p0.y);
+    for (let i = 2; i < pts.length; i += 2) {
+      const qi = r.worldToCanvas(pts[i], pts[i + 1], _e2);
+      ctx.lineTo(qi.x, qi.y);
+    }
     ctx.stroke();
+  };
+
+  for (const c of charges) {
+    const dir = Math.sign(c.charge) || 1;
+    const seeds = Math.max(20, Math.round(26 * Math.sqrt(Math.abs(c.charge) * 1e6)));
+    for (let k = 0; k < seeds; k++) {
+      const a = (k / seeds) * Math.PI * 2;
+      drawLine({ x: c.pos.x + Math.cos(a) * r0, y: c.pos.y + Math.sin(a) * r0 }, dir);
+    }
   }
   ctx.restore();
 

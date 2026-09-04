@@ -14,6 +14,7 @@
 
 import { SimModule } from '../core/sim-module.js';
 import { roundTo } from '../utils/math-helpers.js';
+import { thermalColor } from '../core/draw-primitives.js';
 import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 /** Materiales con α en 10⁻⁶/°C. */
@@ -172,25 +173,91 @@ export default class ThermalExpansion extends SimModule {
   }
 
   _drawLine(scene) {
-    const { L0 } = this.params;
+    const { L0, T } = this.params;
     const dL = this.alphaOf(this.params.material) * L0 * this.dT();
     // Deformación visual amplificada y acotada a la mitad de la longitud base.
-    const vis = Math.max(-L0 * 0.5, Math.min(L0 * 0.5, dL * GAIN));
-    const L1 = L0 + vis;
-    const x = -9;
+    const vis = Math.max(-L0 * 0.4, Math.min(L0 * 0.4, dL * GAIN));
+    // Animación suave de la expansión al abrir o cambiar parámetros.
+    const k = 1 - Math.exp(-Math.min(this.t, 80) * 1.6);
+    const Lvis = L0 + vis * k;
+    const x0 = -9;
+    const yBar = -0.6;
 
-    scene.label(-9.4, 6.9, `Referencia  T₀ = ${T0} °C`, { avoid: true, align: 'left', color: 'textDim' });
-    this._bar(scene, x, 6, L0, 'textDim', `${L0} m`);
-    scene.label(-9.4, 1.9, `Calentado  T = ${this.params.T} °C`, { avoid: true, align: 'left', color: 'mass' });
-    this._bar(scene, x, 1, L1, 'mass', `${roundTo(L1, 3)} m`);
-
-    if (Math.abs(vis) > 0.01) {
-      scene.dimension(x + L0, 2.3, x + L1, 2.3, `ΔL = ${roundTo(dL * 1000, 2)} mm`, {
-        color: 'energy'
-      });
-      scene.chip(x + L0 / 2, -0.4, `Deformación ×${GAIN} para que se vea`, { avoid: true, color: 'energy' });
+    // Fondo: gradiente de temperatura azul (izquierda) → naranja/rojo (derecha).
+    const cold = '#2b6cb0';
+    const hot = '#e05d2f';
+    const nBands = 46;
+    for (let i = 0; i < nBands; i++) {
+      const bx = -11 + (i + 0.5) * (22 / nBands);
+      const t = i / (nBands - 1);
+      const c = thermalColor(cold, hot, t);
+      scene.rect(bx, 0, 22 / nBands + 0.05, 16, { fill: c, stroke: false, alpha: 0.10 });
     }
 
+    // Fuente de calor: llama a la derecha, sobre el extremo caliente.
+    const flick = 1 + 0.12 * Math.sin(this.t * 9) + 0.06 * Math.sin(this.t * 17);
+    const fx = 10.4;
+    const fy = 2.6;
+    scene.emphasisHalo(fx, fy + 0.4, 1.5, { color: 'rgba(255,140,80,0.35)' });
+    const flame = [];
+    for (let i = 0; i <= 16; i++) {
+      const u = i / 16;
+      flame.push({ x: fx + Math.sin(u * Math.PI) * 0.7 * flick, y: fy - u * 2.8 * flick });
+    }
+    flame.push({ x: fx, y: fy + 0.9 });
+    scene.polygon(flame, { color: 'ray', fill: 'ray', alpha: 0.8, width: 1 });
+    scene.polygon(
+      flame.map((p) => ({ x: fx + (p.x - fx) * 0.55, y: p.y })),
+      { color: 'force', fill: 'force', alpha: 0.9, width: 1 }
+    );
+    scene.label(fx, fy + 1.8, `T = ${T} °C`, { avoid: true, color: 'energy', size: 11 });
+
+    // Barra cilíndrica horizontal: el objeto en estudio que se expande.
+    const barColor = thermalColor(cold, hot, Math.max(0, Math.min(1, (T - 0) / 400)));
+    scene.rect(x0 + Lvis / 2, yBar, Lvis, 0.9, {
+      color: barColor,
+      fill: barColor,
+      fillAlpha: 0.45,
+      width: 2.5,
+      radius: 0.45
+    });
+    // Detalle de brillo cilíndrico.
+    scene.line(x0 + 0.3, yBar - 0.18, x0 + Lvis - 0.3, yBar - 0.18, {
+      color: 'textDim',
+      width: 1.4,
+      alpha: 0.5
+    });
+    scene.label(x0 + Lvis / 2, yBar - 1.1, `${roundTo(Lvis, 3)} m`, { avoid: true, color: 'textDim' });
+
+    // Flecha superior bidireccional: dirección del aumento de dimensión.
+    scene.dimension(x0, yBar + 1.9, x0 + L0, yBar + 1.9, '', {
+      offset: 0.35,
+      color: 'textDim'
+    });
+    scene.label(x0 + L0 / 2, yBar + 2.55, `← L₀ = ${roundTo(L0, 1)} m →`, { avoid: true, color: 'textDim' });
+
+    // Flecha inferior segmentada: relación entre L₀ y el ΔL añadido.
+    if (Math.abs(vis) > 0.01) {
+      scene.dimension(x0 + L0, yBar - 1.9, x0 + Lvis, yBar - 1.9, '', {
+        offset: 0.35,
+        dash: [5, 4],
+        color: 'energy'
+      });
+      scene.dimension(x0, yBar - 1.35, x0 + L0, yBar - 1.35, `ΔL = ${roundTo(dL * 1000, 2)} mm`, {
+        dash: [5, 4],
+        color: 'energy'
+      });
+      scene.chip(x0 + L0 / 2, -3.7, `Deformación ×${GAIN} para que se vea`, { avoid: true, color: 'energy' });
+    } else {
+      scene.chip(x0 + L0 / 2, yBar - 1.35, `ΔT = ${roundTo(this.dT(), 0)} °C → aún sin dilatación visible`, {
+        avoid: true,
+        color: 'textDim'
+      });
+    }
+
+    scene.hud.chip(`Dilatación lineal — ${this.params.material.toUpperCase()} (α = ${this.alphaOf(this.params.material) * 1e6}×10⁻⁶/°C)`, 'top-left', {
+      color: 'energy'
+    });
     scene.hud.readout(
       [
         { label: 'ΔT', value: roundTo(this.dT(), 0), unit: 'K' },

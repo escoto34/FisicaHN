@@ -22,7 +22,7 @@
  */
 
 import { getTheme, resolveColor, seriesColor, seriesDash } from './theme.js';
-import { roundRect, arrowHead, hatchLine, thermalColor, ripplePattern, halo } from './draw-primitives.js';
+import { roundRect, arrowHead, hatchLine, thermalColor, ripplePattern, halo, lensPath } from './draw-primitives.js';
 
 /** Puntos de trabajo reutilizados: dibujar no debe allocar (§3.2). */
 const _a = { x: 0, y: 0 };
@@ -346,6 +346,68 @@ export class Surface {
   /** Polígono cerrado (alias explícito de `path` con cierre obligatorio). */
   polygon(points, opts = {}) {
     return this.path(points, { ...opts, close: true });
+  }
+
+  /**
+   * Lente delgada como óvalo de libro de texto (§2.4, WAVE 5.4 → lentes).
+   * La excentricidad visual se deriva de la focal del módulo: a menor |f| (lente
+   * más fuerte) más abombada; a mayor |f| más plana.
+   * @param {number} x - Centro óptico.
+   * @param {number} y - Centro óptico.
+   * @param {number} h - Altura total de la lente (unidades de mundo).
+   * @param {object} [opts]
+   * @param {string} [opts.type='biconvex'] - biconvex | biconcave | plano-convex | plano-concave | meniscus.
+   * @param {number} [opts.bulge=0.6] - Excentricidad visual de la curvatura en [0,1].
+   * @param {number} [opts.halfWidth] - Semiancho máximo (mundo); por defecto h × 0.14.
+   * @param {string|number} [opts.color='mass'] - Color del contorno.
+   * @param {string|number} [opts.fill] - Relleno del cristal (ej. translúcido).
+   * @param {number} [opts.fillAlpha=0.25] - Opacidad del relleno.
+   * @param {number} [opts.width=2.4] - Grosor del contorno.
+   */
+  lens(x, y, h, opts = {}) {
+    const ctx = this.ctx;
+    if (!ctx) return this;
+    const p = this.project(x, y, _a);
+    const hp = this.screenSpace ? h : this.px(h) / 2; // hp = semialto en px
+    const half = (opts.halfWidth ?? h * 0.14) / 2;
+    const rxp = this.screenSpace ? half : this.px(half);
+    const bulge = Math.max(0.02, Math.min(1, opts.bulge ?? 0.6));
+    ctx.save();
+    this._style(opts, 'mass');
+    lensPath(ctx, p.x, p.y, Math.max(0.5, rxp), Math.max(0.5, hp), opts.type || 'biconvex', bulge);
+    if (opts.fill) {
+      ctx.fillStyle = this.color(opts.fill, 'mass');
+      ctx.globalAlpha = opts.fillAlpha ?? 0.25;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    if (opts.stroke !== false) ctx.stroke();
+    ctx.restore();
+    return this;
+  }
+
+  /**
+   * Elipse centrada en (x, y) — óvalo genérico con `rx`/`ry` en unidades de
+   * mundo (útil también para etiquetar óvalos simbólicos de lentes).
+   */
+  ellipse(x, y, rx, ry, opts = {}) {
+    const ctx = this.ctx;
+    if (!ctx) return this;
+    const p = this.project(x, y, _a);
+    const rxp = this.screenSpace ? rx : this.px(rx);
+    const ryp = this.screenSpace ? ry : this.px(ry);
+    ctx.save();
+    this._style(opts, 'mass');
+    lensPath(ctx, p.x, p.y, Math.max(0.5, rxp), Math.max(0.5, ryp), 'biconvex', 1);
+    if (opts.fill) {
+      ctx.fillStyle = this.color(opts.fill, 'mass');
+      ctx.globalAlpha = opts.fillAlpha ?? 0.25;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    if (opts.stroke !== false) ctx.stroke();
+    ctx.restore();
+    return this;
   }
 
   /**
@@ -929,7 +991,7 @@ export class Surface {
     ctx.strokeStyle = color;
     ctx.fillStyle = color;
     ctx.lineWidth = this.lineWidth(1.2);
-    ctx.setLineDash([]);
+    ctx.setLineDash(opts.dash || []);
     ctx.beginPath();
     ctx.moveTo(fx + nx, fy + ny);
     ctx.lineTo(to.x + nx, to.y + ny);

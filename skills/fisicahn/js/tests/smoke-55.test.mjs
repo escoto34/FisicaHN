@@ -89,7 +89,8 @@ function geomPoints(op, m, args) {
       break;
     }
     case 'moveTo':
-    case 'lineTo': {
+    case 'lineTo':
+    case 'bezierCurveTo': {
       out.push(P(num[0], num[1]));
       break;
     }
@@ -116,7 +117,7 @@ function geomPoints(op, m, args) {
   return out;
 }
 
-const GEO = ['rect', 'arc', 'circle', 'ellipse', 'moveTo', 'lineTo', 'fillRect', 'strokeRect'];
+const GEO = ['rect', 'arc', 'circle', 'ellipse', 'moveTo', 'lineTo', 'bezierCurveTo', 'fillRect', 'strokeRect'];
 const MARGIN = 3;
 const LIMITS = { minX: -MARGIN, maxX: 900 + MARGIN, minY: -MARGIN, maxY: 700 + MARGIN };
 

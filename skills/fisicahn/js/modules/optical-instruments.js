@@ -167,26 +167,17 @@ export default class OpticalInstruments extends SimModule {
     }
   }
 
-  /** Símbolo de lente delgada: doble flecha vertical. */
-  _lens(scene, x, fCm, color, label) {
-    scene.line(x, -1.5, x, 1.5, { color, width: 2.4 });
-    scene.polyline(
-      [
-        { x: x - 0.18, y: 1.5 },
-        { x: x, y: 1.15 },
-        { x: x + 0.18, y: 1.5 }
-      ],
-      { color, width: 1.8 }
-    );
-    scene.polyline(
-      [
-        { x: x - 0.18, y: -1.5 },
-        { x: x, y: -1.15 },
-        { x: x + 0.18, y: -1.5 }
-      ],
-      { color, width: 1.8 }
-    );
-    if (label) scene.label(x, 2, `${label} (f=${fCm} cm)`, { avoid: true, color });
+  /**
+   * Símbolo de lente delgada como óvalo de libro de texto. El tipo de lente y la
+   * excentricidad dependen del contexto del módulo:
+   *   - ojo / lupa / ocular ..... biconvexa (convergente)
+   *   - objetivo de telescopio . plano-convexa (plana por un lado, casi sin curva)
+   * A menor |f|, más abombada la lente (más potente); a mayor |f|, más plana.
+   */
+  _lens(scene, x, fCm, color, label, type = 'biconvex') {
+    const bulge = Math.max(0.15, Math.min(0.92, 1.15 - 0.25 * Math.sqrt(Math.max(0.1, Math.abs(fCm)))));
+    scene.lens(x, 0, 3, { type, bulge, color, fill: color, fillAlpha: 0.22, width: 2.4 });
+    if (label) scene.label(x, 1.9, `${label} (f=${roundTo(fCm, 1)} cm)`, { avoid: true, color });
   }
 
   _drawOjo(scene) {
@@ -308,7 +299,7 @@ export default class OpticalInstruments extends SimModule {
     const { foT, feT } = this.params;
     const M = this.telescopioM();
 
-    this._lens(scene, 0, foT, 'mass', 'objetivo');
+    this._lens(scene, 0, foT, 'mass', 'objetivo', 'plano-convex');
     this._lens(scene, foT + feT, feT, 'spring', 'ocular');
 
     // Haz paralelo desde la izquierda (objeto en el infinito).

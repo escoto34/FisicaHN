@@ -5,6 +5,7 @@
  */
 
 import { roundTo } from '../utils/math-helpers.js';
+import { lensPath } from '../core/draw-primitives.js';
 import {
   setModuleInfo,
   setModuleFormulas,
@@ -172,6 +173,15 @@ function drawVerticalArrow(ctx, r, x, y, color, label, dashed = false) {
   ctx.restore();
 }
 
+/**
+ * Excentricidad visual de la lente a partir de la focal: a menor |f| (lente más
+ * potente) más abombado el óvalo; a mayor |f| más plana.
+ * @param {number} fFocal - Distancia focal positiva (|f|).
+ */
+function bulgeFromFocal(fFocal) {
+  return Math.max(0.15, Math.min(0.92, 1.15 - 0.25 * Math.sqrt(Math.max(0.1, fFocal))));
+}
+
 function drawLensShape(ctx, r, tipo) {
   const top = r.worldToCanvas(0, 3.4);
   const bot = r.worldToCanvas(0, -3.4);
@@ -180,29 +190,28 @@ function drawLensShape(ctx, r, tipo) {
   const h = bot.y - top.y;
 
   ctx.save();
-  ctx.beginPath();
-  if (tipo === 'convergente') {
-    // Biconvexa: gruesa en el centro (caras abombadas hacia fuera)
-    ctx.moveTo(cx - 9, top.y);
-    ctx.quadraticCurveTo(cx - 22, midY, cx - 9, bot.y);
-    ctx.lineTo(cx + 9, bot.y);
-    ctx.quadraticCurveTo(cx + 22, midY, cx + 9, top.y);
-    ctx.closePath();
-  } else {
-    // Bicóncava: delgada en el centro (caras hundidas)
-    ctx.moveTo(cx - 16, top.y);
-    ctx.quadraticCurveTo(cx - 3, midY, cx - 16, bot.y);
-    ctx.lineTo(cx + 16, bot.y);
-    ctx.quadraticCurveTo(cx + 3, midY, cx + 16, top.y);
-    ctx.closePath();
+  const bulge = bulgeFromFocal(params.f);
+  const rxPx = Math.abs(r.worldToCanvas(0.85, midY).x - cx);
+  const gradW = Math.abs(r.worldToCanvas(1.1, midY).x - cx);
+  // Óvalo de lente delgada: biconvexa (convergente) o bicóncava (divergente).
+  lensPath(ctx, cx, midY, rxPx, h / 2, tipo === 'convergente' ? 'biconvex' : 'biconcave', bulge);
+  const grad = ctx.createLinearGradient(cx - gradW, midY, cx + gradW, midY);
+  try {
+    grad.addColorStop(0, 'rgba(144, 202, 249, 0.10)');
+    grad.addColorStop(0.5, 'rgba(144, 202, 249, 0.30)');
+    grad.addColorStop(1, 'rgba(144, 202, 249, 0.10)');
+    ctx.fillStyle = grad;
+  } catch {
+    ctx.fillStyle = 'rgba(144, 202, 249, 0.22)';
   }
-  ctx.fillStyle = 'rgba(144, 202, 249, 0.22)';
   ctx.fill();
   ctx.strokeStyle = '#90caf9';
   ctx.lineWidth = 3;
   ctx.stroke();
+  ctx.restore();
 
   // Marcas en extremos (estilo lente de libro)
+  ctx.save();
   ctx.strokeStyle = 'rgba(144, 202, 249, 0.9)';
   ctx.lineWidth = 2.5;
   ctx.beginPath();

@@ -25,7 +25,7 @@ Se distribuye en 5 formatos desde una única fuente de verdad (`skills/fisicahn`
 - **App de escritorio** (Electron para Windows y Linux)
 - **App Android** (Capacitor APK para tablets y celulares)
 
-Versión actual: **1.4.3** (Hoja de ruta WAVEs 0 a 18 completada al 100%).
+Versión actual: **1.5.0** (Hoja de ruta WAVEs 0 a 18 completada al 100%).
 
 ---
 
@@ -35,14 +35,14 @@ Versión actual: **1.4.3** (Hoja de ruta WAVEs 0 a 18 completada al 100%).
 |------------|------------|--------------|
 | **Web / PWA** | Cualquiera con o sin internet | Abre el sitio web, instálalo como PWA para uso sin conexión |
 | **ZIP Offline** | USB, NetSupport, laboratorios bloqueados | Descarga `fisicahn.zip`, descomprime y abre `index.html` |
-| **Escritorio** | Windows (Instalador / Portable) o Linux (AppImage / DEB) | Descarga los binarios desde [Releases v1.4.3](https://github.com/escoto34/FisicaHN/releases/tag/v1.4.3) |
-| **Android** | Tablets y teléfonos | Instala `FisicaHN-1.4.3-release.apk` |
+| **Escritorio** | Windows (Instalador / Portable) o Linux (AppImage / DEB) | Descarga los binarios desde [Releases v1.5.0](https://github.com/escoto34/FisicaHN/releases/tag/v1.5.0) |
+| **Android** | Tablets y teléfonos | Instala `FisicaHN-1.5.0-release.apk` |
 
 ### Linux (AppImage)
 
 ```bash
-chmod +x FisicaHN-1.4.3.AppImage
-./FisicaHN-1.4.3.AppImage
+chmod +x FisicaHN-1.5.0.AppImage
+./FisicaHN-1.5.0.AppImage
 ```
 
 ---
@@ -85,13 +85,13 @@ El catálogo cuenta con **46 módulos de física interactivos + Pizarra docente 
 
 ---
 
-## Descargas (Versión 1.4.3)
+## Descargas (Versión 1.5.0)
 
-Publicadas en [GitHub Releases v1.4.3](https://github.com/escoto34/FisicaHN/releases/tag/v1.4.3):
+Publicadas en [GitHub Releases v1.5.0](https://github.com/escoto34/FisicaHN/releases/tag/v1.5.0):
 
-- **Windows:** `FisicaHN Setup 1.4.3.exe` (Instalador NSIS) y `FisicaHN-Portable-1.4.3.exe` (Portable)
-- **Linux:** `FisicaHN-1.4.3.AppImage` y `fisicahn-desktop_1.4.3_amd64.deb`
-- **Android:** `FisicaHN-1.4.3-release.apk`
+- **Windows:** `FisicaHN Setup 1.5.0.exe` (Instalador NSIS) y `FisicaHN-Portable-1.5.0.exe` (Portable)
+- **Linux:** `FisicaHN-1.5.0.AppImage` y `fisicahn-desktop_1.5.0_amd64.deb`
+- **Android:** `FisicaHN-1.5.0-release.apk`
 - **PWA / Web:** Disponible en el sitio web de la aplicación.
 
 ---

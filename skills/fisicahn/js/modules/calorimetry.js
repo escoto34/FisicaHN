@@ -19,6 +19,7 @@
 
 import { SimModule } from '../core/sim-module.js';
 import { roundTo } from '../utils/math-helpers.js';
+import { thermalColor } from '../core/draw-primitives.js';
 import { setModuleInfo, setModuleFormulas, clearChallenges } from '../module-ui.js';
 
 const C_WATER = 4186; // J/(kg·K)
@@ -196,13 +197,27 @@ export default class Calorimetry extends SimModule {
       return;
     }
 
-    if (modo === 'mezcla' || modo === 'conduccion' || modo === 'conveccion' || modo === 'radiacion') {
-      // Solución analítica: se graba la serie T(t) solo en la mezcla.
-      if (modo === 'mezcla' && this.history.length <= 400) {
-        this.history.push({ x: this.t, y: this.tEq() });
-      }
-      if (modo === 'mezcla' && this.history.length > 400) this.history.shift();
+    if (modo === 'mezcla') {
+      // Equilibrio en vivo tipo calorímetro: agua y metal se aproximan a T_eq
+      // con relajamiento exponencial; se va registrando la serie T(t).
+      this.history.push({ x: this.t, y: this.tEq() - 0.0001, w: this.mixWater(), m: this.mixMetal() });
+      if (this.history.length > 600) this.history.shift();
+      return;
     }
+
+    if (modo === 'conduccion' || modo === 'conveccion' || modo === 'radiacion') {
+      return;
+    }
+  }
+
+  /** Temperatura del agua en el instante actual (aprox. exponencial a T_eq). */
+  mixWater() {
+    return this.tEq() + (this.params.T1 - this.tEq()) * Math.exp(-Math.min(this.t, 90) / this.tauMix());
+  }
+
+  /** Temperatura del metal en el instante actual. */
+  mixMetal() {
+    return this.tEq() + (this.params.T2 - this.tEq()) * Math.exp(-Math.min(this.t, 90) / this.tauMix());
   }
 
   /* ---------- dibujo declarativo (§2.4) ---------- */
@@ -216,34 +231,57 @@ export default class Calorimetry extends SimModule {
     else this._drawTransfer(scene, hud, vp);
   }
 
-  /** Modo mezcla: dos recipientes, termómetros y T(t). */
+  /** Modo mezcla: calorímetro con agua + muestra metálica que se equilibran en vivo. */
   _drawMix(scene, hud, vp) {
-    const { m1, T1, m2, c2, T2 } = this.params;
+    const { m1, T1, m2, T2 } = this.params;
     const Teq = this.tEq();
     const tau = this.tauMix();
+    const Tw = this.mixWater();
+    const Tm = this.mixMetal();
+    const prog = 1 - Math.exp(-Math.min(this.t, 90) / tau); // avance hacia el equilibrio
+    const tLow = Math.min(T1, T2, Teq);
+    const tHigh = Math.max(T1, T2, Teq);
+    const span = Math.max(1e-6, tHigh - tLow);
 
-    // Agua (izquierda) y metal (derecha): altura del nivel térmico = temperatura.
-    scene.rect(-8, 2, 5, 6, { color: 'textDim', width: 2, fill: 'rgba(79,195,247,0.12)' });
-    scene.rect(3, 2, 5, 6, { color: 'textDim', width: 2, fill: 'rgba(255,171,64,0.12)' });
-    scene.fill(-8, 2, 5, (T1 + 30) / 120 * 6, { color: 'mass', alpha: 0.25, waves: false });
-    scene.fill(3, 2, 5, (T2 + 30) / 120 * 6, { color: 'force', alpha: 0.25, waves: false });
-    scene.label(-8, 8.6, `Agua ${m1} kg · ${roundTo(T1, 1)} °C`, { avoid: true, color: 'mass' });
-    scene.label(3, 8.6, `Metal ${m2} kg · ${roundTo(T2, 1)} °C`, { avoid: true, color: 'force' });
+    // Calorímetro aislado (doble pared) centrado en el origen.
+    scene.rect(0, -0.4, 9.6, 7.4, { color: 'textDim', width: 2.4, fill: 'rgba(12,15,20,0.25)' });
+    scene.rect(0, -0.4, 8.9, 6.7, { color: 'textDim', width: 1.2 });
 
-    // Termómetros de ambos lados y hacia dónde fluye Q.
-    scene.label(-1.4, 5, 'Q →', { avoid: true, color: 'energy', size: 15 });
-    scene.vector(0.5, 5, 1.6, 0, { color: 'energy' });
-    scene.chip(-1.4, 1.4, `T_eq = ${roundTo(Teq, 1)} °C`, { avoid: true, color: 'energy' });
+    // Agua: nivel fijo; el tono sigue la temperatura viva (azul → naranja).
+    const waterTone = thermalColor('#1e6fd9', '#ff8a3d', (Tw - tLow) / span);
+    scene.fill(-4.45, -1.6, 8.9, 2.3, { color: waterTone, alpha: 0.5, waves: true });
+    scene.label(0, -0.8, `Agua ${m1} kg · ${roundTo(Tw, 1)} °C`, { avoid: true, color: 'field' });
+
+    // Muestra metálica sumergida (derecha) con su temperatura propia.
+    const metalTone = thermalColor('#5b6b7a', '#ff5a36', (Tm - tLow) / span);
+    scene.rect(3.2, -3.0, 1.6, 1.6, {
+      color: metalTone,
+      width: 2.4,
+      fill: metalTone,
+      fillAlpha: 0.6
+    });
+    scene.label(3.2, -0.9, `Metal ${m2} kg · ${roundTo(Tm, 1)} °C`, { avoid: true, color: 'force' });
+
+    // Flujo de calor Q que viaja del metal (caliente) al agua (fría).
+    if (prog > 0.02) {
+      const qx = 3.2 - 6.0 * prog;
+      scene.line(3.2, -0.4, qx, -0.4, { color: 'energy', width: 3, alpha: 0.9 });
+      scene.vector(qx, -0.4, -0.7 * prog, 0, { color: 'energy', alpha: 0.9 });
+    }
+    scene.label(0, -2.6, prog >= 0.985 ? `EQUILIBRIO: T_eq = ${roundTo(Teq, 1)} °C` : `T_eq → ${roundTo(Teq, 1)} °C`, {
+      avoid: true,
+      color: 'energy'
+    });
 
     const rows = [
       { label: 'T_eq', value: roundTo(Teq, 2), unit: '°C' },
       { label: 'Q agua', value: roundTo(m1 * C_WATER * (Teq - T1), 0), unit: 'J' },
-      { label: 'Q metal', value: roundTo(m2 * c2 * (T2 - Teq), 0), unit: 'J' }
+      { label: 'Q metal', value: roundTo(m2 * this.params.c2 * (T2 - Teq), 0), unit: 'J' }
     ];
     hud.readout(rows, 'bottom-left');
 
     if (vp.w > 430) {
-      // T(t) con relajamiento exponencial: la mezcla tiende a T_eq.
+      // T(t) con relajamiento exponencial: la mezcla tiende a T_eq en vivo.
       const horizon = Math.max(this.t, 1);
       const mk = (T0) => {
         const pts = [];
@@ -254,17 +292,20 @@ export default class Calorimetry extends SimModule {
         }
         return pts;
       };
+      const last = { x: this.t, w: Tw, m: Tm };
       hud.plot(
         { x: vp.x + vp.w - 250, y: vp.y + vp.h - 128, w: 235, h: 116 },
         {
-          title: 'Temperatura T(t)',
+          title: 'Temperatura T(t) en el calorímetro',
           series: [
-            { points: mk(T1), color: 'mass', label: 'agua' },
+            { points: mk(T1), color: 'field', label: 'agua' },
             { points: mk(T2), color: 'force', label: 'metal' },
-            { points: [{ x: 0, y: Teq }, { x: horizon, y: Teq }], color: 'energy', dash: [3, 3], label: 'T_eq' }
+            { points: [{ x: 0, y: Teq }, { x: horizon, y: Teq }], color: 'energy', dash: [3, 3], label: 'T_eq' },
+            { points: [{ x: last.x, y: last.w - 0.02 }, { x: last.x, y: last.w + 0.02 }], color: 'field', width: 2.5 },
+            { points: [{ x: last.x, y: last.m - 0.02 }, { x: last.x, y: last.m + 0.02 }], color: 'force', width: 2.5 }
           ],
           xRange: [0, horizon],
-          yRange: [Math.min(T1, T2, Teq) - 10, Math.max(T1, T2, Teq) + 10]
+          yRange: [tLow - 10, tHigh + 10]
         }
       );
     }

@@ -15,7 +15,7 @@ const base = pathToFileURL(path.join(JS, 'modules') + '/');
 const ESCENA = [
   'line', 'polyline', 'path', 'rect', 'arc', 'polygon', 'fill', 'body', 'vector',
   'trail', 'spring', 'pulley', 'ray', 'wavefront', 'field', 'label', 'chip',
-  'dimension', 'angleArc', 'tooltip', 'pickable', 'circle'
+  'dimension', 'angleArc', 'tooltip', 'pickable', 'circle', 'ellipse', 'lens'
 ];
 
 function makeScene() {

@@ -152,12 +152,13 @@ export default class EMWaves extends SimModule {
     const { theta, I1 } = this.params;
     const rad = (theta * Math.PI) / 180;
     const I2 = this.i2();
+    // Amplitud de E ∝ √I₁: el dibujo refleja el parámetro de intensidad.
+    const amp = 1.5 * Math.sqrt(Math.max(I1, 0) / 100);
 
     // Haz a lo largo del eje.
     scene.line(-8, 0, 8, 0, { color: 'textDim', width: 1.2 });
 
-    // Antes del primer polarizador: campo vertical (luz ya polarizada).
-    const amp = 1.4;
+    // Antes del primer polarizador: campo vertical (luz ya polarizada), I₁.
     scene.line(-8, 0, 0, 0, { color: 'textDim', alpha: 0.4 });
     for (let x = -7; x <= -1; x += 0.9) {
       scene.line(x, -amp, x, amp, { color: 'mass', width: 1.6 });
@@ -167,7 +168,7 @@ export default class EMWaves extends SimModule {
     this._polarizer(scene, 0, 0, 'mass');
     scene.label(0, -2.1, 'P₁ vertical', { color: 'mass', size: 11 });
 
-    // Entre polarizadores: E vertical.
+    // Entre polarizadores: E vertical con I₁ completa.
     for (let x = 0.8; x <= 3.2; x += 0.9) {
       scene.line(x, -amp, x, amp, { color: 'force', width: 1.6 });
     }
@@ -176,20 +177,23 @@ export default class EMWaves extends SimModule {
     this._polarizer(scene, 4, 0, 'force', theta);
     scene.label(4, -2.1, `P₂ a ${theta}°`, { color: 'force', size: 11 });
 
-    // Después: E inclinado θ, amplitud E·cosθ. Dibujado como segmentos en esa dirección.
+    // Después: E sigue la dirección de P₂ con amplitud E·cosθ (ley de Malus).
+    // Las franjas se dibujan GIradas según θ con longitud 2·E₂, no verticales.
     const E2 = amp * Math.cos(rad);
+    const sx = Math.sin(rad);
+    const cy2 = Math.cos(rad);
     for (let x = 4.9; x <= 7.4; x += 0.9) {
       scene.polyline(
         [
-          { x, y: -E2 * Math.sin(rad) },
-          { x, y: E2 * Math.sin(rad) }
+          { x: x - sx * E2, y: -cy2 * E2 },
+          { x: x + sx * E2, y: cy2 * E2 }
         ],
         { color: 'spring', width: 1.6 }
       );
     }
     scene.vector(7.6, 0, Math.cos(rad) * 1.2, Math.sin(rad) * 1.2, {
       color: 'spring',
-      label: `E·cos${theta}°`
+      label: `E·cos${theta}° = ${E2.toFixed(2)}`
     });
 
     // Curva cos²θ con el punto actual.
@@ -221,7 +225,12 @@ export default class EMWaves extends SimModule {
       );
     }
 
-    scene.hud.chip(`Malus: I₂ = ${roundTo(I2, 0)}% = I₁·cos²${theta}°`, 'top-left');
+    scene.hud.chip(
+      theta >= 90
+        ? `Malus con θ = 90°: polarizadores cruzados → luz apagada (I₂ = 0)`
+        : `Malus: I₂ = ${roundTo(I2, 0)}% = ${roundTo(I1, 0)}·cos²${theta}°`,
+      'top-left'
+    );
     scene.hud.readout(
       [
         { label: 'θ', value: theta, unit: '°' },
@@ -235,16 +244,20 @@ export default class EMWaves extends SimModule {
   /** Símbolo de un polarizador en (x, y); orientación θ en grados. */
   _polarizer(scene, x, y, color, degrees = 0) {
     const rad = (degrees * Math.PI) / 180;
-    const L = 1.9;
+    const R = 1.6;
+    // Anillo del polarizador y eje de transmisión (θ) marcado con rejilla.
+    scene.circle(x, y, R, { color, width: 2 });
     const cx = Math.cos(rad);
     const sy = Math.sin(rad);
-    scene.line(x - cx * L, y - sy * L, x + cx * L, y + sy * L, { color, width: 3 });
-    // Rejilla paralela a la dirección permitida.
-    for (let t = -1.5; t <= 1.5; t += 0.5) {
-      scene.line(x + cx * t - y * 0, y + sy * t, x + cx * t, y + sy * t - 0.02, {
+    scene.line(x - cx * R, y - sy * R, x + cx * R, y + sy * R, { color, width: 3 });
+    // Rejilla de alambres paralelos a la dirección permitida.
+    const n = 5;
+    for (let i = 1; i < n; i++) {
+      const t = -R + (2 * R * i) / n;
+      scene.line(x + cx * t - sy * 0.35, y + sy * t + cx * 0.35, x + cx * t + sy * 0.35, y + sy * t - cx * 0.35, {
         color,
         width: 1,
-        alpha: 0.6
+        alpha: 0.7
       });
     }
   }
