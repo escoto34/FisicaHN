@@ -88,6 +88,30 @@ function measure(run, dt) {
   return best;
 }
 
+/**
+ * Carga de referencia (aritmética pura, sin módulos) para calibrar el
+ * presupuesto entre máquinas: el runner de CI y el portátil del docente no
+ * corren a la misma velocidad, y un presupuesto absoluto en ms fallaba por
+ * puro ruido en motores de décimas de milisegundo.
+ */
+function calibrate() {
+  const run = () => {
+    let acc = 0;
+    for (let i = 1; i <= 20000; i++) acc += Math.sin(i * 0.001) / Math.sqrt(i);
+    return acc;
+  };
+  for (let i = 0; i < 20; i++) run();
+  let best = Infinity;
+  for (let k = 0; k < 5; k++) {
+    const t0 = performance.now();
+    for (let i = 0; i < 50; i++) run();
+    best = Math.min(best, performance.now() - t0);
+  }
+  return best;
+}
+const CAL_KEY = '__calibracion_ms';
+const calibration = calibrate();
+
 const names = [];
 for (const entry of CATALOG) {
   if (!entry.engineKey) continue;
@@ -107,6 +131,7 @@ for (const name of names) {
 
 const update = process.argv.includes('--update');
 if (update) {
+  results[CAL_KEY] = Math.round(calibration * 100) / 100;
   writeFileSync(BASELINE, JSON.stringify(results, null, 2) + '\n');
   console.log(`Presupuesto regenerado (${Object.keys(results).length} módulos): ${BASELINE}`);
   process.exit(0);
@@ -120,17 +145,24 @@ try {
   process.exit(2);
 }
 
+// Factor de máquina: cuánto más lenta (o rápida) es esta máquina que la que
+// fijó el presupuesto. Acotado para que una calibración anómala no lo anule.
+const baseCal = Number(baseline[CAL_KEY]) || calibration;
+const machine = Math.min(4, Math.max(0.5, calibration / baseCal));
+console.log(`  calibración: ${calibration.toFixed(1)} ms frente a ${baseCal.toFixed(1)} ms del presupuesto → factor ×${machine.toFixed(2)}`);
+
 let failed = 0;
 for (const [name, ms] of Object.entries(results)) {
-  const ref = baseline[name];
+  const ref = baseline[name] * machine;
   if (ref == null) {
     console.log(`  + ${name}: nuevo, sin presupuesto (${ms} ms/1000). Regenera con --update.`);
     continue;
   }
   const ratio = ms / ref;
-  // Regresión = ×1.5 del presupuesto Y al menos +0,5 ms/1000 pasos: los
-  // motores de décimas de milisegundo oscilan ×2 por puro ruido del sistema.
-  const regressed = ratio > 1.5 && ms - ref > 0.5;
+  // Regresión = ×1.5 del presupuesto (ya escalado a esta máquina) Y al menos
+  // +1 ms/1000 pasos: los motores de décimas de milisegundo oscilan ×2 por
+  // puro ruido del sistema.
+  const regressed = ratio > 1.5 && ms - ref > 1;
   const mark = regressed ? 'REGÚN' : 'ok';
   if (regressed) failed++;
   console.log(
