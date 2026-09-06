@@ -44,12 +44,12 @@ export default class KeplerModule extends SimModule {
         { value: 'flyby', label: 'Asistencia gravitacional' }
       ]
     },
-    { id: 'a', label: 'Semieje mayor', latex: 'a', unit: 'm', min: 3, max: 9, step: 0.1, value: 5 },
-    { id: 'e', label: 'Excentricidad', latex: 'e', min: 0, max: 0.85, step: 0.01, value: 0.35 },
+    { id: 'a', label: 'Semieje mayor', latex: 'a', unit: 'm', min: 3, max: 9, step: 0.1, value: 5, showIf: { mode: 'kepler' } },
+    { id: 'e', label: 'Excentricidad', latex: 'e', min: 0, max: 0.85, step: 0.01, value: 0.35, showIf: { mode: 'kepler' } },
     { id: 'GM', label: 'GM central (Sol)', latex: 'GM', unit: 'm³/s²', min: 15, max: 80, step: 1, value: 40 },
-    { id: 'planetGM', label: 'GM del planeta (flyby)', latex: 'GM_p', unit: 'm³/s²', min: 4, max: 30, step: 0.5, value: 12 },
-    { id: 'planetV', label: 'Velocidad del planeta (flyby)', latex: 'v_p', unit: 'm/s', min: 0, max: 3, step: 0.1, value: 1.2 },
-    { id: 'v0', label: 'Velocidad de la sonda (flyby)', latex: 'v_0', unit: 'm/s', min: 1, max: 6, step: 0.1, value: 3.2 }
+    { id: 'planetGM', label: 'GM del planeta', latex: 'GM_p', unit: 'm³/s²', min: 4, max: 30, step: 0.5, value: 12, showIf: { mode: 'flyby' } },
+    { id: 'planetV', label: 'Velocidad del planeta', latex: 'v_p', unit: 'm/s', min: 0, max: 3, step: 0.1, value: 1.2, showIf: { mode: 'flyby' } },
+    { id: 'v0', label: 'Velocidad de la sonda', latex: 'v_0', unit: 'm/s', min: 1, max: 6, step: 0.1, value: 3.2, showIf: { mode: 'flyby' } }
   ];
 
   constructor(ctx) {
@@ -106,6 +106,17 @@ export default class KeplerModule extends SimModule {
   }
 
   reset() {
+    // Encuadre a la medida de la órbita: con el 34 × 22 fijo, una elipse de
+    // a = 5 ocupaba un tercio del lienzo.
+    if (this.params.mode === 'flyby') {
+      this.frameWorld(26, 15);
+    } else {
+      const e = Math.min(0.9, Math.max(0, this.params.e));
+      const a = this.params.a;
+      const ra = a * (1 + e);
+      const b = a * Math.sqrt(Math.max(0.02, 1 - e * e));
+      this.frameWorld(2 * (ra + 1.8), 2 * (b + 2.2));
+    }
     this.t = 0;
     this.trail.clear();
     this.planetTrail.clear();
@@ -159,9 +170,38 @@ export default class KeplerModule extends SimModule {
   }
 
   /** Periodo teórico (3.ª ley) para el semieje actual. */
-  periodTheory() {
-    const a = this.params.a;
+  periodTheory(a = this.elements().a) {
+    if (!(a > 0)) return null;
     return 2 * Math.PI * Math.sqrt((a * a * a) / this.params.GM);
+  }
+
+  /**
+   * Elementos orbitales **del estado actual** (osculadores): semieje,
+   * excentricidad y dirección del perihelio.
+   *
+   * Antes la elipse guía, el perihelio, el afelio y la cota 2a se dibujaban
+   * con los deslizadores `a` y `e`, no con la órbita real: al arrastrar el
+   * planeta el cuerpo se iba a otro sitio y la elipse de ejemplo (y los datos)
+   * se quedaban atrás. Calculándolos aquí, el dibujo siempre describe lo que
+   * el planeta está haciendo.
+   *
+   * @returns {{a:number, e:number, omega:number, rp:number, ra:number, ligada:boolean}}
+   */
+  elements() {
+    const GM = this.params.GM;
+    const r = this.r();
+    const v2 = this.vx * this.vx + this.vy * this.vy;
+    const inv = 2 / r - v2 / GM; // 1/a por vis-viva
+    const a = Math.abs(inv) > 1e-9 ? 1 / inv : Infinity;
+    // Vector excentricidad: e⃗ = ((v² − GM/r)·r⃗ − (r⃗·v⃗)·v⃗) / GM
+    const rv = this.x * this.vx + this.y * this.vy;
+    const k = v2 - GM / r;
+    const ex = (k * this.x - rv * this.vx) / GM;
+    const ey = (k * this.y - rv * this.vy) / GM;
+    const e = Math.hypot(ex, ey);
+    const omega = e > 1e-6 ? Math.atan2(ey, ex) : 0;
+    const ligada = inv > 0 && e < 1;
+    return { a, e, omega, rp: a * (1 - e), ra: a * (1 + e), ligada };
   }
 
   update(dt) {
@@ -227,23 +267,40 @@ export default class KeplerModule extends SimModule {
   }
 
   _drawKepler(scene) {
-    const { a, e, GM } = this.params;
+    const { GM } = this.params;
+    // La elipse guía sale de la órbita real (osculadora), no de los
+    // deslizadores: al arrastrar el planeta, la guía lo acompaña.
+    const el = this.elements();
+    const cosW = Math.cos(el.omega);
+    const sinW = Math.sin(el.omega);
+    const a = el.a;
+    const e = el.e;
     const b = a * Math.sqrt(Math.max(0, 1 - e * e));
     const c = a * e;
-    const rp = a * (1 - e);
-    const ra = a * (1 + e);
+    // Rota (u, v) del marco de la elipse al mundo (perihelio hacia omega).
+    const rot = (u, v, out) => {
+      out.x = u * cosW - v * sinW;
+      out.y = u * sinW + v * cosW;
+      return out;
+    };
+    const _p = { x: 0, y: 0 };
 
-    // Elipse ideal (foco en el origen, centro en −c).
-    const pts = this._ellipse;
-    for (let i = 0; i <= ELLIPSE_N; i++) {
-      const ang = (i / ELLIPSE_N) * Math.PI * 2;
-      pts[2 * i] = -c + a * Math.cos(ang);
-      pts[2 * i + 1] = b * Math.sin(ang);
+    if (el.ligada) {
+      const pts = this._ellipse;
+      for (let i = 0; i <= ELLIPSE_N; i++) {
+        const ang = (i / ELLIPSE_N) * Math.PI * 2;
+        rot(-c + a * Math.cos(ang), b * Math.sin(ang), _p);
+        pts[2 * i] = _p.x;
+        pts[2 * i + 1] = _p.y;
+      }
+      scene.polyline(pts, { color: 'textDim', dash: [4, 4], width: 1, alpha: 0.7 });
+      // Eje mayor acotado sobre la propia elipse (perihelio → afelio).
+      rot(el.rp, -b - 0.7, _p);
+      const dx1 = _p.x;
+      const dy1 = _p.y;
+      rot(-el.ra, -b - 0.7, _p);
+      scene.dimension(dx1, dy1, _p.x, _p.y, `2a = ${roundTo(2 * a, 1)} m`, { color: 'textDim' });
     }
-    scene.polyline(pts, { color: 'textDim', dash: [4, 4], width: 1, alpha: 0.7 });
-
-    // Semieje mayor acotado bajo la elipse.
-    scene.dimension(-ra, -b - 0.7, rp, -b - 0.7, `2a = ${roundTo(2 * a, 1)} m`, { color: 'textDim' });
 
     // Sector barrido en los últimos SWEEP_WINDOW s (2.ª ley): Sol + estela reciente.
     const sweep = this._sweep;
@@ -262,42 +319,54 @@ export default class KeplerModule extends SimModule {
     // Estela completa.
     if (tr.length > 1) scene.trail(tr, { color: 'trail', width: 1.8, alpha: 0.6 });
 
-    // Sol en el foco y segundo foco vacío.
+    // Sol en el foco y segundo foco vacío (sobre el eje mayor girado).
     scene.body(0, 0, { shape: 'circle', r: 0.65, color: 'ray', label: `Sol (GM = ${GM})`, labelColor: 'ray' });
-    if (c > 0.15) {
-      scene.line(-2 * c - 0.25, 0, -2 * c + 0.25, 0, { color: 'textDim', width: 1.5 });
-      scene.line(-2 * c, -0.25, -2 * c, 0.25, { color: 'textDim', width: 1.5 });
-      scene.label(-2 * c, 0, 'F₂ (vacío)', { color: 'textDim', size: 11, offsetX: 8, offsetY: 16, align: 'left', baseline: 'top', avoid: true });
+    if (el.ligada && c > 0.15) {
+      rot(-2 * c, 0, _p);
+      const fx = _p.x;
+      const fy = _p.y;
+      scene.line(fx - 0.25, fy, fx + 0.25, fy, { color: 'textDim', width: 1.5 });
+      scene.line(fx, fy - 0.25, fx, fy + 0.25, { color: 'textDim', width: 1.5 });
+      scene.label(fx, fy, 'F₂ (vacío)', { color: 'textDim', size: 11, offsetX: 8, offsetY: 16, align: 'left', baseline: 'top', avoid: true });
     }
 
-    // Perihelio y afelio.
-    scene.line(rp, -0.3, rp, 0.3, { color: 'textDim', width: 1.5 });
-    scene.line(-ra, -0.3, -ra, 0.3, { color: 'textDim', width: 1.5 });
-    scene.callout(rp, 0, `perihelio r = ${roundTo(rp, 2)}`, { angle: Math.PI / 5, distance: 28, color: 'textDim' });
-    // Ambas llamadas apuntan hacia dentro del encuadre (el afelio puede caer
-    // pegado al borde izquierdo con e alta).
-    scene.callout(-ra, 0, `afelio r = ${roundTo(ra, 2)}`, { angle: Math.PI / 5, distance: 28, color: 'textDim' });
+    // Perihelio y afelio marcados sobre la órbita real.
+    if (el.ligada) {
+      rot(el.rp, 0, _p);
+      const px = _p.x;
+      const py = _p.y;
+      scene.line(px - 0.3 * sinW, py + 0.3 * cosW, px + 0.3 * sinW, py - 0.3 * cosW, { color: 'textDim', width: 1.5 });
+      scene.callout(px, py, `perihelio r = ${roundTo(el.rp, 2)}`, { angle: Math.PI / 5, distance: 28, color: 'textDim' });
+      rot(-el.ra, 0, _p);
+      const ax = _p.x;
+      const ay = _p.y;
+      scene.line(ax - 0.3 * sinW, ay + 0.3 * cosW, ax + 0.3 * sinW, ay - 0.3 * cosW, { color: 'textDim', width: 1.5 });
+      scene.callout(ax, ay, `afelio r = ${roundTo(el.ra, 2)}`, { angle: Math.PI / 5, distance: 28, color: 'textDim' });
+    }
 
     // Radio vector y planeta.
     scene.line(0, 0, this.x, this.y, { color: 'textDim', dash: [3, 4], width: 1, alpha: 0.8 });
-    scene.body(this.x, this.y, { shape: 'circle', r: 0.28, color: 'mass', label: 'planeta', labelColor: 'mass', id: 'planeta' });
+    scene.body(this.x, this.y, { shape: 'circle', r: 0.28, color: 'mass', label: 'planeta (arrástralo)', labelColor: 'mass', id: 'planeta' });
     const v = this.speed();
     if (v > 0.01) {
       scene.vector(this.x, this.y, this.vx * 0.25, this.vy * 0.25, { color: 'velocity', label: `v = ${roundTo(v, 2)} m/s` });
     }
     const r = this.r();
-    const fLen = Math.min(2, 0.3 + GM / (r * r) * 0.35);
+    const fLen = Math.min(2, 0.3 + (GM / (r * r)) * 0.35);
     scene.vector(this.x, this.y, (-this.x / r) * fLen, (-this.y / r) * fLen, { color: 'force', label: 'F', labelSide: -1 });
 
     // HUD.
     const hud = scene.hud;
-    hud.chip(`Leyes de Kepler · e = ${e} · a = ${a} m`, 'top-left');
+    hud.chip(el.ligada ? `Órbita actual · e = ${roundTo(e, 2)} · a = ${roundTo(a, 2)} m` : 'Trayectoria abierta (escape)', 'top-left');
     const E = 0.5 * v * v - GM / r;
+    const T = this.periodTheory(a);
     hud.readout(
       [
         { label: 'r', value: r, unit: 'm' },
         { label: '|v|', value: v, unit: 'm/s' },
-        { label: 'T teoría', value: this.periodTheory(), unit: 's' },
+        { label: 'a (real)', value: el.ligada ? a : '∞', unit: el.ligada ? 'm' : '' },
+        { label: 'e (real)', value: e, unit: '' },
+        { label: 'T teoría', value: T != null ? T : '—', unit: T != null ? 's' : '' },
         { label: 'T medido', value: this.periodEst != null ? this.periodEst : '…', unit: this.periodEst != null ? 's' : '' },
         { label: 'E/m', value: E, unit: 'J/kg' }
       ],
@@ -306,7 +375,7 @@ export default class KeplerModule extends SimModule {
     hud.legend(
       [
         { color: 'trail', label: 'Órbita real' },
-        { color: 'textDim', label: 'Elipse ideal', dash: [4, 4] },
+        { color: 'textDim', label: 'Elipse de la órbita actual', dash: [4, 4] },
         { color: 'energy', label: `Área barrida en ${SWEEP_WINDOW} s` },
         { color: 'velocity', label: 'Velocidad v' },
         { color: 'force', label: 'Fuerza F' }
@@ -383,19 +452,40 @@ export default class KeplerModule extends SimModule {
 
   /* ---------- manipulación directa ---------- */
 
-  /** Arrastrar la sonda/planeta recoloca el cuerpo conservando su rapidez. */
+  /**
+   * Arrastrar el planeta **redefine la órbita**: el punto soltado pasa a ser
+   * el nuevo perihelio, con la rapidez de vis-viva que le corresponde. El
+   * semieje resultante vuelve al deslizador `a` (y al panel) para que la
+   * elipse guía, las cotas y los datos describan todos la misma órbita.
+   */
   onDrag(id, world) {
     if (id !== 'planeta' && id !== 'sonda') return;
     const rr = Math.hypot(world.x, world.y);
     if (rr < 1) return;
-    this.x = world.x;
-    this.y = world.y;
-    if (id === 'planeta') {
-      // Órbita de Kepler: velocidad tangencial en sentido antihorario.
-      const v = this.speed() || 1;
-      this.vx = (-world.y / rr) * v;
-      this.vy = (world.x / rr) * v;
+    if (id === 'sonda') {
+      this.x = world.x;
+      this.y = world.y;
+      this.trail.clear();
+      this.history.clear();
+      return;
     }
+    const e = Math.min(0.9, Math.max(0, this.params.e));
+    // El perihelio arrastrable se limita al rango del deslizador de semieje.
+    const rp = Math.min(9 * (1 - e), Math.max(3 * (1 - e), rr));
+    const ux = world.x / rr;
+    const uy = world.y / rr;
+    this.x = ux * rp;
+    this.y = uy * rp;
+    const v = Math.sqrt((this.params.GM * (1 + e)) / Math.max(rp, 0.1));
+    // Velocidad perpendicular al radio, sentido antihorario.
+    this.vx = -uy * v;
+    this.vy = ux * v;
+    this.params.a = Math.round((rp / (1 - e)) * 10) / 10;
+    this.syncParams();
+    this.thetaAcc = 0;
+    this.lapStart = this.t;
+    this.lastTheta = Math.atan2(this.y, this.x);
+    this.periodEst = null;
     this.trail.clear();
     this.history.clear();
   }
@@ -407,12 +497,16 @@ export default class KeplerModule extends SimModule {
     const v = this.speed();
     if (this.params.mode === 'kepler') {
       const E = 0.5 * v * v - this.params.GM / r;
+      const el = this.elements();
+      const T = this.periodTheory(el.a);
       return {
-        a: { value: this.params.a, unit: 'm' },
-        e: { value: this.params.e, unit: '' },
+        a: { value: el.ligada ? roundTo(el.a, 3) : 0, unit: 'm' },
+        e: { value: roundTo(el.e, 3), unit: '' },
         r: { value: roundTo(r, 3), unit: 'm' },
+        'r perihelio': { value: el.ligada ? roundTo(el.rp, 3) : 0, unit: 'm' },
+        'r afelio': { value: el.ligada ? roundTo(el.ra, 3) : 0, unit: 'm' },
         '|v|': { value: roundTo(v, 3), unit: 'm/s' },
-        'T teoría': { value: roundTo(this.periodTheory(), 2), unit: 's' },
+        'T teoría': { value: T != null ? roundTo(T, 2) : 0, unit: 's' },
         'T medido': { value: this.periodEst != null ? roundTo(this.periodEst, 2) : 0, unit: 's' },
         'E/m': { value: roundTo(E, 3), unit: 'J/kg' }
       };

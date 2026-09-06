@@ -34,11 +34,20 @@ const LIQUIDS = {
 };
 
 /** Altura dibujada del tanque de hidrostática (u de mundo) para la altura H del líquido. */
-const TANK_H = 12;
+const TANK_H = 8.4;
+/** Fondo del tanque de hidrostática y semiancho. */
+const TANK_BOTTOM = -4.5;
+const TANK_HALF = 3.6;
+/** Encuadre propio de cada modo: los tres aparatos tienen proporciones distintas. */
+const VIEWS = {
+  hidrostatica: { width: 17, height: 12 },
+  pascal: { width: 14, height: 10.8 },
+  vasos: { width: 14, height: 12 }
+};
 /** Escala de la prensa: u de mundo por cm de carrera. */
-const PRESS_K = 0.12;
+const PRESS_K = 0.08;
 /** Escala de los vasos comunicantes: u de mundo por cm de columna. */
-const VESSEL_K = 0.2;
+const VESSEL_K = 0.17;
 /** Duración de la pulsación de la prensa (s). */
 const PRESS_TIME = 1.2;
 /** Periodo del bombeo continuo (s). */
@@ -47,7 +56,8 @@ const PUMP_PERIOD = 2.6;
 const CURVE_N = 40;
 
 export default class Hydraulics extends SimModule {
-  static viewport = { width: 24, height: 16 };
+  /** Encuadre inicial; `reset()` lo ajusta al modo (ver `VIEWS`). */
+  static viewport = { width: VIEWS.hidrostatica.width, height: VIEWS.hidrostatica.height };
 
   // Punto fijo del mecanismo en el origen del mundo (WAVE 17.1).
   static anchor = { x: 0, y: 0 };
@@ -71,22 +81,23 @@ export default class Hydraulics extends SimModule {
       value: 'agua',
       options: Object.entries(LIQUIDS).map(([v, l]) => ({ value: v, label: l.label }))
     },
-    { id: 'H', label: 'Altura del líquido', latex: 'H', unit: 'm', min: 0.5, max: 5, step: 0.1, value: 3 },
-    { id: 'h', label: 'Profundidad de la sonda', latex: 'h', unit: 'm', min: 0, max: 5, step: 0.05, value: 1.5 },
-    { id: 'P0', label: 'Presión en la superficie', latex: 'P_0', unit: 'kPa', min: 0, max: 200, step: 0.5, value: 101.3 },
-    { id: 'A1', label: 'Área del pistón pequeño', latex: 'A_1', unit: 'cm²', min: 1, max: 50, step: 1, value: 5 },
-    { id: 'A2', label: 'Área del pistón grande', latex: 'A_2', unit: 'cm²', min: 10, max: 1000, step: 10, value: 100 },
-    { id: 'F1', label: 'Fuerza aplicada', latex: 'F_1', unit: 'N', min: 0, max: 500, step: 5, value: 50 },
-    { id: 'd1', label: 'Carrera del pistón pequeño', latex: 'd_1', unit: 'cm', min: 0, max: 30, step: 1, value: 10 },
-    { id: 'bombeo', type: 'checkbox', label: 'Bombeo continuo', value: false },
+    { id: 'H', label: 'Altura del líquido', latex: 'H', unit: 'm', min: 0.5, max: 5, step: 0.1, value: 3, showIf: { modo: 'hidrostatica' } },
+    { id: 'h', label: 'Profundidad de la sonda', latex: 'h', unit: 'm', min: 0, max: 5, step: 0.05, value: 1.5, showIf: { modo: 'hidrostatica' } },
+    { id: 'P0', label: 'Presión en la superficie', latex: 'P_0', unit: 'kPa', min: 0, max: 200, step: 0.5, value: 101.3, showIf: { modo: 'hidrostatica' } },
+    { id: 'A1', label: 'Área del pistón pequeño', latex: 'A_1', unit: 'cm²', min: 1, max: 50, step: 1, value: 5, showIf: { modo: 'pascal' } },
+    { id: 'A2', label: 'Área del pistón grande', latex: 'A_2', unit: 'cm²', min: 10, max: 1000, step: 10, value: 100, showIf: { modo: 'pascal' } },
+    { id: 'F1', label: 'Fuerza aplicada', latex: 'F_1', unit: 'N', min: 0, max: 500, step: 5, value: 50, showIf: { modo: 'pascal' } },
+    { id: 'd1', label: 'Carrera del pistón pequeño', latex: 'd_1', unit: 'cm', min: 0, max: 30, step: 1, value: 10, showIf: { modo: 'pascal' } },
+    { id: 'bombeo', type: 'checkbox', label: 'Bombeo continuo', value: false, showIf: { modo: 'pascal' } },
     {
       id: 'liquido2',
       type: 'select',
       label: 'Segundo líquido (ρ₂)',
       value: 'aceite',
+      showIf: { modo: 'vasos' },
       options: Object.entries(LIQUIDS).map(([v, l]) => ({ value: v, label: l.label }))
     },
-    { id: 'h2', label: 'Columna del segundo líquido', latex: 'h_2', unit: 'cm', min: 2, max: 30, step: 1, value: 10 }
+    { id: 'h2', label: 'Columna del segundo líquido', latex: 'h_2', unit: 'cm', min: 2, max: 30, step: 1, value: 10, showIf: { modo: 'vasos' } }
   ];
 
   constructor(ctx) {
@@ -148,6 +159,11 @@ export default class Hydraulics extends SimModule {
     this.t = 0;
     this.press = 0;
     this.pour = 0;
+    // Cada aparato llena el lienzo con su propia escala: el tanque es alto y
+    // estrecho, la prensa ancha y baja. Con un solo encuadre para los tres,
+    // dos de ellos salían pequeños y descentrados.
+    const v = VIEWS[this.params.modo] || VIEWS.hidrostatica;
+    this.frameWorld(v.width, v.height);
     this.engine?.reset?.();
   }
 
@@ -210,6 +226,9 @@ export default class Hydraulics extends SimModule {
     const k = TANK_H / this.params.H;
     const h = clamp((top - world.y) / k, 0, this.params.H);
     this.params.h = Math.round(h * 20) / 20;
+    // El arrastre es la otra forma de mover el deslizador «Profundidad»: hay
+    // que devolvérselo al panel o los dos valores se contradicen.
+    this.syncParams();
   }
 
   onDragEnd() {
@@ -225,7 +244,7 @@ export default class Hydraulics extends SimModule {
   }
 
   _tankTop() {
-    return -5.5 + TANK_H;
+    return TANK_BOTTOM + TANK_H;
   }
 
   /** Manómetro de aguja centrado en (x, y): `frac` en [0,1] sobre `max`. */
@@ -255,11 +274,11 @@ export default class Hydraulics extends SimModule {
     const P = this.pressureAt(h);
     const Pgauge = liq.rho * G * h;
     const k = TANK_H / H; // u por metro
-    const cx = -5.5;
-    const halfW = 4;
-    const bottom = -5.5;
+    const cx = -0.5; // eje del tanque (punto fijo del módulo, §17.1)
+    const halfW = TANK_HALF;
+    const bottom = TANK_BOTTOM;
     const top = this._tankTop();
-    const wallTop = top + 0.8;
+    const wallTop = top + 0.7;
 
     // Paredes del tanque y líquido.
     scene.line(cx - halfW, wallTop, cx - halfW, bottom, { color: 'textDim', width: 3 });
@@ -289,18 +308,20 @@ export default class Hydraulics extends SimModule {
     const ys = top - h * k;
     scene.line(cx - halfW, ys, cx + halfW, ys, { color: 'accent', width: 1, dash: [4, 4], alpha: 0.7 });
     scene.body(cx, ys, { shape: 'circle', r: 0.32, color: 'accent', id: 'sonda' });
-    scene.dimension(cx - halfW - 0.9, top, cx - halfW - 0.9, ys, h > 0.05 ? `h = ${roundTo(h, 2)} m` : '', { color: 'accent' });
-    scene.dimension(cx + halfW + 0.9, top, cx + halfW + 0.9, bottom, `H = ${H} m`, { color: 'textDim' });
+    // Cotas anidadas a la izquierda (h dentro de H): dejan libre el lado del
+    // manómetro y mantienen el aparato centrado en el encuadre.
+    scene.dimension(cx - halfW - 0.8, top, cx - halfW - 0.8, ys, h > 0.05 ? `h = ${roundTo(h, 2)} m` : '', { color: 'accent' });
+    scene.dimension(cx - halfW - 2.0, top, cx - halfW - 2.0, bottom, `H = ${H} m`, { color: 'textDim' });
     scene.label(cx + 0.5, ys, `P = ${roundTo(P / 1000, 1)} kPa`, { color: 'accent', align: 'left', baseline: 'middle', avoid: true, offsetY: -12 });
 
     // Tubo al manómetro y manómetro de aguja (escala 0 … P(H)).
-    const gx = 6.2;
-    const gy = 3.6;
-    scene.line(cx + 0.32, ys, gx - 2.2, ys, { color: 'accent', width: 1.2, dash: [3, 3] });
-    scene.line(gx - 2.2, ys, gx - 2.2, gy, { color: 'accent', width: 1.2, dash: [3, 3] });
-    scene.line(gx - 2.2, gy, gx - 2.1, gy, { color: 'accent', width: 1.2 });
-    this._gauge(scene, gx, gy, 2.1, P / Pmax, `${roundTo(P / 1000, 1)} kPa`);
-    scene.label(gx, gy - 2.35, `escala 0 … ${roundTo(Pmax / 1000, 0)} kPa`, { color: 'textDim', size: 10, avoid: true });
+    const gx = 6.0;
+    const gy = 1.5;
+    scene.line(cx + 0.32, ys, gx - 1.9, ys, { color: 'accent', width: 1.2, dash: [3, 3] });
+    scene.line(gx - 1.9, ys, gx - 1.9, gy, { color: 'accent', width: 1.2, dash: [3, 3] });
+    scene.line(gx - 1.9, gy, gx - 1.75, gy, { color: 'accent', width: 1.2 });
+    this._gauge(scene, gx, gy, 1.75, P / Pmax, `${roundTo(P / 1000, 1)} kPa`);
+    scene.label(gx, gy - 2.0, `escala 0 … ${roundTo(Pmax / 1000, 0)} kPa`, { color: 'textDim', size: 10, avoid: true });
 
     // Gráfica P(h) con la sonda marcada.
     const vp = scene.viewport();
@@ -346,21 +367,29 @@ export default class Hydraulics extends SimModule {
     const liq = this.liquid();
     const pr = this.press_();
     const s = this.press;
-    const r1 = 0.35 + Math.sqrt(A1 / 50) * 1.0;
-    const r2 = 0.8 + Math.sqrt(A2 / 1000) * 2.6;
-    const x1 = -6;
-    const x2 = 4;
-    const floor = -6;
-    const chanTop = -4.9;
-    const level0 = -1;
-    const wallTop = 3.6;
+    const r1 = 0.3 + Math.sqrt(A1 / 50) * 0.85;
+    const r2 = 0.7 + Math.sqrt(A2 / 1000) * 2.0;
+    const x1 = -4.4;
+    const x2 = 3.6;
+    const floor = -4.6;
+    const chanTop = -3.6;
+    const level0 = -0.8;
+    const wallTop = 3.2;
     const D1 = d1 * PRESS_K * s;
     const D2 = pr.d2 * PRESS_K * s;
     const y1 = level0 - D1; // cara inferior del pistón pequeño
     const y2 = level0 + D2; // cara inferior del pistón grande
 
     // Líquido: canal inferior y dos columnas.
-    scene.fill((x1 + x2) / 2, chanTop, x2 - x1, chanTop - floor, { color: liq.color, alpha: 0.32, level: false });
+    // El canal llega hasta las paredes exteriores de los dos cilindros: antes
+    // iba de centro a centro y dejaba dos muescas de líquido sin rellenar.
+    const canalL = x1 - r1;
+    const canalR = x2 + r2;
+    scene.fill((canalL + canalR) / 2, chanTop, canalR - canalL, chanTop - floor, {
+      color: liq.color,
+      alpha: 0.32,
+      level: false
+    });
     scene.fill(x1, y1, r1 * 2, y1 - floor, { color: liq.color, alpha: 0.32, level: false });
     scene.fill(x2, y2, r2 * 2, y2 - floor, { color: liq.color, alpha: 0.32, level: false });
 
@@ -376,30 +405,32 @@ export default class Hydraulics extends SimModule {
 
     // Pistones.
     scene.rect(x1, y1 + 0.2, r1 * 2 - 0.08, 0.4, { color: 'spring', fill: 'spring', width: 1 });
-    scene.line(x1, y1 + 0.4, x1, y1 + 2.2, { color: 'spring', width: 5 });
+    scene.line(x1, y1 + 0.4, x1, y1 + 1.9, { color: 'spring', width: 5 });
     scene.rect(x2, y2 + 0.2, r2 * 2 - 0.08, 0.4, { color: 'spring', fill: 'spring', width: 1 });
     // Carga sobre el pistón grande (tamaño ∝ log F₂).
-    const loadH = 0.6 + 0.35 * Math.log10(1 + pr.F2);
+    const loadH = Math.min(2.2, 0.5 + 0.3 * Math.log10(1 + pr.F2));
     scene.rect(x2, y2 + 0.4 + loadH / 2, Math.min(r2 * 2 - 0.3, 3.2), loadH, { color: 'mass', fill: 'mass', alpha: 0.9, width: 1 });
     scene.label(x2, y2 + 0.4 + loadH / 2, 'carga', { color: 'text', size: 11, baseline: 'middle', avoid: true });
 
     // Fuerzas.
-    const len1 = 0.6 + 2.2 * (F1 / 500);
-    const len2 = 0.6 + 0.8 * Math.log10(1 + pr.F2);
+    // Longitudes acotadas: F₂ llega a 5·10⁵ N y una flecha proporcional se
+    // saldría del encuadre; la lectura exacta va en el panel de datos.
+    const len1 = 0.5 + 1.5 * (F1 / 500);
+    const len2 = Math.min(2.1, 0.5 + 0.45 * Math.log10(1 + pr.F2));
     if (F1 > 0) {
-      scene.vector(x1, y1 + 2.3 + len1, 0, -len1, { color: 'force', width: 2.6, label: `F₁ = ${F1} N`, labelSide: -1 });
+      scene.vector(x1, y1 + 2.0 + len1, 0, -len1, { color: 'force', width: 2.6, label: `F₁ = ${F1} N`, labelSide: -1 });
       scene.vector(x2, y2 + 0.5 + loadH, 0, len2, { color: 'force', width: 2.6, label: `F₂ = ${roundTo(pr.F2, 0)} N`, labelSide: 1 });
     }
 
     // Cotas de desplazamiento y áreas.
     if (s > 0.02 && d1 > 0) {
-      scene.dimension(x1 - r1 - 0.7, level0, x1 - r1 - 0.7, y1, `d₁ = ${roundTo(d1 * s, 1)} cm`, { color: 'velocity' });
-      scene.dimension(x2 + r2 + 0.7, level0, x2 + r2 + 0.7, y2, `d₂ = ${roundTo(pr.d2 * s, 2)} cm`, { color: 'velocity' });
+      scene.dimension(x1 - r1 - 0.6, level0, x1 - r1 - 0.6, y1, `d₁ = ${roundTo(d1 * s, 1)} cm`, { color: 'velocity' });
+      scene.dimension(x2 + r2 + 0.6, level0, x2 + r2 + 0.6, y2, `d₂ = ${roundTo(pr.d2 * s, 2)} cm`, { color: 'velocity' });
     }
     scene.line(x1 - r1, level0, x2 + r2, level0, { color: 'velocity', width: 1, dash: [3, 4], alpha: 0.6 });
-    scene.label(x1, floor + 0.5, `A₁ = ${A1} cm²`, { color: 'textDim', size: 11, avoid: true });
-    scene.label(x2, floor + 0.5, `A₂ = ${A2} cm²`, { color: 'textDim', size: 11, avoid: true });
-    scene.label((x1 + x2) / 2, (chanTop + floor) / 2, `P = F₁/A₁ = ${roundTo(pr.P / 1000, 1)} kPa en todo el líquido`, {
+    scene.label(x1, floor + 0.45, `A₁ = ${A1} cm²`, { color: 'textDim', size: 11, avoid: true });
+    scene.label(x2, floor + 0.45, `A₂ = ${A2} cm²`, { color: 'textDim', size: 11, avoid: true });
+    scene.label((x1 + x2) / 2, (chanTop + floor) / 2, `P = F₁/A₁ = ${roundTo(pr.P / 1000, 1)} kPa`, {
       color: liq.color,
       size: 11,
       baseline: 'middle',
@@ -425,13 +456,13 @@ export default class Hydraulics extends SimModule {
     const l2 = this.liquid(2);
     const v = this.vessels();
     const p = this.pour;
-    const xL = -4.5;
-    const xR = 1.5;
-    const arm = 0.9; // semiancho interior
-    const bottom = -5.5;
-    const chanTop = -3.7;
-    const armTop = 6.2;
-    const yInt = -1.2; // nivel de la interfaz (brazo derecho)
+    const xL = -2.7;
+    const xR = 2.7;
+    const arm = 0.85; // semiancho interior
+    const bottom = -4.8;
+    const chanTop = -3.4;
+    const armTop = 4.8;
+    const yInt = -0.7; // nivel de la interfaz (brazo derecho)
     const H2 = Math.min(v.h2 * VESSEL_K * p, armTop - yInt - 0.3);
     const H1 = Math.min(v.h1 * VESSEL_K * p, armTop - yInt - 0.3);
 
@@ -453,12 +484,12 @@ export default class Hydraulics extends SimModule {
     scene.line(xL + arm, chanTop, xR - arm, chanTop, wall);
 
     // Nivel de referencia de la interfaz y puntos A / B.
-    scene.line(xL - arm - 2.2, yInt, xR + arm + 2.2, yInt, { color: 'accent', width: 1, dash: [4, 4], alpha: 0.8 });
+    scene.line(xL - arm - 1.8, yInt, xR + arm + 1.8, yInt, { color: 'accent', width: 1, dash: [4, 4], alpha: 0.8 });
     scene.circle(xL, yInt, 0.16, { color: 'accent', fill: 'accent', width: 1 });
     scene.circle(xR, yInt, 0.16, { color: 'accent', fill: 'accent', width: 1 });
     scene.label(xL + 0.3, yInt - 0.2, 'A', { color: 'accent', align: 'left', baseline: 'top', avoid: true });
     scene.label(xR + 0.3, yInt - 0.2, 'B', { color: 'accent', align: 'left', baseline: 'top', avoid: true });
-    scene.label(xR + arm + 2.3, yInt, 'P_A = P_B', { color: 'accent', align: 'left', baseline: 'middle', avoid: true });
+    scene.label(xR + arm + 0.2, yInt - 0.35, 'P_A = P_B', { color: 'accent', align: 'left', baseline: 'top', avoid: true });
 
     // Cotas de las columnas.
     if (H1 > 0.05) scene.dimension(xL - arm - 0.9, yInt, xL - arm - 0.9, yInt + H1, `h₁ = ${roundTo(v.h1 * p, 1)} cm`, { color: l1.color });
@@ -466,10 +497,15 @@ export default class Hydraulics extends SimModule {
     scene.label(xL, armTop + 0.5, `${l1.name} · ρ₁ = ${v.rho1}`, { color: l1.color, size: 11, avoid: true });
     scene.label(xR, armTop + 0.5, `${l2.name} · ρ₂ = ${v.rho2}`, { color: l2.color, size: 11, avoid: true });
 
-    // Ecuación con números a la derecha.
-    scene.label(7, 2.4, 'ρ₁ · h₁ = ρ₂ · h₂', { color: 'text', avoid: true });
-    scene.label(7, 1.5, `${v.rho1} · ${roundTo(v.h1, 1)} = ${v.rho2} · ${v.h2}`, { color: 'textDim', size: 11, avoid: true });
-    scene.label(7, 0.6, `h₁/h₂ = ρ₂/ρ₁ = ${roundTo(v.rho2 / v.rho1, 3)}`, { color: 'textDim', size: 11, avoid: true });
+    // La ecuación va al HUD: en el mundo empujaba el tubo fuera del centro.
+    scene.hud.text(
+      [
+        'ρ₁ · h₁ = ρ₂ · h₂',
+        `${v.rho1} · ${roundTo(v.h1, 1)} = ${v.rho2} · ${v.h2}`,
+        `h₁/h₂ = ρ₂/ρ₁ = ${roundTo(v.rho2 / v.rho1, 3)}`
+      ].join('\n'),
+      'top-right'
+    );
 
     const hud = scene.hud;
     hud.chip(v.estable ? `Vasos comunicantes · ${l2.name} sobre ${l1.name}` : `¡ρ₂ ≥ ρ₁! El segundo líquido se hundiría`, 'top-left', {

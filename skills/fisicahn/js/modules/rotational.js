@@ -20,6 +20,18 @@ const DEG = Math.PI / 180;
 export default class Rotational extends SimModule {
   static viewport = { width: 22, height: 14 };
 
+  /**
+   * Encuadre por modo: los cuatro montajes caben en unos pocos metros, así que
+   * el 22 × 14 heredado los dejaba diminutos en el centro del lienzo. El ancho
+   * se calcula a partir del radio del modo (`R` o `r`) en `reset()`.
+   */
+  static views = {
+    torque: { width: 9, height: 7.5 },
+    circular: { width: 9, height: 7.5 },
+    momentum: { width: 9, height: 7.5 },
+    precession: { width: 8, height: 7 }
+  };
+
   static params = [
     {
       id: 'modo',
@@ -33,15 +45,15 @@ export default class Rotational extends SimModule {
         { value: 'precession', label: 'Precesión (peonza)' }
       ]
     },
-    { id: 'I', label: 'Momento de inercia', latex: 'I', unit: 'kg·m²', min: 0.5, max: 8, step: 0.1, value: 2 },
-    { id: 'tau', label: 'Torque aplicado', latex: '\\tau', unit: 'N·m', min: 0, max: 5, step: 0.1, value: 1.5 },
-    { id: 'R', label: 'Radio (circular)', latex: 'R', unit: 'm', min: 0.8, max: 5, step: 0.1, value: 2 },
-    { id: 'v', label: 'Velocidad (circular)', latex: 'v', unit: 'm/s', min: 0.5, max: 8, step: 0.1, value: 3 },
-    { id: 'm', label: 'Masa de cada masa', latex: 'm', unit: 'kg', min: 0.2, max: 3, step: 0.2, value: 1 },
-    { id: 'r', label: 'Brazo (mitad de la varilla)', latex: 'r', unit: 'm', min: 0.4, max: 5, step: 0.2, value: 2 },
-    { id: 'omega0', label: 'ω inicial', latex: '\\omega_0', unit: 'rad/s', min: 0.5, max: 10, step: 0.5, value: 3 },
-    { id: 'spin', label: 'Spin de la peonza', latex: '\\omega', unit: 'rad/s', min: 2, max: 20, step: 0.5, value: 10 },
-    { id: 'Ltilt', label: 'Inclinación de la peonza', latex: '\\alpha', unit: '°', min: 5, max: 60, step: 1, value: 25 }
+    { id: 'I', label: 'Momento de inercia', latex: 'I', unit: 'kg·m²', min: 0.5, max: 8, step: 0.1, value: 2, showIf: { modo: 'torque' } },
+    { id: 'tau', label: 'Torque aplicado', latex: '\\tau', unit: 'N·m', min: 0, max: 5, step: 0.1, value: 1.5, showIf: { modo: 'torque' } },
+    { id: 'R', label: 'Radio (circular)', latex: 'R', unit: 'm', min: 0.8, max: 5, step: 0.1, value: 2, showIf: { modo: 'circular' } },
+    { id: 'v', label: 'Velocidad (circular)', latex: 'v', unit: 'm/s', min: 0.5, max: 8, step: 0.1, value: 3, showIf: { modo: 'circular' } },
+    { id: 'm', label: 'Masa de cada masa', latex: 'm', unit: 'kg', min: 0.2, max: 3, step: 0.2, value: 1, showIf: { modo: ['circular', 'momentum', 'precession'] } },
+    { id: 'r', label: 'Brazo (mitad de la varilla)', latex: 'r', unit: 'm', min: 0.4, max: 5, step: 0.2, value: 2, showIf: { modo: ['momentum', 'precession'] } },
+    { id: 'omega0', label: 'ω inicial', latex: '\\omega_0', unit: 'rad/s', min: 0.5, max: 10, step: 0.5, value: 3, showIf: { modo: 'momentum' } },
+    { id: 'spin', label: 'Spin de la peonza', latex: '\\omega', unit: 'rad/s', min: 2, max: 20, step: 0.5, value: 10, showIf: { modo: 'precession' } },
+    { id: 'Ltilt', label: 'Inclinación de la peonza', latex: '\\alpha', unit: '°', min: 5, max: 60, step: 1, value: 25, showIf: { modo: 'precession' } }
   ];
 
   constructor(ctx) {
@@ -103,9 +115,25 @@ export default class Rotational extends SimModule {
     return 2 * this.params.m * this.params.r * this.params.r;
   }
 
+  /** Ajusta el encuadre al tamaño real del montaje del modo actual. */
+  _frame() {
+    const v = Rotational.views[this.params.modo] || Rotational.views.torque;
+    // El radio del modo manda: con R = 5 m la trayectoria no cabe en 9 u.
+    const radio =
+      this.params.modo === 'circular'
+        ? this.params.R
+        : this.params.modo === 'torque'
+          ? 2
+          : this.params.r;
+    const w = Math.max(v.width, radio * 2 + 4.5);
+    const h = Math.max(v.height, radio * 2 + 3.5);
+    this.frameWorld(w, h);
+  }
+
   reset() {
     const prev = this._prevParams ? { ...this._prevParams } : null;
     this._prevParams = { ...this.params };
+    this._frame();
     this.t = 0;
     this.precess = 0;
     this.orbit1.clear();
@@ -258,10 +286,15 @@ export default class Rotational extends SimModule {
     const ayc = R * Math.sin(this.theta);
 
     scene.circle(cx, cy, R, { color: 'textDim', stroke: true, width: 2, dash: [4, 4] });
-    scene.body(cx + axc, cy + ayc, { shape: 'circle', r: 0.35, color: 'mass2', label: 'm' });
-    // Velocidad tangencial y aceleración centrípeta.
+    // Radio del cuerpo ∝ ∛m: la masa se ve, y con ella la fuerza centrípeta
+    // F_c = m·a_c, cuyo vector se escala también con m.
+    const rBody = 0.22 + 0.18 * Math.cbrt(m);
+    scene.body(cx + axc, cy + ayc, { shape: 'circle', r: rBody, color: 'mass2', label: `m = ${m} kg` });
+    // Velocidad tangencial y fuerza centrípeta.
     scene.vector(cx + axc, cy + ayc, -ayc * 0.3, axc * 0.3, { color: 'velocity', label: 'v' });
-    scene.vector(cx + axc, cy + ayc, -axc * 0.45, -ayc * 0.45, { color: 'force', label: 'a_c', labelSide: -1 });
+    const fLen = 0.25 + 0.2 * m;
+    const fu = fLen / Math.max(R, 1e-6);
+    scene.vector(cx + axc, cy + ayc, -axc * fu, -ayc * fu, { color: 'force', label: 'F_c = m·a_c', labelSide: -1 });
 
     hud.chip('MCU: v = ωR, a_c = v²/R hacia el centro', 'top-left');
     const ac = (this.omega * this.omega) * R;
@@ -328,21 +361,52 @@ export default class Rotational extends SimModule {
     const Omega = tauG / Lmag;
     const hud = scene.hud;
     const topX = 0;
-    const topY = -1.5;
+    const topY = -1.8; // punta de apoyo sobre el suelo
+    // Eje más largo y proyección más vertical: la peonza ocupaba antes un
+    // cuarto de la altura del encuadre y se leía como un palito suelto.
+    const AXIS = 3.8;
+    const PZ = 0.85;
 
-    // Cono de precesión: el eje del top traza un círculo proyectado.
-    const probeR = Math.sin(tilt) * 2.5;
-    scene.circle(topX, topY + 0.2, probeR, { color: 'textDim', stroke: true, dash: [3, 4], alpha: 0.5 });
+    // Suelo de apoyo.
+    scene.ground(topX - 2.6, topX + 2.6, topY, { width: 2 });
+
+    // Cono de precesión: el eje traza una circunferencia proyectada.
+    const probeR = Math.sin(tilt) * AXIS;
     const px = probeR * Math.cos(this.precess);
     const py = probeR * Math.sin(this.precess);
-    const pz = Math.cos(tilt) * 2.5;
+    const pz = Math.cos(tilt) * AXIS;
+    const coneY = topY + pz * PZ;
+    scene.ellipse(topX, coneY, probeR, probeR * 0.32, {
+      color: 'textDim',
+      dash: [3, 4],
+      alpha: 0.6,
+      stroke: true
+    });
+    scene.arrowMark(topX + probeR * Math.cos(this.precess + 0.25), coneY + probeR * 0.32 * Math.sin(this.precess + 0.25), this.precess + Math.PI / 2, { color: 'accel' });
+    scene.label(topX, coneY + probeR * 0.32 + 0.35, `Ω = ${roundTo(Omega, 3)} rad/s`, { avoid: true, color: 'accel', size: 11 });
 
-    // Eje inclinado: base → punta (proyección 2.5D).
+    // Eje inclinado: apoyo → punta (proyección 2.5D).
     const tipX = topX + px;
-    const tipY = topY + pz * 0.5 + py * 0.3;
+    const tipY = coneY + py * 0.32;
     scene.line(topX, topY, tipX, tipY, { color: 'mass2', width: 4 });
-    scene.body(topX, topY, { shape: 'circle', r: 0.3, color: 'mass2' });
-    scene.body(tipX, tipY, { shape: 'circle', r: 0.35, color: 'energy', label: 'L' });
+    scene.body(topX, topY, { shape: 'circle', r: 0.22, color: 'mass2' });
+    scene.body(tipX, tipY, { shape: 'circle', r: 0.35, color: 'energy', label: `L = ${roundTo(Lmag, 1)}` });
+
+    // Peso en el centro de masas y torque que provoca la precesión.
+    const cmX = topX + (tipX - topX) * 0.5;
+    const cmY = topY + (tipY - topY) * 0.5;
+    scene.body(cmX, cmY, { shape: 'circle', r: 0.16, color: 'textDim' });
+    scene.vector(cmX, cmY, 0, -Math.min(1.5, 0.4 + m * 0.35), {
+      color: 'force',
+      label: `W = ${roundTo(m * 9.8, 1)} N`,
+      labelSide: -1
+    });
+    const tdir = Math.atan2(tipY - topY, tipX - topX) + Math.PI / 2;
+    scene.vector(tipX, tipY, Math.cos(tdir) * 1.1, Math.sin(tdir) * 1.1, {
+      color: 'accel',
+      label: `τ = ${roundTo(tauG, 2)} N·m`,
+      labelSide: 1
+    });
 
     // Marca de spin en la punta.
     const spinMark = this.theta;

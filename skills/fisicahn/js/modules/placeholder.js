@@ -39,6 +39,7 @@ export default class PlaceholderModule extends SimModule {
   }
 
   reset() {
+    this.frameWorld(7.5, 6.5);
     this.t = 0;
   }
 

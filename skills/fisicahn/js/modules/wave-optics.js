@@ -27,7 +27,7 @@ export default class WaveOptics extends SimModule {
       ]
     },
     { id: 'lambda', label: 'Longitud de onda', latex: '\\lambda', min: 0.3, max: 1.2, step: 0.02, value: 0.55 },
-    { id: 'd', label: 'Separación', latex: 'd', min: 0.5, max: 4, step: 0.05, value: 2.0 },
+    { id: 'd', label: 'Separación', latex: 'd', min: 0.5, max: 4, step: 0.05, value: 2.0, showIf: { mode: 'double' } },
     { id: 'a', label: 'Ancho de rendija', latex: 'a', min: 0.2, max: 2, step: 0.05, value: 0.6 },
     { id: 'L', label: 'Distancia a pantalla', latex: 'L', min: 3, max: 10, step: 0.2, value: 6 }
   ];
@@ -131,15 +131,26 @@ export default class WaveOptics extends SimModule {
       scene.line(x, -1.2, x, 1.2, { color: 'ray', alpha: 0.22, width: 1 });
     }
 
+    // Con una sola rendija no hay separación d ni interfranja de Young: lo que
+    // manda es el ancho `a` y el primer mínimo en sen θ = λ/a.
+    const doble = mode === 'double';
     const fringe = (this.params.lambda * L) / Math.max(d, 0.05);
+    const primerMin = (this.params.lambda * L) / Math.max(this.params.a, 0.05);
     scene.hud.readout(
-      [
-        { label: 'modo', value: mode === 'double' ? 'doble rendija' : 'una rendija', unit: '' },
-        { label: 'λ', value: this.params.lambda, unit: '' },
-        { label: 'd', value: d, unit: '' },
-        { label: 'a', value: this.params.a, unit: '' },
-        { label: 'Δy', value: roundTo(fringe, 3), unit: '(franjas)' }
-      ],
+      doble
+        ? [
+            { label: 'modo', value: 'doble rendija', unit: '' },
+            { label: 'λ', value: this.params.lambda, unit: '' },
+            { label: 'd', value: d, unit: '' },
+            { label: 'a', value: this.params.a, unit: '' },
+            { label: 'Δy', value: roundTo(fringe, 3), unit: '(franjas)' }
+          ]
+        : [
+            { label: 'modo', value: 'una rendija', unit: '' },
+            { label: 'λ', value: this.params.lambda, unit: '' },
+            { label: 'a', value: this.params.a, unit: '' },
+            { label: '1.er mínimo', value: roundTo(primerMin, 3), unit: '(y)' }
+          ],
       'top-left'
     );
   }
@@ -148,9 +159,18 @@ export default class WaveOptics extends SimModule {
 
   readout() {
     const { mode, lambda, d, a, L } = this.params;
+    if (mode !== 'double') {
+      return {
+        modo: { value: 'una rendija', unit: '' },
+        lambda: { value: lambda, unit: '' },
+        a: { value: a, unit: '' },
+        L: { value: L, unit: '' },
+        '1.er mínimo (y)': { value: roundTo((lambda * L) / Math.max(a, 0.05), 3), unit: '' }
+      };
+    }
     const fringe = (lambda * L) / Math.max(d, 0.05);
     return {
-      modo: { value: mode === 'double' ? 'doble rendija' : 'una rendija', unit: '' },
+      modo: { value: 'doble rendija', unit: '' },
       lambda: { value: lambda, unit: '' },
       d: { value: d, unit: '' },
       a: { value: a, unit: '' },

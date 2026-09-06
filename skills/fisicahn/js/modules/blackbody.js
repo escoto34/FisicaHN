@@ -204,7 +204,7 @@ export default class Blackbody extends SimModule {
         { value: 'rigel', label: 'Rigel (12 000 K)' }
       ]
     },
-    { id: 'T', label: 'Temperatura', latex: 'T', unit: 'K', min: 300, max: 12000, step: 10, value: 5778 },
+    { id: 'T', label: 'Temperatura', latex: 'T', unit: 'K', min: 300, max: 12000, step: 10, value: 5778, showIf: { preset: 'personalizado' } },
     { id: 'A', label: 'Área emisora', latex: 'A', unit: 'm²', min: 0.01, max: 10, step: 0.01, value: 1 }
   ];
 
@@ -561,11 +561,15 @@ export default class Blackbody extends SimModule {
     const i = this.intensity(T);
     const breathe = 1 + 0.04 * Math.sin(this.pulse * 2.4);
 
+    // Radio del emisor ∝ √A: el área emisora deja de ser sólo un número del
+    // panel y se ve en el cuerpo que radia (P = σ·A·T⁴ crece con los dos).
+    const rr = this._emitterRadius();
+
     // Halo de intensidad: tres anillos cuya opacidad crece con T (escala log).
-    scene.circle(STAR.x, STAR.y, STAR.r * 1.9 * breathe, { fill: col, color: col, stroke: false, alpha: 0.10 * i });
-    scene.circle(STAR.x, STAR.y, STAR.r * 1.55 * breathe, { fill: col, color: col, stroke: false, alpha: 0.22 * i });
-    scene.circle(STAR.x, STAR.y, STAR.r * 1.22 * breathe, { fill: col, color: col, stroke: false, alpha: 0.4 * i });
-    scene.circle(STAR.x, STAR.y, STAR.r, { fill: col, color: 'textDim', width: 1.5 });
+    scene.circle(STAR.x, STAR.y, rr * 1.9 * breathe, { fill: col, color: col, stroke: false, alpha: 0.1 * i });
+    scene.circle(STAR.x, STAR.y, rr * 1.55 * breathe, { fill: col, color: col, stroke: false, alpha: 0.22 * i });
+    scene.circle(STAR.x, STAR.y, rr * 1.22 * breathe, { fill: col, color: col, stroke: false, alpha: 0.4 * i });
+    scene.circle(STAR.x, STAR.y, rr, { fill: col, color: 'textDim', width: 1.5 });
 
     // Fotones emitidos.
     for (const p of this.photons) {
@@ -574,11 +578,16 @@ export default class Blackbody extends SimModule {
     }
 
     const cls = spectralClass(T);
-    scene.label(STAR.x, STAR.y - STAR.r - 0.35, `T = ${roundTo(T, 0)} K`, { color: 'text', size: 13, weight: 'bold', baseline: 'top', avoid: true });
-    scene.label(STAR.x, STAR.y - STAR.r - 0.95, `color: ${colorName(T)}`, { color: 'textDim', size: 11, baseline: 'top', avoid: true });
+    scene.label(STAR.x, STAR.y - rr - 0.35, `T = ${roundTo(T, 0)} K`, { color: 'text', size: 13, weight: 'bold', baseline: 'top', avoid: true });
+    scene.label(STAR.x, STAR.y - rr - 0.95, `color: ${colorName(T)} · A = ${this.params.A} m²`, { color: 'textDim', size: 11, baseline: 'top', avoid: true });
     if (this.params.modo === 'estrellas') {
-      scene.label(STAR.x, STAR.y - STAR.r - 1.5, `clase ${cls.cls}: ${cls.desc}`, { color: 'ray', size: 11, baseline: 'top', avoid: true });
+      scene.label(STAR.x, STAR.y - rr - 1.5, `clase ${cls.cls}: ${cls.desc}`, { color: 'ray', size: 11, baseline: 'top', avoid: true });
     }
+  }
+
+  /** Radio dibujado del emisor: ∝ √A, acotado para no salirse del encuadre. */
+  _emitterRadius() {
+    return STAR.r * clamp(Math.sqrt(this.params.A), 0.55, 1.35);
   }
 
   drawHud(scene) {

@@ -29,12 +29,12 @@ export default class EMWaves extends SimModule {
         { value: 'polarizacion', label: 'Polarización y ley de Malus' }
       ]
     },
-    { id: 'f', label: 'Frecuencia', latex: 'f', unit: 'Hz', min: 0.15, max: 1.2, step: 0.02, value: 0.4 },
-    { id: 'c', label: 'Velocidad', latex: 'c', unit: 'u/s', min: 1, max: 6, step: 0.1, value: 3 },
-    { id: 'ampE', label: 'Amplitud E', latex: 'E_0', unit: '', min: 0.3, max: 3, step: 0.1, value: 1.5 },
-    { id: 'ampB', label: 'Amplitud B', latex: 'B_0', unit: '', min: 0.3, max: 2.5, step: 0.1, value: 1.2 },
-    { id: 'theta', label: 'Ángulo del polarizador', latex: '\\theta', unit: '°', min: 0, max: 90, step: 1, value: 45 },
-    { id: 'I1', label: 'Intensidad incidente', latex: 'I_1', unit: '%', min: 10, max: 100, step: 5, value: 100 }
+    { id: 'f', label: 'Frecuencia', latex: 'f', unit: 'Hz', min: 0.15, max: 1.2, step: 0.02, value: 0.4, showIf: { modo: 'plana' } },
+    { id: 'c', label: 'Velocidad', latex: 'c', unit: 'u/s', min: 1, max: 6, step: 0.1, value: 3, showIf: { modo: 'plana' } },
+    { id: 'ampE', label: 'Amplitud E', latex: 'E_0', unit: '', min: 0.3, max: 3, step: 0.1, value: 1.5, showIf: { modo: 'plana' } },
+    { id: 'ampB', label: 'Amplitud B', latex: 'B_0', unit: '', min: 0.3, max: 2.5, step: 0.1, value: 1.2, showIf: { modo: 'plana' } },
+    { id: 'theta', label: 'Ángulo del polarizador', latex: '\\theta', unit: '°', min: 0, max: 90, step: 1, value: 45, showIf: { modo: 'polarizacion' } },
+    { id: 'I1', label: 'Intensidad incidente', latex: 'I_1', unit: '%', min: 10, max: 100, step: 5, value: 100, showIf: { modo: 'polarizacion' } }
   ];
 
   constructor(ctx) {

@@ -24,6 +24,10 @@ const MATERIALS = {
 
 const MPa = 1e6;
 
+/** Altura de la mordaza y longitud dibujada máxima de la probeta (u de mundo). */
+const CAP_Y = 3.4;
+const SPAN = 7.6;
+
 export default class Elasticity extends SimModule {
   static viewport = { width: 22, height: 14 };
 
@@ -111,6 +115,7 @@ export default class Elasticity extends SimModule {
   }
 
   reset() {
+    this.frameWorld(11.5, 13);
     this.engine?.reset?.();
   }
 
@@ -188,29 +193,36 @@ export default class Elasticity extends SimModule {
     const { material, L0, A, frac } = this.params;
     const e = this.strain();
     const L = L0 * (1 + e);
-    const w = scene.world();
     const cx = 0; // probeta centrada en el origen del mundo
-    const cap = w.top - 2.0; // cap fijo cerca de la cima del mundo
+    // Mordaza en una altura FIJA del mundo: colgaba de `w.top`, el borde del
+    // lienzo, así que en pantallas altas la probeta se iba hacia arriba y
+    // dejaba medio encuadre vacío.
+    const cap = CAP_Y;
     const broken = this.region() === 'Rotura';
 
-    // Probeta cuelga del cap hacia abajo, elongada según ε (sin salir del mundo).
+    // Probeta hacia abajo, elongada según ε. La escala se toma de L₀ (0,5 … 3 m
+    // ocupan de 4,2 a 7,6 u) y la deformación se amplifica: ε real vale
+    // milésimas y a escala 1:1 no se vería moverse nada.
     const maxL = this.mat().eu > 1 ? 9 : 7;
-    const lSpace = cap - w.bottom - 0.9;
-    const lPx = Math.max(0.8, Math.min(lSpace, (L / maxL) * (cap - w.bottom - 2)));
+    const base = 3.6 + (Math.min(L0, 3) / 3) * 4;
+    const stretch = Math.min(1, e / Math.max(this.mat().eu, 1e-6));
+    const lPx = Math.max(0.8, Math.min(SPAN, base * (1 + stretch * 0.35)));
     const yTop = cap; // arriba de la probeta
     const yBot = cap - lPx; // abajo de la probeta
-    scene.rect(cx, cap - lPx / 2, 1.2, lPx, { color: 'spring', width: 2, fill: 'energy', alpha: 0.25 });
+    // El ancho de la probeta sigue a la sección A (0,5 … 20 cm²).
+    const wProbe = 0.5 + Math.sqrt(A / 20) * 1.5;
+    scene.rect(cx, cap - lPx / 2, wProbe, lPx, { color: 'spring', width: 2, fill: 'energy', alpha: 0.25 });
     scene.rect(cx - 1.4, cap + 0.25, 4, 0.5, { color: 'textDim', width: 2, fill: 'mass' });
     scene.line(cx - 2.8, cap + 0.25, cx + 2.8, cap + 0.25, { color: 'textDim', width: 3 });
 
     const F = this.force();
     const k = 5.9e-6; // techo de 2.6 u de mundo para la fuerza máxima
-    scene.vector(cx, cap + 0.35, 0, Math.min(F * k, w.top - cap - 0.55), {
+    scene.vector(cx, cap + 0.35, 0, Math.min(F * k, 2.6), {
       color: 'force',
       label: `F = ${roundTo(F / 1e3, 1)} kN`,
       labelSide: 1
     });
-    scene.dimension(cx + 1.3, yBot, cx + 1.3, yBot + (lPx / maxL) * L0, `${L0} m →`, { color: 'textDim' });
+    scene.dimension(cx + 1.3, yBot, cx + 1.3, yBot + lPx / (1 + stretch * 0.35), `L₀ = ${L0} m`, { color: 'textDim' });
 
     scene.label(cx, yBot - 0.55, `Región: ${this.region()}   E = ${this.Etext()}`, { avoid: true, color: 'energy' });
     if (broken) scene.label(cx, yBot - 1.5, 'Rotura: la probeta cede', { avoid: true, color: 'danger' });

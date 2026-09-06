@@ -93,6 +93,9 @@ export default class GravityModule extends SimModule {
   }
 
   reset() {
+    // Encuadre a la medida de la órbita de referencia (r₀), con margen para
+    // las elipses que se alejan.
+    this.frameWorld(Math.max(12, this.params.r0 * 2.6), Math.max(9.5, this.params.r0 * 2.2));
     this.t = 0;
     this.x = this.params.r0;
     this.y = 0;
@@ -217,7 +220,7 @@ export default class GravityModule extends SimModule {
     scene.body(0, 0, { shape: 'circle', r: R_CENTRAL, color: 'mass2', label: `M (GM = ${GM})`, labelColor: 'mass2' });
 
     // Satélite con sus vectores.
-    scene.body(this.x, this.y, { shape: 'circle', r: R_SAT, color: 'mass', label: `m = ${m} kg`, labelColor: 'mass', id: 'sat' });
+    scene.body(this.x, this.y, { shape: 'circle', r: R_SAT, color: 'mass', label: `m = ${m} kg (arrástralo)`, labelColor: 'mass', id: 'sat' });
     if (v > 0.01) {
       scene.vector(this.x, this.y, this.vx * 0.3, this.vy * 0.3, {
         color: 'velocity',
@@ -256,7 +259,7 @@ export default class GravityModule extends SimModule {
       [
         { color: 'velocity', label: 'Velocidad v' },
         { color: 'force', label: 'Fuerza gravitatoria F' },
-        { color: 'textDim', label: 'Órbita circular de referencia', dash: [4, 5] },
+        { color: 'textDim', label: `Órbita circular de referencia (r₀ = ${roundTo(r0, 1)} m)`, dash: [4, 5] },
         { color: 'trail', label: 'Trayectoria real' }
       ],
       'top-right'
@@ -279,17 +282,33 @@ export default class GravityModule extends SimModule {
 
   /* ---------- manipulación directa ---------- */
 
-  /** Arrastrar el satélite reposiciona la órbita manteniendo la rapidez tangencial. */
+  /**
+   * Arrastrar el satélite reposiciona la órbita manteniendo la rapidez
+   * tangencial — y **actualiza r₀ y v₀**.
+   *
+   * La circunferencia de referencia a trazos se dibuja con `r₀`: si el
+   * arrastre no lo tocaba, el satélite se iba a otro radio y la órbita de
+   * ejemplo (y el deslizador) se quedaban en el sitio anterior, contando dos
+   * historias distintas a la vez.
+   */
   onDrag(id, world) {
     if (id !== 'sat') return;
     const rr = Math.hypot(world.x, world.y);
     if (rr < R_CENTRAL + R_SAT) return;
-    this.x = world.x;
-    this.y = world.y;
+    // El radio se limita al rango del deslizador para que la referencia y el
+    // panel puedan seguir al satélite.
+    const r = Math.min(9, Math.max(2, rr));
+    const ux = world.x / rr;
+    const uy = world.y / rr;
+    this.x = ux * r;
+    this.y = uy * r;
     const v = this.speed() || this.params.v0;
     // Velocidad tangencial en sentido antihorario.
-    this.vx = (-world.y / rr) * v;
-    this.vy = (world.x / rr) * v;
+    this.vx = -uy * v;
+    this.vy = ux * v;
+    this.params.r0 = Math.round(r * 5) / 5;
+    this.params.v0 = Math.round(Math.min(6, Math.max(0.5, v)) * 10) / 10;
+    this.syncParams();
     this.trail.clear();
     this.history.clear();
   }

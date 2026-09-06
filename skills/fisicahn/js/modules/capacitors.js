@@ -61,18 +61,20 @@ export default class Capacitors extends SimModule {
       ]
     },
     { id: 'V', label: 'Voltaje de la fuente', latex: 'V', unit: 'V', min: 1, max: 24, step: 0.5, value: 12 },
-    { id: 'A', label: 'Área de las placas', latex: 'A', unit: 'cm²', min: 50, max: 500, step: 10, value: 200 },
-    { id: 'd', label: 'Separación', latex: 'd', unit: 'mm', min: 0.5, max: 10, step: 0.5, value: 2 },
+    { id: 'A', label: 'Área de las placas', latex: 'A', unit: 'cm²', min: 50, max: 500, step: 10, value: 200, showIf: { modo: 'placas' } },
+    { id: 'd', label: 'Separación', latex: 'd', unit: 'mm', min: 0.5, max: 10, step: 0.5, value: 2, showIf: { modo: 'placas' } },
     {
       id: 'diel',
+      showIf: { modo: 'placas' },
       type: 'select',
       label: 'Dieléctrico',
       value: 'papel',
       options: Object.entries(DIELECTRICS).map(([v, m]) => ({ value: v, label: m.label }))
     },
-    { id: 'insertado', type: 'checkbox', label: 'Dieléctrico insertado', value: true },
+    { id: 'insertado', type: 'checkbox', label: 'Dieléctrico insertado', value: true, showIf: { modo: 'placas' } },
     {
       id: 'fuente',
+      showIf: { modo: 'placas' },
       type: 'select',
       label: 'Fuente durante la inserción',
       value: 'conectada',
@@ -81,10 +83,11 @@ export default class Capacitors extends SimModule {
         { value: 'desconectada', label: 'Desconectada (Q constante)' }
       ]
     },
-    { id: 'R', label: 'Resistencia (RC)', latex: 'R', unit: 'kΩ', min: 1, max: 100, step: 1, value: 10 },
-    { id: 'C', label: 'Capacidad (RC)', latex: 'C', unit: 'µF', min: 1, max: 100, step: 1, value: 47 },
+    { id: 'R', label: 'Resistencia (RC)', latex: 'R', unit: 'kΩ', min: 1, max: 100, step: 1, value: 10, showIf: { modo: 'carga-rc' } },
+    { id: 'C', label: 'Capacidad (RC)', latex: 'C', unit: 'µF', min: 1, max: 100, step: 1, value: 47, showIf: { modo: 'carga-rc' } },
     {
       id: 'accion',
+      showIf: { modo: 'carga-rc' },
       type: 'select',
       label: 'Acción RC',
       value: 'carga',
@@ -95,6 +98,7 @@ export default class Capacitors extends SimModule {
     },
     {
       id: 'config',
+      showIf: { modo: 'asociacion' },
       type: 'select',
       label: 'Asociación',
       value: 'serie',
@@ -105,6 +109,7 @@ export default class Capacitors extends SimModule {
     },
     {
       id: 'n',
+      showIf: { modo: 'asociacion' },
       type: 'select',
       label: 'Número de condensadores',
       value: '2',
@@ -113,9 +118,9 @@ export default class Capacitors extends SimModule {
         { value: '3', label: 'Tres' }
       ]
     },
-    { id: 'C1', label: 'C₁', latex: 'C_1', unit: 'µF', min: 1, max: 50, step: 1, value: 10 },
-    { id: 'C2', label: 'C₂', latex: 'C_2', unit: 'µF', min: 1, max: 50, step: 1, value: 20 },
-    { id: 'C3', label: 'C₃', latex: 'C_3', unit: 'µF', min: 1, max: 50, step: 1, value: 30 }
+    { id: 'C1', label: 'C₁', latex: 'C_1', unit: 'µF', min: 1, max: 50, step: 1, value: 10, showIf: { modo: 'asociacion' } },
+    { id: 'C2', label: 'C₂', latex: 'C_2', unit: 'µF', min: 1, max: 50, step: 1, value: 20, showIf: { modo: 'asociacion' } },
+    { id: 'C3', label: 'C₃', latex: 'C_3', unit: 'µF', min: 1, max: 50, step: 1, value: 30, showIf: { modo: 'asociacion', n: '3' } }
   ];
 
   constructor(ctx) {

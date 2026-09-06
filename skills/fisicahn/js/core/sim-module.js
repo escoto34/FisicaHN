@@ -35,11 +35,14 @@ export class SimModule {
    * @param {object} ctx.renderer
    * @param {object} ctx.ui
    * @param {object} [ctx.scene] - escena declarativa (WAVE 2); por defecto el renderer.
+   * @param {object} [ctx.camera] - cámara del anfitrión (`frameWorld`).
    */
   constructor(ctx) {
     this.engine = ctx.engine;
     this.renderer = ctx.renderer;
     this.ui = ctx.ui;
+    /** Cámara del anfitrión: la necesitan los módulos que reencuadran por modo. */
+    this.camera = ctx.camera || null;
     // `scene` será la escena declarativa de WAVE 2; hoy apunta al renderer.
     this.scene = ctx.scene || ctx.renderer;
     this.isSimModule = true;
@@ -124,6 +127,37 @@ export class SimModule {
     if (!ui) return;
     if (typeof ui.setModuleFormulas === 'function') ui.setModuleFormulas(data);
     else if (typeof ui.setFormulas === 'function') ui.setFormulas('');
+  }
+
+  /**
+   * Reencuadra el mundo visible desde el propio módulo.
+   *
+   * `static viewport` fija un solo encuadre, pero hay motores cuyos modos
+   * tienen escalas muy distintas (el tanque de Arquímedes mide 15 u de ancho;
+   * el tubo de Venturi, 24). Llamar a esto en `reset()` deja cada modo
+   * llenando el lienzo en vez de encogido en una esquina.
+   * @param {number} width @param {number} height - Unidades de mundo.
+   */
+  frameWorld(width, height) {
+    /** @type {any} */
+    const cam = this.camera;
+    if (cam && typeof cam.setWorldSize === 'function' && width > 0 && height > 0) {
+      cam.setWorldSize(width, height);
+    }
+  }
+
+  /**
+   * Refleja en el panel los parámetros que el módulo cambió por su cuenta.
+   *
+   * La manipulación directa (arrastrar el satélite, la sonda o el planeta)
+   * escribe en `this.params`; sin este volcado el deslizador se quedaba con
+   * el valor anterior y la escena mostraba dos verdades a la vez — la órbita
+   * de referencia dibujada con el r₀ viejo y el cuerpo ya en otro radio.
+   */
+  syncParams() {
+    /** @type {any} */
+    const ui = this.ui;
+    if (ui && typeof ui.syncParams === 'function') ui.syncParams();
   }
 
   /** Limpia la pestaña de retos (módulo sin pack de examen activo). */

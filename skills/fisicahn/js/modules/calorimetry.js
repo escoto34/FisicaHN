@@ -46,6 +46,19 @@ const T_DROP = 1.2;
 export default class Calorimetry extends SimModule {
   static viewport = { width: 24, height: 16 };
 
+  /**
+   * Encuadre propio de cada modo: el calorímetro es alto y estrecho, mientras
+   * que la barra entre focos es ancha y baja. Con un único encuadre de 24 × 16
+   * la mezcla salía pequeña y arrinconada y la radiación se salía por arriba.
+   */
+  static views = {
+    mezcla: { width: 15.5, height: 13.5 },
+    fase: { width: 15.5, height: 13.5 },
+    conduccion: { width: 25, height: 11 },
+    conveccion: { width: 25, height: 11 },
+    radiacion: { width: 25, height: 11 }
+  };
+
   // Punto fijo del mecanismo en el origen del mundo (WAVE 17.1).
   static anchor = { x: 0, y: 0 };
 
@@ -65,6 +78,7 @@ export default class Calorimetry extends SimModule {
     },
     {
       id: 'muestra',
+      showIf: { modo: 'mezcla' },
       type: 'select',
       label: 'Muestra metálica',
       value: 'manual',
@@ -78,20 +92,20 @@ export default class Calorimetry extends SimModule {
         { value: 'F', label: 'Muestra desconocida F' }
       ]
     },
-    { id: 'revelar', type: 'checkbox', label: 'Revelar c de la muestra', value: false },
-    { id: 'm1', label: 'Masa de agua', latex: 'm_1', unit: 'kg', min: 0.1, max: 4, step: 0.1, value: 1 },
-    { id: 'T1', label: 'T agua', latex: 'T_1', unit: '°C', min: -20, max: 90, step: 1, value: 20 },
-    { id: 'm2', label: 'Masa del metal', latex: 'm_2', unit: 'kg', min: 0.1, max: 4, step: 0.1, value: 1 },
-    { id: 'c2', label: 'c del metal', latex: 'c_2', unit: 'J/(kg·K)', min: 100, max: 2000, step: 50, value: 450 },
-    { id: 'T2', label: 'T del metal', latex: 'T_2', unit: '°C', min: -20, max: 300, step: 5, value: 150 },
-    { id: 'mIce', label: 'Masa de hielo', latex: 'm', unit: 'kg', min: 0.05, max: 2, step: 0.05, value: 0.5 },
-    { id: 'P', label: 'Potencia del foco', latex: 'P', unit: 'W', min: 20, max: 600, step: 20, value: 200 },
-    { id: 'k', label: 'Conductividad k', latex: 'k', unit: 'W/(m·K)', min: 0.1, max: 400, step: 5, value: 50 },
-    { id: 'h', label: 'Coef. convección', latex: 'h', unit: 'W/(m²·K)', min: 5, max: 500, step: 5, value: 50 },
-    { id: 'A', label: 'Sección', latex: 'A', unit: 'm²', min: 0.01, max: 2, step: 0.01, value: 0.05 },
-    { id: 'L', label: 'Longitud', latex: 'L', unit: 'm', min: 0.2, max: 4, step: 0.1, value: 1 },
-    { id: 'eps', label: 'Emisividad ε', latex: '\\varepsilon', min: 0.05, max: 1, step: 0.05, value: 0.9 },
-    { id: 'Tamb', label: 'T ambiente', latex: 'T_a', unit: '°C', min: -20, max: 40, step: 1, value: 15 }
+    { id: 'revelar', type: 'checkbox', label: 'Revelar c de la muestra', value: false, showIf: { modo: 'mezcla' } },
+    { id: 'm1', label: 'Masa de agua', latex: 'm_1', unit: 'kg', min: 0.1, max: 4, step: 0.1, value: 1, showIf: { modo: 'mezcla' } },
+    { id: 'T1', label: 'T agua', latex: 'T_1', unit: '°C', min: -20, max: 90, step: 1, value: 20, showIf: { modo: ['mezcla', 'conduccion', 'conveccion', 'radiacion'] } },
+    { id: 'm2', label: 'Masa del metal', latex: 'm_2', unit: 'kg', min: 0.1, max: 4, step: 0.1, value: 1, showIf: { modo: 'mezcla' } },
+    { id: 'c2', label: 'c del metal', latex: 'c_2', unit: 'J/(kg·K)', min: 100, max: 2000, step: 50, value: 450, showIf: { modo: 'mezcla', muestra: 'manual' } },
+    { id: 'T2', label: 'T del metal', latex: 'T_2', unit: '°C', min: -20, max: 300, step: 5, value: 150, showIf: { modo: ['mezcla', 'conduccion', 'conveccion'] } },
+    { id: 'mIce', label: 'Masa de hielo', latex: 'm', unit: 'kg', min: 0.05, max: 2, step: 0.05, value: 0.5, showIf: { modo: 'fase' } },
+    { id: 'P', label: 'Potencia del foco', latex: 'P', unit: 'W', min: 20, max: 600, step: 20, value: 200, showIf: { modo: 'fase' } },
+    { id: 'k', label: 'Conductividad k', latex: 'k', unit: 'W/(m·K)', min: 0.1, max: 400, step: 5, value: 50, showIf: { modo: 'conduccion' } },
+    { id: 'h', label: 'Coef. convección', latex: 'h', unit: 'W/(m²·K)', min: 5, max: 500, step: 5, value: 50, showIf: { modo: 'conveccion' } },
+    { id: 'A', label: 'Sección', latex: 'A', unit: 'm²', min: 0.01, max: 2, step: 0.01, value: 0.05, showIf: { modo: ['conduccion', 'conveccion', 'radiacion'] } },
+    { id: 'L', label: 'Longitud', latex: 'L', unit: 'm', min: 0.2, max: 4, step: 0.1, value: 1, showIf: { modo: 'conduccion' } },
+    { id: 'eps', label: 'Emisividad ε', latex: '\\varepsilon', min: 0.05, max: 1, step: 0.05, value: 0.9, showIf: { modo: 'radiacion' } },
+    { id: 'Tamb', label: 'T ambiente', latex: 'T_a', unit: '°C', min: -20, max: 40, step: 1, value: 15, showIf: { modo: 'radiacion' } }
   ];
 
   constructor(ctx) {
@@ -187,6 +201,8 @@ export default class Calorimetry extends SimModule {
   reset() {
     this.t = 0;
     this.Q = 0;
+    const v = Calorimetry.views[this.params.modo] || Calorimetry.views.mezcla;
+    this.frameWorld(v.width, v.height);
     this.engine?.reset?.();
   }
 
@@ -298,7 +314,7 @@ export default class Calorimetry extends SimModule {
     const ease = smoothstep(0, 1, drop);
 
     /* ---- Calorímetro: vaso exterior aislante, vaso interior y tapa ---- */
-    const cxV = -2.2;
+    const cxV = 0.6; // el conjunto (termómetro + vaso + muestra) queda centrado
     const W = 8.4;
     const Hh = 7.2;
     const yC = -0.6;
@@ -333,6 +349,15 @@ export default class Calorimetry extends SimModule {
     scene.line(xM, yC + Hh / 2 + 3.6, xM, yM + side / 2, { color: 'textDim', width: 1.2 });
     scene.rect(xM, yM, side, side, { color: metalTone, width: 2.2, fill: metalTone, fillAlpha: 0.75, radius: 3 });
     scene.label(xM, yM + side / 2 + 0.45, `${sampleName} ${m2} kg · ${roundTo(Tm, 1)} °C`, { avoid: true, color: 'force', size: 11 });
+    // Etiqueta del calor específico sobre la propia muestra: con la casilla
+    // «Revelar» marcada aparece el dato; sin marcar, la incógnita. Antes la
+    // casilla sólo cambiaba un texto del HUD y en la escena no se notaba.
+    scene.label(xM, yM - side / 2 - 0.45, this.cVisible() ? `c = ${roundTo(this.cMetal(), 0)} J/(kg·K)` : 'c = ?', {
+      avoid: true,
+      color: this.cVisible() ? 'energy' : 'textDim',
+      size: 11,
+      baseline: 'top'
+    });
     if (drop >= 1 && prog < 0.985) {
       // Ondas de calor del metal al agua.
       for (let j = 0; j < 3; j++) {
@@ -344,7 +369,7 @@ export default class Calorimetry extends SimModule {
 
     /* ---- Termómetro del agua (columna proporcional a T agua) ---- */
     const xT = cxV - 2.6;
-    const tTop = yC + Hh / 2 + 2.6;
+    const tTop = yC + Hh / 2 + 1.4;
     const tBot = yC - Hh / 2 + 0.6;
     const tScaleLo = Math.floor((tLow - 10) / 10) * 10;
     const tScaleHi = Math.ceil((tHigh + 10) / 10) * 10;
@@ -372,7 +397,8 @@ export default class Calorimetry extends SimModule {
         : prog >= 0.985
           ? `EQUILIBRIO: T_eq = ${roundTo(Teq, 1)} °C`
           : `Intercambio de calor: T_eq → ${roundTo(Teq, 1)} °C`;
-    scene.chip(cxV, yC + Hh / 2 + 4.4, status, { avoid: true, color: 'energy' });
+    // El estado va al HUD: sobre el vaso se salía del encuadre alto.
+    hud.chip(status, 'top-left', { color: 'energy' });
     hud.chip(
       sample && !this.params.revelar
         ? `${sampleName}: c desconocido → despéjalo con T_eq`
@@ -418,15 +444,36 @@ export default class Calorimetry extends SimModule {
     const T = this.phaseTemp(this.Q);
     const fase = this.Q < Q1 ? 'hielo' : this.Q < Q2 ? 'fusión' : 'agua';
 
-    // Bloque de hielo / agua con el nivel proporcional al estado.
-    const level = this.Q < Q1 ? 0.35 : this.Q < Q2 ? 0.35 + 0.5 * (this.Q - Q1) / (Q2 - Q1) : 1;
-    scene.rect(-3, 2, 6, 7, { color: 'textDim', width: 2, fill: 'rgba(79,195,247,0.10)' });
-    scene.fill(-3, 2, 6, 7 * level, { color: this.Q < Q2 ? 'mass' : 'energy', alpha: 0.3, waves: level < 1 && this.Q >= Q1 });
-    scene.label(-3, 9.4, `Hielo → agua: ${mIce} kg`, { avoid: true, color: 'mass' });
-    scene.label(1.6, 9.4, `P = ${P} W`, { avoid: true, color: 'energy' });
+    // Recipiente centrado, con termómetro a la izquierda y foco de calor
+    // debajo: el montaje ocupa el encuadre en vez de una esquina.
+    const level = this.Q < Q1 ? 0.35 : this.Q < Q2 ? 0.35 + (0.5 * (this.Q - Q1)) / (Q2 - Q1) : 1;
+    const cxP = 1.2;
+    const wP = 7;
+    const hP = 7;
+    const cyP = 0.6;
+    const yBot = cyP - hP / 2;
+    scene.rect(cxP, cyP, wP, hP, { color: 'textDim', width: 2, fill: 'rgba(79,195,247,0.10)' });
+    scene.fill(cxP, yBot + hP * level, wP - 0.2, hP * level, {
+      color: this.Q < Q2 ? 'mass' : 'energy',
+      alpha: 0.3,
+      waves: level < 1 && this.Q >= Q1
+    });
+    scene.hatch(cxP - wP / 2, yBot, cxP + wP / 2, yBot, { side: -1, color: 'textDim' });
+    scene.label(cxP, cyP + hP / 2 + 0.5, `Hielo → agua: ${mIce} kg`, { avoid: true, color: 'mass' });
 
-    scene.chip(-2.4, 1.2, `Fase: ${fase}`, { avoid: true, color: 'energy' });
-    scene.chip(2.2, 1.2, `T = ${roundTo(T, 1)} °C`, { avoid: true, color: 'mass' });
+    // Foco de calor: la llama crece con la potencia (P dejaba de verse en la escena).
+    const flameH = 0.7 + (P / 600) * 1.6;
+    scene.flame(cxP, yBot - 0.15 - flameH, { h: flameH, w: flameH * 0.6, t: this.t });
+    scene.label(cxP, yBot - 0.35 - flameH, `P = ${P} W`, { avoid: true, color: 'energy', baseline: 'top' });
+
+    // Termómetro con la temperatura de la muestra (−20 … +60 °C).
+    scene.thermometer(cxP - wP / 2 - 1.6, yBot, hP, (T + 20) / 80, {
+      label: `${roundTo(T, 1)} °C`,
+      marks: [{ t: 20 / 80, label: '0 °C' }]
+    });
+
+    scene.chip(cxP - 1.6, cyP - hP / 2 - 0.001 + 0.9, `Fase: ${fase}`, { avoid: true, color: 'energy' });
+    scene.chip(cxP + 1.8, cyP - hP / 2 + 0.9, `T = ${roundTo(T, 1)} °C`, { avoid: true, color: 'mass' });
 
     hud.readout(
       [
@@ -462,44 +509,47 @@ export default class Calorimetry extends SimModule {
     const T1 = modo === 'radiacion' ? this.radC() : this.params.T1;
     const T2 = modo === 'radiacion' ? this.params.Tamb : this.params.T2;
 
-    // Focos y barra.
-    scene.rect(-10.5, 4.5, 2, 4, { color: 'force', width: 2, fill: 'rgba(255,107,107,0.15)' });
-    scene.rect(8.5, 4.5, 2, 4, { color: 'mass', width: 2, fill: 'rgba(78,161,255,0.15)' });
-    scene.label(-9.5, 9, `${roundTo(T1, 1)} °C`, { avoid: true, color: 'force' });
-    scene.label(9.5, 9, `${roundTo(T2, 1)} °C`, { avoid: true, color: 'mass' });
+    // Focos y barra, centrados en el origen. Antes todo el montaje vivía en la
+    // franja y ∈ [2.5, 10] — la mitad superior del encuadre — y la barra de
+    // conducción se dibujaba con centro en x = −8.5 y ancho 17, o sea de −17 a
+    // 0: media barra quedaba fuera del lienzo.
+    scene.rect(-10.5, -1.4, 2, 4, { color: 'force', width: 2, fill: 'rgba(255,107,107,0.15)' });
+    scene.rect(10.5, -1.4, 2, 4, { color: 'mass', width: 2, fill: 'rgba(78,161,255,0.15)' });
+    scene.label(-10.5, 1.1, `${roundTo(T1, 1)} °C`, { avoid: true, color: 'force' });
+    scene.label(10.5, 1.1, `${roundTo(T2, 1)} °C`, { avoid: true, color: 'mass' });
 
     if (modo === 'conduccion') {
-      scene.rect(-8.5, 5.6, 17, 2.2, { color: 'textDim', width: 2, fill: 'rgba(255,171,64,0.25)' });
-      scene.label(0, 5.4, `P = k·A·ΔT/L = ${roundTo(P, 1)} W`, { avoid: true, color: 'energy' });
+      scene.rect(0, -0.4, 19, 2.2, { color: 'textDim', width: 2, fill: 'rgba(255,171,64,0.25)' });
+      scene.label(0, -2.1, `P = k·A·ΔT/L = ${roundTo(P, 1)} W`, { avoid: true, color: 'energy' });
       // Perfil lineal T(x) sobre la barra.
       for (let i = 1; i <= 6; i++) {
-        const x = -8.5 + (17 * i) / 7;
-        scene.body(x, 8.4, { shape: 'circle', r: 0.14, color: i % 2 ? 'force' : 'mass' });
+        const x = -9.5 + (19 * i) / 7;
+        scene.body(x, 2.4, { shape: 'circle', r: 0.14, color: i % 2 ? 'force' : 'mass' });
       }
-      scene.label(0, 8.9, 'Perfil lineal T(x): mismo gradiente en toda la barra', { avoid: true, color: 'textDim' });
+      scene.label(0, 3.1, 'Perfil lineal T(x): mismo gradiente en toda la barra', { avoid: true, color: 'textDim' });
     } else if (modo === 'conveccion') {
       // Lazo de fluido: sube caliente junto al foco, baja frío al otro lado.
       scene.polyline(
         [
-          { x: -7, y: 6.7 }, { x: 7, y: 6.7 }, { x: 7, y: 4.4 },
-          { x: -7, y: 4.4 }, { x: -7, y: 6.7 }
+          { x: -8.5, y: 0.9 }, { x: 8.5, y: 0.9 }, { x: 8.5, y: -1.4 },
+          { x: -8.5, y: -1.4 }, { x: -8.5, y: 0.9 }
         ],
         { color: 'force', width: 2.5 }
       );
-      scene.vector(0, 6.7, 0, 0.7, { color: 'force' });
-      scene.vector(0, 4.4, 0, -0.7, { color: 'mass' });
-      scene.label(0, 2.4, `P = h·A·ΔT = ${roundTo(P, 1)} W`, { avoid: true, color: 'energy' });
+      scene.vector(0, 0.9, 0, 0.8, { color: 'force' });
+      scene.vector(0, -1.4, 0, -0.8, { color: 'mass' });
+      scene.label(0, -2.9, `P = h·A·ΔT = ${roundTo(P, 1)} W`, { avoid: true, color: 'energy' });
     } else {
       // Radiación: círculo que brilla según T (color → temperatura).
       const Tk = T1 + 273.15;
       const glow = Math.min(1, Math.max(0, (Tk - 273) / 1200));
-      scene.body(-3.5, 6.7, { shape: 'circle', r: 1.1 + glow * 0.5, color: glow > 0.5 ? 'force' : 'mass2' });
-      scene.arc(-3.5, 6.7, 1.9, 0, Math.PI * 2, { color: 'force', dash: [3, 3], alpha: 0.6 });
-      scene.arc(-3.5, 6.7, 3.2, 0, Math.PI * 2, { color: 'force', dash: [3, 3], alpha: 0.35 });
-      scene.label(-3.5, 10.2, `P = εσA(T⁴−Tₐ⁴) = ${roundTo(P, 2)} W`, { avoid: true, color: 'energy' });
-      scene.label(5.5, 4, 'Calor radiado en todas direcciones', { avoid: true, color: 'textDim' });
+      scene.body(0, 0, { shape: 'circle', r: 1.1 + glow * 0.5, color: glow > 0.5 ? 'force' : 'mass2' });
+      scene.arc(0, 0, 1.9, 0, Math.PI * 2, { color: 'force', dash: [3, 3], alpha: 0.6 });
+      scene.arc(0, 0, 3.2, 0, Math.PI * 2, { color: 'force', dash: [3, 3], alpha: 0.35 });
+      scene.label(0, 3.8, `P = εσA(T⁴−Tₐ⁴) = ${roundTo(P, 2)} W`, { avoid: true, color: 'energy' });
+      scene.label(6.5, -2.6, 'Calor radiado en todas direcciones', { avoid: true, color: 'textDim' });
       for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {
-        scene.vector(-3.5 + Math.cos(a) * 1.1, 6.7 + Math.sin(a) * 1.1, Math.cos(a) * 1.6, Math.sin(a) * 1.6, {
+        scene.vector(Math.cos(a) * 1.1, Math.sin(a) * 1.1, Math.cos(a) * 1.6, Math.sin(a) * 1.6, {
           color: 'force',
           alpha: 0.4
         });

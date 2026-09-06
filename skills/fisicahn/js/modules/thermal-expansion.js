@@ -31,6 +31,11 @@ const GAIN = 850;
 /** Amplificación de la flexión de la tira bimetálica. */
 const GAIN_BIM = 160;
 
+/** Escalas de dibujo por modo: metros → unidades de mundo. */
+const SURF_SCALE = 2.6;
+const VOL_SCALE = 2.2;
+const BIM_SCALE = 24;
+
 export default class ThermalExpansion extends SimModule {
   static viewport = { width: 24, height: 16 };
 
@@ -52,17 +57,19 @@ export default class ThermalExpansion extends SimModule {
     },
     {
       id: 'material',
+      showIf: { modo: ['lineal', 'superficial', 'volumetrica'] },
       type: 'select',
       label: 'Material',
       value: 'acero',
       options: Object.entries(MATERIALS).map(([v, m]) => ({ value: v, label: m.label }))
     },
     { id: 'T', label: 'Temperatura', latex: 'T', unit: '°C', min: -50, max: 400, step: 5, value: 275 },
-    { id: 'L0', label: 'Longitud inicial', latex: 'L_0', unit: 'm', min: 0.5, max: 5, step: 0.1, value: 2 },
-    { id: 's0', label: 'Lado inicial', latex: 's_0', unit: 'm', min: 0.4, max: 3, step: 0.1, value: 1 },
-    { id: 'a0', label: 'Arista inicial', latex: 'a_0', unit: 'm', min: 0.4, max: 3, step: 0.1, value: 1 },
+    { id: 'L0', label: 'Longitud inicial', latex: 'L_0', unit: 'm', min: 0.5, max: 5, step: 0.1, value: 2, showIf: { modo: 'lineal' } },
+    { id: 's0', label: 'Lado inicial', latex: 's_0', unit: 'm', min: 0.4, max: 3, step: 0.1, value: 1, showIf: { modo: 'superficial' } },
+    { id: 'a0', label: 'Arista inicial', latex: 'a_0', unit: 'm', min: 0.4, max: 3, step: 0.1, value: 1, showIf: { modo: 'volumetrica' } },
     {
       id: 'meta1',
+      showIf: { modo: 'bimetalica' },
       type: 'select',
       label: 'Lámina inferior',
       value: 'acero',
@@ -70,13 +77,14 @@ export default class ThermalExpansion extends SimModule {
     },
     {
       id: 'meta2',
+      showIf: { modo: 'bimetalica' },
       type: 'select',
       label: 'Lámina superior',
       value: 'aluminio',
       options: Object.entries(MATERIALS).map(([v, m]) => ({ value: v, label: m.label }))
     },
-    { id: 'L', label: 'Longitud tira', latex: 'L', unit: 'm', min: 0.05, max: 0.5, step: 0.05, value: 0.2 },
-    { id: 't', label: 'Grosor por lámina', latex: 't', unit: 'mm', min: 0.2, max: 3, step: 0.2, value: 1.5 }
+    { id: 'L', label: 'Longitud tira', latex: 'L', unit: 'm', min: 0.05, max: 0.5, step: 0.05, value: 0.2, showIf: { modo: 'bimetalica' } },
+    { id: 't', label: 'Grosor por lámina', latex: 't', unit: 'mm', min: 0.2, max: 3, step: 0.2, value: 1.5, showIf: { modo: 'bimetalica' } }
   ];
 
   constructor(ctx) {
@@ -141,6 +149,22 @@ export default class ThermalExpansion extends SimModule {
   }
 
   reset() {
+    // Cada modo tiene su propia escala: la barra es larga y estrecha; los
+    // cuadrados y cubos, compactos; la tira bimetálica, diminuta (0,2 m).
+    const modo = this.params.modo;
+    if (modo === 'superficial') {
+      // Dos cuadrados de lado ≤ 1,4·s₀ separados 0,75 de su ancho.
+      const W = this.params.s0 * 1.4 * SURF_SCALE;
+      this.frameWorld(2.6 * W + 1.6, W + 2.8);
+    } else if (modo === 'volumetrica') {
+      const W = this.params.a0 * 1.4 * VOL_SCALE;
+      this.frameWorld(2.8 * W + 1.6, W + 3.2);
+    } else if (modo === 'bimetalica') {
+      const Lv = this.params.L * BIM_SCALE;
+      this.frameWorld(Lv * 1.6, Lv * 1.3);
+    } else {
+      this.frameWorld(24, 16);
+    }
     this.t = 0;
     this.engine?.reset?.();
   }
@@ -290,14 +314,23 @@ export default class ThermalExpansion extends SimModule {
     const dA = 2 * this.alphaOf(this.params.material) * s0 * s0 * this.dT();
     const vis = Math.max(-s0 * 0.4, Math.min(s0 * 0.4, this.alphaOf(this.params.material) * s0 * this.dT() * GAIN));
     const s1 = s0 + vis;
-    const cx = -5;
+    // Los dos cuadrados, lado a lado y centrados en el origen: antes uno
+    // quedaba sobre el otro en el borde izquierdo del encuadre.
+    const S = SURF_SCALE;
+    const w0 = s0 * S;
+    const w1 = s1 * S;
+    const sep = Math.max(w0, w1) * 0.75;
+    const xA = -sep;
+    const xB = sep;
 
-    scene.label(-9.4, 5.9, `Área inicial ${roundTo(s0 * s0, 2)} m²`, { avoid: true, align: 'left', color: 'textDim' });
-    scene.rect(cx - s0 / 2, 3 - s0 / 2, s0, s0, { color: 'textDim', width: 2 });
-    scene.label(-9.4, -2.4, `Área dilatada ${roundTo(s1 * s1, 2)} m²`, { avoid: true, align: 'left', color: 'mass' });
-    scene.rect(cx - s1 / 2, -4 - s1 / 2, s1, s1, { color: 'mass', width: 2 });
+    scene.rect(xA, 0, w0, w0, { color: 'textDim', width: 2 });
+    scene.label(xA, w0 / 2 + 0.35 * S, `Área inicial ${roundTo(s0 * s0, 2)} m²`, { avoid: true, color: 'textDim' });
+    scene.rect(xB, 0, w1, w1, { color: 'mass', width: 2, fill: 'mass', alpha: 0.12 });
+    scene.label(xB, w1 / 2 + 0.35 * S, `Área dilatada ${roundTo(s1 * s1, 2)} m²`, { avoid: true, color: 'mass' });
+    // El cuadrado inicial superpuesto en trazo fino: el crecimiento se ve.
+    scene.rect(xB, 0, w0, w0, { color: 'textDim', width: 1, dash: [4, 4], alpha: 0.8 });
 
-    scene.dimension(cx - s1 / 2, -4 - s1 / 2 - 0.8, cx + s1 / 2, -4 - s1 / 2 - 0.8, `${roundTo(s1, 3)} m`, {
+    scene.dimension(xB - w1 / 2, -w1 / 2 - 0.35 * S, xB + w1 / 2, -w1 / 2 - 0.35 * S, `${roundTo(s1, 3)} m`, {
       color: 'textDim'
     });
 
@@ -343,10 +376,13 @@ export default class ThermalExpansion extends SimModule {
       );
     };
 
-    cube(-6.5, 4.5, a0, 'textDim');
-    scene.label(-6.5, 7.8, 'V₀ = ' + roundTo(a0 * a0 * a0, 2) + ' m³', { avoid: true, color: 'textDim' });
-    cube(4.5, 4.5, a1, 'mass');
-    scene.label(4.5, 7.8, 'Dilatado', { avoid: true, color: 'mass' });
+    // Dos cubos centrados en el origen (antes vivían en la franja superior).
+    const S = VOL_SCALE;
+    const sepV = Math.max(a0, a1) * S * 0.85;
+    cube(-sepV, 0, a0 * S, 'textDim');
+    scene.label(-sepV, (a0 * S) / 2 + 0.6, 'V₀ = ' + roundTo(a0 * a0 * a0, 2) + ' m³', { avoid: true, color: 'textDim' });
+    cube(sepV, 0, a1 * S, 'mass');
+    scene.label(sepV, (a1 * S) / 2 + 0.6, `Dilatado ${roundTo(a1 * a1 * a1, 2)} m³`, { avoid: true, color: 'mass' });
 
     scene.hud.readout(
       [
@@ -368,27 +404,35 @@ export default class ThermalExpansion extends SimModule {
     const yPhys = (L * L * Math.abs(a2 - a1) * Math.abs(dT)) / (2 * tTot);
     const R = tTot / (Math.abs(a2 - a1) * Math.abs(dT) + 1e-12);
     // Deformación visual acotada.
-    const yVis = Math.max(-L * 2.4, Math.min(L * 2.4, yPhys * GAIN_BIM));
-    const yEnd = Math.sign(dT) * (a2 >= a1 ? 1 : -1) * yVis;
-    const Lv = L * 10; // la tira de 0.2 m se dibuja de 2 m.
-    const x0 = -8;
-    const y0 = 4;
+    // Flexión dibujada: acotada a la mitad de la longitud de la tira y a la
+    // misma escala que ella (antes la tira se dibujaba ×10 y la flecha no, de
+    // modo que la curvatura era casi invisible).
+    const yVis = Math.max(-L * 0.5, Math.min(L * 0.5, yPhys * GAIN_BIM));
+    const yEnd = Math.sign(dT) * (a2 >= a1 ? 1 : -1) * yVis * BIM_SCALE;
+    // La tira mide centímetros: se dibuja a escala fija y centrada, no en la
+    // esquina superior izquierda de un encuadre de 24 u.
+    const Lv = L * BIM_SCALE;
+    const x0 = -Lv / 2;
+    // La tira se centra sobre su propia flexión: si el extremo sube 2 u, el
+    // empotramiento baja 1 y el conjunto queda en mitad del encuadre.
+    const y0 = -yEnd / 2;
 
-    scene.label(x0 + Lv / 2, y0 + 2.6, `T − T₀ = ${roundTo(dT, 0)} °C`, { avoid: true, color: 'energy' });
-    scene.chip(x0, y0 - 2.2, `R real ≈ ${R >= 100 ? '∞' : roundTo(R, 2) + ' m'}`, { avoid: true, color: 'textDim' });
+    scene.label(0, y0 + Lv * 0.42, `T − T₀ = ${roundTo(dT, 0)} °C`, { avoid: true, color: 'energy' });
+    scene.chip(0, y0 - Lv * 0.5, `R real ≈ ${R >= 100 ? '∞' : roundTo(R, 2) + ' m'}`, { avoid: true, color: 'textDim' });
 
     // Lámina superior (α mayor, queda fuera al curvar) y lámina inferior:
     // parábola y = y₀ + u²·δ muestreada por la escena.
+    const grosor = Math.max(0.06, Lv * 0.02);
     const lamina = (offsetY) => (u, o) => {
       o.x = x0 + u * Lv;
       o.y = y0 + u * u * yEnd + offsetY;
     };
-    scene.curve(lamina(0.09), 0, 1, { samples: 40, color: 'mass2', width: 8 });
-    scene.curve(lamina(-0.09), 0, 1, { samples: 40, color: 'mass', width: 8 });
-    scene.body(x0, y0, { shape: 'rect', w: 0.5, h: 0.7, color: 'textDim' });
-    scene.label(x0 - 0.5, y0 - 0.8, 'Fijo', { avoid: true, color: 'textDim' });
+    scene.curve(lamina(grosor), 0, 1, { samples: 40, color: 'mass2', width: 8 });
+    scene.curve(lamina(-grosor), 0, 1, { samples: 40, color: 'mass', width: 8 });
+    scene.body(x0, y0, { shape: 'rect', w: Lv * 0.09, h: Lv * 0.13, color: 'textDim' });
+    scene.label(x0 - Lv * 0.09, y0 - Lv * 0.16, 'Fijo', { avoid: true, color: 'textDim' });
 
-    scene.vector(x0 + Lv, y0 + yEnd, 0.5, Math.sign(yEnd) * 0.5, {
+    scene.vector(x0 + Lv, y0 + yEnd, Lv * 0.1, Math.sign(yEnd) * Lv * 0.1, {
       color: 'energy',
       label: `δ ≈ ${roundTo(yPhys * 1000, 2)} mm`,
       labelSide: 1

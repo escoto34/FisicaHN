@@ -62,6 +62,7 @@ export default class SimpleMachines extends SimModule {
     },
     {
       id: 'clase',
+      showIf: { modo: 'palanca' },
       type: 'select',
       label: 'Clase de palanca',
       value: '1',
@@ -73,6 +74,7 @@ export default class SimpleMachines extends SimModule {
     },
     {
       id: 'tipoPolea',
+      showIf: { modo: 'poleas' },
       type: 'select',
       label: 'Sistema de poleas',
       value: 'movil',
@@ -84,6 +86,7 @@ export default class SimpleMachines extends SimModule {
     },
     {
       id: 'dispositivo',
+      showIf: { modo: 'plano-torno' },
       type: 'select',
       label: 'Dispositivo',
       value: 'plano',
@@ -94,12 +97,12 @@ export default class SimpleMachines extends SimModule {
     },
     { id: 'P', label: 'Peso de la carga', latex: 'P', unit: 'N', min: 20, max: 500, step: 10, value: 200 },
     { id: 'F', label: 'Fuerza aplicada', latex: 'F', unit: 'N', min: 0, max: 500, step: 5, value: 100 },
-    { id: 'dCarga', label: 'Brazo de la carga', latex: 'd_c', unit: 'm', min: 0.2, max: 3, step: 0.1, value: 1 },
-    { id: 'dEsfuerzo', label: 'Brazo del esfuerzo', latex: 'd_e', unit: 'm', min: 0.2, max: 3, step: 0.1, value: 2 },
-    { id: 'n', label: 'Cuerdas del polipasto', latex: 'n', min: 2, max: 6, step: 1, value: 4 },
-    { id: 'angulo', label: 'Ángulo del plano', latex: '\\theta', unit: '°', min: 10, max: 60, step: 1, value: 30 },
-    { id: 'R', label: 'Radio de la rueda', latex: 'R', unit: 'm', min: 0.2, max: 1, step: 0.05, value: 0.6 },
-    { id: 'r', label: 'Radio del eje', latex: 'r', unit: 'm', min: 0.05, max: 0.4, step: 0.01, value: 0.15 },
+    { id: 'dCarga', label: 'Brazo de la carga', latex: 'd_c', unit: 'm', min: 0.2, max: 3, step: 0.1, value: 1, showIf: { modo: 'palanca' } },
+    { id: 'dEsfuerzo', label: 'Brazo del esfuerzo', latex: 'd_e', unit: 'm', min: 0.2, max: 3, step: 0.1, value: 2, showIf: { modo: 'palanca' } },
+    { id: 'n', label: 'Cuerdas del polipasto', latex: 'n', min: 2, max: 6, step: 1, value: 4, showIf: { modo: 'poleas', tipoPolea: 'polipasto' } },
+    { id: 'angulo', label: 'Ángulo del plano', latex: '\\theta', unit: '°', min: 10, max: 60, step: 1, value: 30, showIf: { modo: 'plano-torno', dispositivo: 'plano' } },
+    { id: 'R', label: 'Radio de la rueda', latex: 'R', unit: 'm', min: 0.2, max: 1, step: 0.05, value: 0.6, showIf: { modo: 'plano-torno', dispositivo: 'torno' } },
+    { id: 'r', label: 'Radio del eje', latex: 'r', unit: 'm', min: 0.05, max: 0.4, step: 0.01, value: 0.15, showIf: { modo: 'plano-torno', dispositivo: 'torno' } },
     { id: 'eta', label: 'Eficiencia', latex: '\\eta', min: 0.3, max: 1, step: 0.05, value: 0.8 }
   ];
 

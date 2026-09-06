@@ -39,7 +39,7 @@ export default class SpecialRelativity extends SimModule {
       ]
     },
     { id: 'beta', label: 'Velocidad', latex: '\\beta = v/c', min: 0, max: 0.99, step: 0.01, value: 0.6 },
-    { id: 'L0', label: 'Longitud propia', latex: 'L_0', unit: 'ls', min: 1, max: 8, step: 0.5, value: 4 }
+    { id: 'L0', label: 'Longitud propia', latex: 'L_0', unit: 'ls', min: 1, max: 8, step: 0.5, value: 4, showIf: { modo: ['contraccion', 'simultaneidad'] } }
   ];
 
   constructor(ctx) {
@@ -73,6 +73,8 @@ export default class SpecialRelativity extends SimModule {
   }
 
   reset() {
+    const v = this.params.modo === 'dilatacion' ? [15, 9] : this.params.modo === 'simultaneidad' ? [9.5, 6] : [9.5, 8.5];
+    this.frameWorld(v[0], v[1]);
     this.t = 0;
     this.engine?.reset?.();
   }

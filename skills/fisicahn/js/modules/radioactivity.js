@@ -133,6 +133,7 @@ export default class RadioactivityModule extends SimModule {
   }
 
   reset() {
+    this.frameWorld(13, 12);
     this._normalizeParams();
     this.t = 0;
     this._spawn();

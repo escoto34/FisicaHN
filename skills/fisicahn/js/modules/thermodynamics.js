@@ -86,11 +86,12 @@ export default class ThermodynamicsModule extends SimModule {
       ]
     },
     { id: 'n', label: 'Cantidad de gas', latex: 'n', unit: 'mol (sim)', min: 0.5, max: 3, step: 0.1, value: 1 },
-    { id: 'T', label: 'Temperatura base', latex: 'T', unit: 'K', min: 200, max: 500, step: 5, value: 300 },
+    { id: 'T', label: 'Temperatura base', latex: 'T', unit: 'K', min: 200, max: 500, step: 5, value: 300, showIf: { modo: ['isoterma', 'isocora', 'isobara', 'adiabatica'] } },
+    // γ fija C_v = R/(γ−1): interviene en el calor de todos los procesos.
     { id: 'gamma', label: 'Índice adiabático', latex: '\\gamma', min: 1.1, max: 1.67, step: 0.01, value: 1.4 },
-    { id: 'Th', label: 'Foco caliente', latex: 'T_h', unit: 'K', min: 320, max: 600, step: 5, value: 400 },
-    { id: 'Tc', label: 'Foco frío', latex: 'T_c', unit: 'K', min: 200, max: 350, step: 5, value: 280 },
-    { id: 'k', label: 'Difusividad', latex: '\\kappa', min: 0.1, max: 2, step: 0.05, value: 0.8 }
+    { id: 'Th', label: 'Foco caliente', latex: 'T_h', unit: 'K', min: 320, max: 600, step: 5, value: 400, showIf: { modo: ['carnot', 'difusion'] } },
+    { id: 'Tc', label: 'Foco frío', latex: 'T_c', unit: 'K', min: 200, max: 350, step: 5, value: 280, showIf: { modo: ['carnot', 'difusion'] } },
+    { id: 'k', label: 'Difusividad', latex: '\\kappa', min: 0.1, max: 2, step: 0.05, value: 0.8, showIf: { modo: 'difusion' } }
   ];
 
   constructor(ctx) {
@@ -156,6 +157,9 @@ export default class ThermodynamicsModule extends SimModule {
   }
 
   reset() {
+    // El cilindro es alto y estrecho; la barra de difusión, ancha y baja.
+    if (this.params.modo === 'difusion') this.frameWorld(18, 7);
+    else this.frameWorld(10.5, 12);
     this.t = 0;
     this.phase = 0;
     this.W = 0;
@@ -429,6 +433,11 @@ export default class ThermodynamicsModule extends SimModule {
     else this._drawGas(scene);
   }
 
+  /** Partículas visibles del gas, proporcionales a la cantidad de sustancia. */
+  _particleCount() {
+    return Math.max(4, Math.min(N_PART, Math.round((N_PART * this.params.n) / 3)));
+  }
+
   /** Color de temperatura entre los tokens frío (`field`) y caliente (`force`). */
   _tempColor(scene, T) {
     const u = clamp((T - T_COLD_REF) / (T_HOT_REF - T_COLD_REF), 0, 1);
@@ -449,10 +458,13 @@ export default class ThermodynamicsModule extends SimModule {
 
     // Gas: tono según T; partículas más rápidas cuanto más caliente.
     scene.rect(0, BASE_Y + h / 2, 2 * HW, h, { fill: this._tempColor(scene, this.T), stroke: false, alpha: 0.28 });
-    for (let i = 0; i < N_PART; i++) {
+    // Partículas dibujadas ∝ n: la cantidad de gas se ve dentro del cilindro,
+    // no sólo en la presión del panel de datos.
+    const nPart = this._particleCount();
+    for (let i = 0; i < nPart; i++) {
       scene.circle(this._px[i], this._py[i], 0.09, { fill: 'text', color: 'text', stroke: false, alpha: 0.75 });
     }
-    scene.chip(0, BASE_Y + h / 2, `T = ${roundTo(this.T, 0)} K`, { color: 'text', avoid: true });
+    scene.chip(0, BASE_Y + h / 2, `T = ${roundTo(this.T, 0)} K · n = ${roundTo(p.n, 1)} mol`, { color: 'text', avoid: true });
 
     // Pistón y vástago.
     scene.rect(0, pistonY, 2 * HW + 0.2, 0.4, { fill: 'spring', color: 'spring', width: 1.5 });

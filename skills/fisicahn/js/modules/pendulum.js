@@ -35,18 +35,18 @@ export default class Pendulum extends SimModule {
         { value: 'doble', label: 'Doble péndulo' }
       ]
     },
-    { id: 'L', label: 'Longitud', latex: 'L', unit: 'm', min: 0.5, max: 4, step: 0.1, value: 2.5 },
-    { id: 'th0', label: 'Ángulo inicial', latex: '\\theta_0', unit: '°', min: 5, max: 170, step: 5, value: 60 },
-    { id: 'm', label: 'Masa', latex: 'm', unit: 'kg', min: 0.2, max: 5, step: 0.2, value: 1 },
-    { id: 'roce', label: 'Coef. de roce', latex: '\\gamma', min: 0, max: 0.8, step: 0.05, value: 0 },
-    { id: 'lineal', type: 'checkbox', label: 'Superponer aproximación lineal', value: true },
-    { id: 'l1', label: 'Largo varilla 1', latex: 'l_1', unit: 'm', min: 0.5, max: 4, step: 0.1, value: 2 },
-    { id: 'l2', label: 'Largo varilla 2', latex: 'l_2', unit: 'm', min: 0.5, max: 4, step: 0.1, value: 2 },
-    { id: 'm1', label: 'Masa 1', latex: 'm_1', unit: 'kg', min: 0.2, max: 5, step: 0.2, value: 1 },
-    { id: 'm2', label: 'Masa 2', latex: 'm_2', unit: 'kg', min: 0.2, max: 5, step: 0.2, value: 1 },
-    { id: 'th1', label: 'θ₁ inicial', latex: '\\theta_1', unit: '°', min: 5, max: 170, step: 5, value: 90 },
-    { id: 'th2', label: 'θ₂ inicial', latex: '\\theta_2', unit: '°', min: -170, max: 170, step: 5, value: -90 },
-    { id: 'eps', label: 'Perturbación ε', latex: '\\varepsilon', unit: 'μrad', min: 0, max: 500, step: 10, value: 0 }
+    { id: 'L', label: 'Longitud', latex: 'L', unit: 'm', min: 0.5, max: 4, step: 0.1, value: 2.5, showIf: { modo: 'simple' } },
+    { id: 'th0', label: 'Ángulo inicial', latex: '\\theta_0', unit: '°', min: 5, max: 170, step: 5, value: 60, showIf: { modo: 'simple' } },
+    { id: 'm', label: 'Masa', latex: 'm', unit: 'kg', min: 0.2, max: 5, step: 0.2, value: 1, showIf: { modo: 'simple' } },
+    { id: 'roce', label: 'Coef. de roce', latex: '\\gamma', min: 0, max: 0.8, step: 0.05, value: 0, showIf: { modo: 'simple' } },
+    { id: 'lineal', type: 'checkbox', label: 'Superponer aproximación lineal', value: true, showIf: { modo: 'simple' } },
+    { id: 'l1', label: 'Largo varilla 1', latex: 'l_1', unit: 'm', min: 0.5, max: 4, step: 0.1, value: 2, showIf: { modo: 'doble' } },
+    { id: 'l2', label: 'Largo varilla 2', latex: 'l_2', unit: 'm', min: 0.5, max: 4, step: 0.1, value: 2, showIf: { modo: 'doble' } },
+    { id: 'm1', label: 'Masa 1', latex: 'm_1', unit: 'kg', min: 0.2, max: 5, step: 0.2, value: 1, showIf: { modo: 'doble' } },
+    { id: 'm2', label: 'Masa 2', latex: 'm_2', unit: 'kg', min: 0.2, max: 5, step: 0.2, value: 1, showIf: { modo: 'doble' } },
+    { id: 'th1', label: 'θ₁ inicial', latex: '\\theta_1', unit: '°', min: 5, max: 170, step: 5, value: 90, showIf: { modo: 'doble' } },
+    { id: 'th2', label: 'θ₂ inicial', latex: '\\theta_2', unit: '°', min: -170, max: 170, step: 5, value: -90, showIf: { modo: 'doble' } },
+    { id: 'eps', label: 'Perturbación ε', latex: '\\varepsilon', unit: 'μrad', min: 0, max: 500, step: 10, value: 0, showIf: { modo: 'doble' } }
   ];
 
   constructor(ctx) {
@@ -67,6 +67,8 @@ export default class Pendulum extends SimModule {
       eps: 0
     };
     /** Pivote del péndulo en el mundo (ambos modos). Centrado en el origen por la regla §17.1. */
+    // El pivote se sube en `reset()` a la mitad de la longitud: el péndulo
+    // cuelga hacia abajo y así el conjunto queda centrado en el encuadre.
     this.pivot = { x: 0, y: 0 };
     this.t = 0;
     // Simple: θ, ω, periodo medido, historia de cruces.
@@ -128,6 +130,12 @@ export default class Pendulum extends SimModule {
   }
 
   reset() {
+    // Encuadre a la medida del péndulo: el 24 × 16 heredado lo dejaba del
+    // tamaño de una moneda en mitad del lienzo.
+    const largo = this.params.modo === 'doble' ? this.params.l1 + this.params.l2 : this.params.L;
+    this.frameWorld(Math.max(8, largo * 2.6), Math.max(7, largo * 2.4 + 2));
+    this.pivot.x = 0;
+    this.pivot.y = largo * 0.55;
     this.t = 0;
     this.Tmeasured = 0;
     this._lastCross = 0;

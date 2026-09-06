@@ -25,6 +25,8 @@ panel de datos.
 | `render(ctx, alpha, elapsed)` | Cada frame | Puente actual; en WAVE 2 pasa a `draw(scene)` |
 | `draw(scene)` | Cada frame (futuro) | API declarativa de WAVE 2 |
 | `readout()` | ~10 Hz (host) | Datos numéricos `{value, unit}`, reemplaza `updateData()` |
+| `frameWorld(w, h)` | En `reset()` | Reencuadra el mundo visible: modos con escalas muy distintas (tanque vs. tubo, péndulo de 0,5 m vs. de 3 m) llenan el lienzo en vez de quedar diminutos |
+| `syncParams()` | Tras mutar `this.params` | Vuelca al panel los valores que cambió el propio módulo (arrastrar el satélite cambia r₀) |
 | `getState()` / `setState(s)` | Guardar/restaurar trabajo | JSON serializable |
 | `destroy()` | Al salir del módulo | Libera la instancia |
 
@@ -57,10 +59,11 @@ detrás.
 | `camera.js` | Escala **isotrópica** (adiós al mundo deformado en pantalla ancha), zoom anclado al cursor, pan, `follow()` interpolado, viewports rectangulares |
 | `layers.js` | Capas `background` / `world` / `hud` con invalidación independiente; la rejilla pasa de ~68 operaciones por frame a 0 en régimen estacionario |
 | `scene.js` | API declarativa: `scene.body(…)`, `scene.vector(…)`, `scene.hud.plot(…)`. Oculta el backend, lo que permite exportar a SVG |
+| `scene.vector(…, { avoidLabel: true })` | La etiqueta del vector pasa por el registro anticolisión de §13.1: cuatro fuerzas sobre el mismo cuerpo dejan de pisarse |
 | `scene.arrowMark(x, y, ángulo)` | Punta de flecha suelta sobre un punto del mundo: marca el sentido de una curva ya trazada (líneas de campo, corrientes) sin dibujar un vector entero |
 | `theme.js` | Tokens de color + perfiles `dark` / `light` / `projector` / `colorSafe` |
 | `interaction.js` | Rueda, pellizco, pan, picking y arrastre de objetos; `MeasureTools` reutilizable |
-| `params-schema.js` | Panel construido desde `static params` |
+| `params-schema.js` | Panel construido desde `static params`, con `showIf` para ocultar los controles que no aplican al modo activo |
 | `scene-export.js` | PNG del lienzo y SVG vectorial (grabador del contexto 2D) |
 | `compare.js` | Comparación lado a lado: dos instancias, dos viewports, un solo bucle |
 

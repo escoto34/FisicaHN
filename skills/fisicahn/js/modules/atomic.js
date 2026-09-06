@@ -83,7 +83,7 @@ export default class AtomicModule extends SimModule {
     { id: 'n', label: 'Nivel inicial', latex: 'n_i', min: 1, max: N_MAX, step: 1, value: 3 },
     { id: 'nf', label: 'Nivel final', latex: 'n_f', min: 1, max: N_MAX, step: 1, value: 2 },
     { id: 'Z', label: 'Carga nuclear', latex: 'Z', min: 1, max: 3, step: 1, value: 1 },
-    { id: 'showPhoton', type: 'checkbox', label: 'Mostrar fotón en los saltos', value: true }
+    { id: 'showPhoton', type: 'checkbox', label: 'Mostrar fotón en los saltos', value: true, showIf: { modo: ['orbitas', 'niveles'] } }
   ];
 
   constructor(ctx) {

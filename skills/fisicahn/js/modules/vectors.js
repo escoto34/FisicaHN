@@ -33,12 +33,12 @@ export default class VectorsModule extends SimModule {
         { value: 'componentes', label: 'Descomposición' }
       ]
     },
-    { id: 'ax', label: 'A_x', latex: 'A_x', unit: 'u', min: -6, max: 6, step: 0.1, value: 4 },
-    { id: 'ay', label: 'A_y', latex: 'A_y', unit: 'u', min: -6, max: 6, step: 0.1, value: 3 },
-    { id: 'bx', label: 'B_x', latex: 'B_x', unit: 'u', min: -6, max: 6, step: 0.1, value: -2 },
-    { id: 'by', label: 'B_y', latex: 'B_y', unit: 'u', min: -6, max: 6, step: 0.1, value: 4 },
-    { id: 'mag', label: 'Magnitud', latex: '|v|', unit: 'u', min: 0.5, max: 10, step: 0.1, value: 5 },
-    { id: 'ang', label: 'Ángulo', latex: '\\theta', unit: '°', min: 0, max: 360, step: 1, value: 53 }
+    { id: 'ax', label: 'A_x', latex: 'A_x', unit: 'u', min: -6, max: 6, step: 0.1, value: 4, showIf: { modo: 'suma' } },
+    { id: 'ay', label: 'A_y', latex: 'A_y', unit: 'u', min: -6, max: 6, step: 0.1, value: 3, showIf: { modo: 'suma' } },
+    { id: 'bx', label: 'B_x', latex: 'B_x', unit: 'u', min: -6, max: 6, step: 0.1, value: -2, showIf: { modo: 'suma' } },
+    { id: 'by', label: 'B_y', latex: 'B_y', unit: 'u', min: -6, max: 6, step: 0.1, value: 4, showIf: { modo: 'suma' } },
+    { id: 'mag', label: 'Magnitud', latex: '|v|', unit: 'u', min: 0.5, max: 10, step: 0.1, value: 5, showIf: { modo: 'componentes' } },
+    { id: 'ang', label: 'Ángulo', latex: '\\theta', unit: '°', min: 0, max: 360, step: 1, value: 53, showIf: { modo: 'componentes' } }
   ];
 
   constructor(ctx) {

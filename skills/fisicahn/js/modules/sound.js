@@ -15,6 +15,19 @@ import { SimModule } from '../core/sim-module.js';
 import { TrailBuffer } from '../core/trail-buffer.js';
 import { roundTo } from '../utils/math-helpers.js';
 
+/** Radio máximo dibujado de un frente de onda (u de mundo). */
+const WAVE_MAX_R = 16;
+/**
+ * Divisor de la velocidad del sonido para dibujarla (u de mundo por segundo).
+ *
+ * El sonido real avanza 343 m/s frente a los 6 m/s como mucho de la fuente:
+ * a escala verdadera los frentes serían circunferencias concéntricas sin
+ * asimetría visible. El dibujo comprime la velocidad de la onda (no la de la
+ * fuente) para que el apiñamiento delantero —el fenómeno que se estudia— se
+ * vea. Los números del panel siguen calculados con v real.
+ */
+const WAVE_DRAW_DIV = 50;
+
 const I0 = 1e-12; // umbral de audición, W/m²
 
 export default class SoundWaves extends SimModule {
@@ -31,11 +44,11 @@ export default class SoundWaves extends SimModule {
         { value: 'intensidad', label: 'Intensidad y dB' }
       ]
     },
-    { id: 'tempC', label: 'Temperatura del aire', latex: 'T', unit: '°C', min: -10, max: 40, step: 1, value: 20 },
-    { id: 'f', label: 'Frecuencia (demo)', latex: 'f', unit: 'Hz', min: 0.5, max: 5, step: 0.1, value: 2 },
-    { id: 'vSource', label: 'Velocidad de la fuente', latex: 'v_s', unit: 'm/s', min: -6, max: 6, step: 0.2, value: 2 },
-    { id: 'P', label: 'Potencia de la fuente', latex: 'P', unit: 'mW', min: 0.1, max: 5000, step: 10, value: 100 },
-    { id: 'r', label: 'Distancia', latex: 'r', unit: 'm', min: 0.2, max: 14, step: 0.1, value: 1 }
+    { id: 'tempC', label: 'Temperatura del aire', latex: 'T', unit: '°C', min: -10, max: 40, step: 1, value: 20, showIf: { modo: 'doppler' } },
+    { id: 'f', label: 'Frecuencia (demo)', latex: 'f', unit: 'Hz', min: 0.5, max: 5, step: 0.1, value: 2, showIf: { modo: 'doppler' } },
+    { id: 'vSource', label: 'Velocidad de la fuente', latex: 'v_s', unit: 'm/s', min: -6, max: 6, step: 0.2, value: 2, showIf: { modo: 'doppler' } },
+    { id: 'P', label: 'Potencia de la fuente', latex: 'P', unit: 'mW', min: 0.1, max: 5000, step: 10, value: 100, showIf: { modo: 'intensidad' } },
+    { id: 'r', label: 'Distancia', latex: 'r', unit: 'm', min: 0.2, max: 14, step: 0.1, value: 1, showIf: { modo: 'intensidad' } }
   ];
 
   constructor(ctx) {
@@ -123,7 +136,7 @@ export default class SoundWaves extends SimModule {
 
     const v = this.soundSpeed();
     this.waves.forEach((w) => {
-      w.r = (this.t - w.born) * v * 0.15;
+      w.r = ((this.t - w.born) * v) / WAVE_DRAW_DIV;
     });
   }
 
@@ -173,12 +186,22 @@ export default class SoundWaves extends SimModule {
   }
 
   _drawDoppler(scene) {
-    // Frentes emitidos por la fuente en movimiento.
-    this.waves.forEach((w) => scene.wavefront(w.x, 0, w.r, { color: 'field', maxR: 16 }));
+    // Frentes emitidos por la fuente en movimiento. Los que ya pasaron el
+    // borde del encuadre se dejan de dibujar: el radio crece a ~51 u/s y el
+    // anillo guarda 40 frentes, así que los más viejos llegaban a medir
+    // cientos de unidades (círculos gigantes que atravesaban toda la escena).
+    this.waves.forEach((w) => {
+      if (w.r > 0.02 && w.r <= WAVE_MAX_R) scene.wavefront(w.x, 0, w.r, { color: 'field', maxR: WAVE_MAX_R });
+    });
     scene.body(this.sourceX, 0, { shape: 'triangle', r: 0.5, color: 'force', label: 'fuente', labelColor: 'force' });
     scene.body(6, 0, { shape: 'circle', r: 0.4, color: 'mass', label: 'observador', labelColor: 'mass' });
 
     scene.hud.chip('Fuente móvil: frentes comprimidos delante', 'top-left');
+    scene.hud.chip(
+      `Escala del dibujo: onda a ${roundTo(this.soundSpeed() / WAVE_DRAW_DIV, 1)} u/s (v real = ${roundTo(this.soundSpeed(), 0)} m/s)`,
+      'top-left',
+      { color: 'textDim' }
+    );
     scene.hud.readout(
       [
         { label: 'v sonido', value: roundTo(this.soundSpeed(), 1), unit: 'm/s' },

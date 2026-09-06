@@ -49,6 +49,37 @@ export function normalizeSchema(schema) {
 }
 
 /**
+ * ¿Debe verse este control con los valores actuales?
+ *
+ * `showIf` declara la rama del esquema en la que el parámetro tiene sentido:
+ *
+ * ```js
+ * { id:'A1', label:'Sección ancha', showIf: { modo: 'bernoulli' } }
+ * { id:'eta', label:'Rendimiento',  showIf: { modo: ['palanca', 'poleas'] } }
+ * ```
+ *
+ * Todas las claves deben cumplirse. Un control que no se cumple **sigue en el
+ * DOM y en `values`** (así el enlace, `syncSchema` y los escenarios guiados no
+ * cambian): sólo se oculta. Es la corrección de los «deslizadores muertos»:
+ * mover «Sección ancha» en el modo Arquímedes no cambiaba nada porque ese
+ * parámetro no pertenece a ese modo.
+ *
+ * @param {object} p
+ * @param {Object<string, *>} values
+ * @returns {boolean}
+ */
+export function paramVisible(p, values = {}) {
+  const cond = p && p.showIf;
+  if (!cond || typeof cond !== 'object') return true;
+  for (const [id, expected] of Object.entries(cond)) {
+    const v = values[id];
+    const ok = Array.isArray(expected) ? expected.some((e) => e === v) : expected === v;
+    if (!ok) return false;
+  }
+  return true;
+}
+
+/**
  * Valores iniciales del esquema, listos para `this.params`.
  * @param {Array|object} schema
  * @returns {Object<string, number|string|boolean>}
@@ -67,9 +98,12 @@ export function defaultValues(schema) {
  * panel siga viéndose igual sin tocar la hoja de estilos.
  * @param {object} p
  * @param {*} value
+ * @param {boolean} [visible=true] - `false` añade `hidden` (ver `showIf`).
  */
-function controlHtml(p, value) {
+function controlHtml(p, value, visible = true) {
   const type = p.type || 'range';
+  // Oculto (no borrado): el control sigue enlazado y `syncSchema` lo alcanza.
+  const hide = visible ? '' : ' hidden';
   // `$…$` activa el typeset de KaTeX que ya hace `ui.setParams`.
   const labelText = p.latex ? `$${p.latex}$${p.label ? ' ' + escapeHtml(p.label) : ''}` : escapeHtml(p.label || p.id);
   const unit = p.unit ? ` <span class="param-unit">${escapeHtml(p.unit)}</span>` : '';
@@ -83,13 +117,13 @@ function controlHtml(p, value) {
         return `<option value="${escapeHtml(v)}"${v === value ? ' selected' : ''}>${escapeHtml(l)}</option>`;
       })
       .join('');
-    return `<div class="control-group param-control" data-param="${p.id}">${label}
+    return `<div class="control-group param-control" data-param="${p.id}"${hide}>${label}
       <select id="param_${p.id}" class="custom-select">${options}</select>
     </div>`;
   }
 
   if (type === 'checkbox') {
-    return `<div class="control-group param-control param-check" data-param="${p.id}">
+    return `<div class="control-group param-control param-check" data-param="${p.id}"${hide}>
       <label class="control-label checkbox-label" for="param_${p.id}">
         <input type="checkbox" id="param_${p.id}"${value ? ' checked' : ''}> ${labelText}${unit}
       </label>
@@ -97,7 +131,7 @@ function controlHtml(p, value) {
   }
 
   if (type === 'button') {
-    return `<div class="control-group param-control" data-param="${p.id}">
+    return `<div class="control-group param-control" data-param="${p.id}"${hide}>
       <button type="button" class="ctrl-btn" id="param_${p.id}">${escapeHtml(p.label || p.id)}</button>
     </div>`;
   }
@@ -105,7 +139,7 @@ function controlHtml(p, value) {
   const min = p.min ?? 0;
   const max = p.max ?? 1;
   const step = p.step ?? 0.1;
-  return `<div class="control-group param-control" data-param="${p.id}">${label}
+  return `<div class="control-group param-control" data-param="${p.id}"${hide}>${label}
     <div class="param-row">
       <input type="range" class="custom-slider" id="param_${p.id}"
         min="${min}" max="${max}" step="${step}" value="${value}">
@@ -124,8 +158,23 @@ function controlHtml(p, value) {
  */
 export function renderSchemaHtml(schema, values = {}) {
   return normalizeSchema(schema)
-    .map((p) => controlHtml(p, values[p.id] ?? p.value ?? p.min ?? 0))
+    .map((p) => controlHtml(p, values[p.id] ?? p.value ?? p.min ?? 0, paramVisible(p, values)))
     .join('\n');
+}
+
+/**
+ * Muestra u oculta cada control según su `showIf` y los valores actuales.
+ * Se llama tras construir el panel y después de cada cambio de parámetro.
+ * @param {ParentNode} root
+ * @param {Array|object} schema
+ * @param {Object<string, *>} values
+ */
+export function applyVisibility(root, schema, values) {
+  if (!root) return;
+  for (const p of normalizeSchema(schema)) {
+    const el = root.querySelector(`.param-control[data-param="${CSS.escape(p.id)}"]`);
+    if (el) el.hidden = !paramVisible(p, values);
+  }
 }
 
 /**
@@ -220,6 +269,7 @@ export function bindSchema(root, schema, values, onChange = () => {}) {
  */
 export function syncSchema(root, schema, values) {
   if (!root) return;
+  applyVisibility(root, schema, values);
   for (const p of normalizeSchema(schema)) {
     const v = values[p.id];
     if (v === undefined) continue;

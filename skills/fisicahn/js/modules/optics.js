@@ -63,6 +63,16 @@ export default class OpticsModule extends SimModule {
 
   static params = [
     {
+      id: 'superficie',
+      type: 'select',
+      label: 'Superficie',
+      value: 'interfaz',
+      options: [
+        { value: 'interfaz', label: 'Interfaz entre dos medios (refracta)' },
+        { value: 'espejo', label: 'Espejo plano (sólo refleja)' }
+      ]
+    },
+    {
       id: 'preset',
       type: 'select',
       label: 'Par de medios',
@@ -70,16 +80,17 @@ export default class OpticsModule extends SimModule {
       options: [
         { value: 'manual', label: 'Manual (deslizadores)' },
         ...Object.entries(PRESETS).map(([value, p]) => ({ value, label: p.label }))
-      ]
+      ],
+      showIf: { superficie: 'interfaz' }
     },
-    { id: 'angle', label: 'Ángulo de incidencia', latex: '\\theta_1', unit: '°', min: 0, max: 89, step: 1, value: 40 },
-    { id: 'n1', label: 'Índice del medio 1 (arriba)', latex: 'n_1', min: 1, max: 2.5, step: 0.01, value: 1.0 },
-    { id: 'n2', label: 'Índice del medio 2 (abajo)', latex: 'n_2', min: 1, max: 2.5, step: 0.01, value: 1.33 }
+    { id: 'angle', label: 'Ángulo de incidencia', latex: '\\theta_1', unit: '°', min: 0, max: 89, step: 1, value: 40, showIf: { preset: 'manual' } },
+    { id: 'n1', label: 'Índice del medio 1 (arriba)', latex: 'n_1', min: 1, max: 2.5, step: 0.01, value: 1.0, showIf: { preset: 'manual' } },
+    { id: 'n2', label: 'Índice del medio 2 (abajo)', latex: 'n_2', min: 1, max: 2.5, step: 0.01, value: 1.33, showIf: { superficie: 'interfaz', preset: 'manual' } }
   ];
 
   constructor(ctx) {
     super(ctx);
-    this.params = { preset: 'manual', angle: 40, n1: 1.0, n2: 1.33 };
+    this.params = { superficie: 'interfaz', preset: 'manual', angle: 40, n1: 1.0, n2: 1.33 };
     this.t = 0;
     /** Resultado de Snell para el estado actual (se reescribe, no se re-crea). */
     this.o = {
@@ -87,6 +98,7 @@ export default class OpticsModule extends SimModule {
       theta2: null,
       n1: 1,
       n2: 1.33,
+      mirror: false,
       isTIR: false,
       critical: null,
       sinLeft: 0,
@@ -143,15 +155,24 @@ export default class OpticsModule extends SimModule {
 
   reset() {
     this.t = 0;
+    // Los pares de medios no tienen sentido sobre un espejo opaco: el modo
+    // espejo trabaja siempre con el ángulo del deslizador.
+    if (this.params.superficie === 'espejo' && this.params.preset !== 'manual') {
+      this.params.preset = 'manual';
+      this.syncParams();
+    }
     this._recompute();
     this.engine?.reset?.();
   }
 
   /** Valores efectivos: el par de medios elegido manda sobre los deslizadores. */
   effective() {
+    if (this.params.superficie === 'espejo') {
+      return { angle: this.params.angle, n1: this.params.n1, n2: this.params.n1, mirror: true };
+    }
     const p = PRESETS[this.params.preset];
-    if (p) return { angle: p.angle, n1: p.n1, n2: p.n2 };
-    return { angle: this.params.angle, n1: this.params.n1, n2: this.params.n2 };
+    if (p) return { angle: p.angle, n1: p.n1, n2: p.n2, mirror: false };
+    return { angle: this.params.angle, n1: this.params.n1, n2: this.params.n2, mirror: false };
   }
 
   /** Snell para el estado actual; escribe en `this.o` sin allocar. */
@@ -161,6 +182,18 @@ export default class OpticsModule extends SimModule {
     o.theta1 = clamp(e.angle, 0, 89.5);
     o.n1 = Math.max(1, e.n1);
     o.n2 = Math.max(1, e.n2);
+    o.mirror = !!e.mirror;
+    if (o.mirror) {
+      // Espejo: superficie opaca, toda la luz vuelve al medio 1.
+      o.critical = null;
+      o.isTIR = false;
+      o.theta2 = null;
+      o.sinLeft = o.n1 * Math.sin(toRad(o.theta1));
+      o.sinRight = null;
+      this.curve = [];
+      this._curveKey = 'espejo';
+      return;
+    }
     o.critical = o.n1 > o.n2 ? toDeg(Math.asin(o.n2 / o.n1)) : null;
     const sin2 = (o.n1 / o.n2) * Math.sin(toRad(o.theta1));
     o.sinLeft = o.n1 * Math.sin(toRad(o.theta1));
@@ -206,34 +239,42 @@ export default class OpticsModule extends SimModule {
     const th1 = toRad(o.theta1);
 
     // —— Medios: dos bandas cuya opacidad crece con n (más denso, más oscuro).
-    const tint = (n) => 0.05 + 0.07 * clamp((n - 1) / 1.5, 0, 1);
+    const tint = (n) => 0.08 + 0.12 * clamp((n - 1) / 1.5, 0, 1);
     scene.rect((b.left + b.right) / 2, b.top / 2, b.right - b.left, b.top, {
       fill: 'rayAlt',
       stroke: false,
       alpha: tint(o.n1)
     });
-    scene.rect((b.left + b.right) / 2, b.bottom / 2, b.right - b.left, -b.bottom, {
-      fill: 'field',
-      stroke: false,
-      alpha: tint(o.n2)
-    });
-    scene.label(b.left + 0.4, 0.55, `Medio 1 · ${materialLabel(o.n1)} · n₁ = ${roundTo(o.n1, 2)}`, {
+    if (!o.mirror) {
+      scene.rect((b.left + b.right) / 2, b.bottom / 2, b.right - b.left, -b.bottom, {
+        fill: 'field',
+        stroke: false,
+        alpha: tint(o.n2)
+      });
+    }
+    scene.label(b.left + 0.4, 0.75, `Medio 1 · ${materialLabel(o.n1)} · n₁ = ${roundTo(o.n1, 2)}`, {
       align: 'left',
       baseline: 'bottom',
       color: 'rayAlt',
       weight: '600',
       avoid: true
     });
-    scene.label(b.left + 0.4, -0.55, `Medio 2 · ${materialLabel(o.n2)} · n₂ = ${roundTo(o.n2, 2)}`, {
-      align: 'left',
-      baseline: 'top',
-      color: 'field',
-      weight: '600',
-      avoid: true
-    });
+    if (!o.mirror) {
+      scene.label(b.left + 0.4, -0.75, `Medio 2 · ${materialLabel(o.n2)} · n₂ = ${roundTo(o.n2, 2)}`, {
+        align: 'left',
+        baseline: 'top',
+        color: 'field',
+        weight: '600',
+        avoid: true
+      });
+    }
 
-    // —— Interfaz y normal.
-    scene.line(b.left, 0, b.right, 0, { color: 'text', width: 2, alpha: 0.6 });
+    // —— La superficie donde ocurre todo: se dibuja como un cuerpo con
+    //    espesor, no como una raya. Antes era una única línea fina y no se
+    //    veía «sobre qué» rebotaba el rayo.
+    this._drawSurface(scene, b, o);
+
+    // —— Normal.
     scene.line(0, -3.2, 0, 3.2, { color: 'textDim', width: 1.5, dash: [5, 5] });
     scene.label(0.2, 3.25, 'normal', { align: 'left', baseline: 'bottom', color: 'textDim', size: 11, avoid: true });
 
@@ -246,14 +287,15 @@ export default class OpticsModule extends SimModule {
     scene.vector(-sx, cy, sx, -cy, { color: 'ray', width: 3 });
     // Reflejado: espejo respecto a la normal. En RTI se lleva toda la luz (trazo
     // continuo); si hay refracción, va discontinuo y más tenue.
+    const totalReflection = o.isTIR || o.mirror;
     scene.vector(0, 0, sx, cy, {
       color: o.isTIR ? 'danger' : 'warn',
-      width: o.isTIR ? 3 : 2.2,
-      dash: o.isTIR ? undefined : [7, 5],
-      alpha: o.isTIR ? 1 : 0.8
+      width: totalReflection ? 3 : 2.2,
+      dash: totalReflection ? undefined : [7, 5],
+      alpha: totalReflection ? 1 : 0.8
     });
-    // Refractado: sólo si Snell tiene solución.
-    if (!o.isTIR) {
+    // Refractado: sólo si Snell tiene solución (en el espejo no hay).
+    if (!o.isTIR && !o.mirror) {
       const th2 = toRad(o.theta2);
       scene.vector(0, 0, RAY_LEN * Math.sin(th2), -RAY_LEN * Math.cos(th2), { color: 'rayAlt', width: 3 });
     }
@@ -267,7 +309,7 @@ export default class OpticsModule extends SimModule {
       this._angleMark(scene, Math.PI / 2, Math.PI / 2 + th1, 1.25, `θ₁ = ${roundTo(o.theta1, 0)}°`, 'ray');
       this._angleMark(scene, Math.PI / 2 - th1, Math.PI / 2, 1.75, `θr = ${roundTo(o.theta1, 0)}°`, o.isTIR ? 'danger' : 'warn');
     }
-    if (!o.isTIR && o.theta2 > 0.5) {
+    if (!o.isTIR && !o.mirror && o.theta2 > 0.5) {
       const th2 = toRad(o.theta2);
       this._angleMark(scene, -Math.PI / 2, -Math.PI / 2 + th2, 1.25, `θ₂ = ${roundTo(o.theta2, 1)}°`, 'rayAlt');
     }
@@ -286,12 +328,17 @@ export default class OpticsModule extends SimModule {
     // —— HUD.
     const hud = scene.hud;
     hud.chip(
-      o.isTIR ? 'Reflexión total interna: el rayo no sale' : `Refracta · θ₂ = ${roundTo(o.theta2, 1)}°`,
+      o.mirror
+        ? `Espejo: toda la luz vuelve · θr = θ₁ = ${roundTo(o.theta1, 0)}°`
+        : o.isTIR
+          ? 'Reflexión total interna: el rayo no sale'
+          : `Refracta · θ₂ = ${roundTo(o.theta2, 1)}°`,
       'top-left',
-      { color: o.isTIR ? 'danger' : 'ok' }
+      { color: o.isTIR || o.mirror ? 'danger' : 'ok' }
     );
-    const preset = PRESETS[this.params.preset];
-    if (preset) hud.chip(`Par de medios: ${preset.label}`, 'top-left');
+    const preset = o.mirror ? null : PRESETS[this.params.preset];
+    if (o.mirror) hud.chip('La superficie opaca no deja pasar el rayo refractado', 'top-left', { color: 'textDim' });
+    else if (preset) hud.chip(`Par de medios: ${preset.label}`, 'top-left');
     else if (o.critical == null) hud.chip('n₁ ≤ n₂: siempre hay refracción', 'top-left', { color: 'textDim' });
     else hud.chip(`Por encima de θc = ${roundTo(o.critical, 1)}° hay reflexión total`, 'top-left', { color: 'textDim' });
 
@@ -307,8 +354,13 @@ export default class OpticsModule extends SimModule {
     hud.legend(
       [
         { color: 'ray', label: 'Incidente', dash: [] },
-        { color: o.isTIR ? 'danger' : 'warn', label: o.isTIR ? 'Reflejado (total)' : 'Reflejado', dash: o.isTIR ? [] : [6, 4] },
-        ...(o.isTIR ? [] : [{ color: 'rayAlt', label: 'Refractado', dash: [] }])
+        {
+          color: o.isTIR ? 'danger' : 'warn',
+          label: o.isTIR ? 'Reflejado (total)' : o.mirror ? 'Reflejado en el espejo' : 'Reflejado',
+          dash: o.isTIR || o.mirror ? [] : [6, 4]
+        },
+        ...(o.isTIR || o.mirror ? [] : [{ color: 'rayAlt', label: 'Refractado', dash: [] }]),
+        { color: 'text', label: o.mirror ? 'Espejo (superficie opaca)' : 'Superficie de separación' }
       ],
       'bottom-right'
     );
@@ -324,6 +376,72 @@ export default class OpticsModule extends SimModule {
         { title: 'θ₂ frente a θ₁ (grados)', series, xRange: [0, 90], yRange: [0, 90] }
       );
     }
+  }
+
+  /**
+   * Dibuja la superficie sobre la que incide el rayo.
+   *
+   * - Espejo: banda metálica con el rayado del respaldo (símbolo de libro) y
+   *   brillo especular en el punto de impacto. Se ve que la luz rebota en una
+   *   pieza sólida y opaca.
+   * - Interfaz: banda de transición entre los dos medios, con textura propia
+   *   del segundo medio — ondas si es un líquido, rayado si es un sólido — y
+   *   un destello en el punto de impacto.
+   *
+   * @param {object} scene @param {{left:number,right:number}} b @param {object} o
+   */
+  _drawSurface(scene, b, o) {
+    const left = b.left;
+    const right = b.right;
+    if (o.mirror) {
+      const th = 0.55; // espesor del espejo
+      // Cuerpo del espejo + cara reflectante + rayado del respaldo.
+      scene.rect((left + right) / 2, -th / 2, right - left, th, {
+        color: 'textDim',
+        fill: 'textDim',
+        alpha: 0.35,
+        width: 1
+      });
+      scene.line(left, 0, right, 0, { color: 'text', width: 3.5 });
+      scene.hatch(left, -th, right, -th, { side: -1, color: 'textDim', spacing: 10, length: 12 });
+      // Brillo especular alrededor del punto de impacto.
+      scene.emphasisHalo(0, 0, 0.5, { color: 'warn' });
+      scene.label(right - 0.4, -th - 0.25, 'espejo plano (superficie reflectante)', {
+        align: 'right',
+        baseline: 'top',
+        color: 'text',
+        size: 11,
+        avoid: true
+      });
+      return;
+    }
+
+    // Interfaz: banda fina de transición entre los dos medios.
+    const th = 0.3;
+    scene.rect((left + right) / 2, -th / 2, right - left, th, {
+      fill: 'field',
+      stroke: false,
+      alpha: 0.28
+    });
+    scene.line(left, 0, right, 0, { color: 'text', width: 2.6, alpha: 0.85 });
+    // Textura del medio 2: ondas si se parece a un líquido, rayado si es sólido.
+    if (o.n2 > o.n1 + 0.35) {
+      // Sólido denso (vidrio, diamante): rayado de material.
+      scene.hatch(left, -th, right, -th, { side: -1, color: 'field', spacing: 16, length: 9, width: 1 });
+    } else if (o.n2 > 1.05) {
+      // Líquido: pequeñas ondas de superficie a lo largo de la interfaz.
+      for (let x = left + 1.6; x < right - 0.5; x += 3.4) {
+        scene.fluidPattern(x, -1.1, 0.6, { color: 'field', alpha: 0.22, rings: 2 });
+      }
+    }
+    scene.emphasisHalo(0, 0, 0.42, { color: 'ray' });
+    scene.label(right - 0.4, 0.18, 'superficie de separación', {
+      align: 'right',
+      baseline: 'bottom',
+      color: 'text',
+      size: 11,
+      avoid: true
+    });
   }
 
   /** Arco de ángulo con etiqueta apartada de las demás (§13.1). */
@@ -346,13 +464,14 @@ export default class OpticsModule extends SimModule {
     return {
       'θ₁ (incidencia)': { value: roundTo(o.theta1, 1), unit: '°' },
       'θr (reflejado)': { value: roundTo(o.theta1, 1), unit: '°' },
-      'θ₂ (refractado)': { value: o.isTIR ? null : roundTo(o.theta2, 2), unit: '°' },
+      'θ₂ (refractado)': { value: o.isTIR || o.mirror ? null : roundTo(o.theta2, 2), unit: '°' },
       'n₁': { value: roundTo(o.n1, 2), unit: '' },
-      'n₂': { value: roundTo(o.n2, 2), unit: '' },
+      'n₂': { value: o.mirror ? null : roundTo(o.n2, 2), unit: '' },
       'n₁·sen θ₁': { value: roundTo(o.sinLeft, 4), unit: '' },
-      'n₂·sen θ₂': { value: o.isTIR ? null : roundTo(o.sinRight, 4), unit: '' },
+      'n₂·sen θ₂': { value: o.isTIR || o.mirror ? null : roundTo(o.sinRight, 4), unit: '' },
       'θc (crítico)': { value: o.critical == null ? null : roundTo(o.critical, 2), unit: '°' },
-      'Reflexión total': { value: o.isTIR ? 1 : 0, unit: '(1 = sí)' }
+      'Reflexión total': { value: o.isTIR || o.mirror ? 1 : 0, unit: '(1 = sí)' },
+      'Superficie': { value: o.mirror ? 'Espejo plano' : 'Interfaz n₁ | n₂', unit: '' }
     };
   }
 

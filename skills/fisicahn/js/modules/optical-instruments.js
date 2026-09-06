@@ -47,14 +47,14 @@ export default class OpticalInstruments extends SimModule {
         { value: 'telescopio', label: 'Telescopio' }
       ]
     },
-    { id: 'do', label: 'Distancia del objeto', latex: 'd_o', unit: 'cm', min: 20, max: 1000, step: 5, value: 50 },
-    { id: 'fLupa', label: 'Focal de la lupa', latex: 'f', unit: 'cm', min: 2, max: 20, step: 0.5, value: 5 },
-    { id: 'dLupa', label: 'Objeto–lente', latex: 'd_o', unit: 'cm', min: 0.2, max: 19, step: 0.2, value: 4 },
-    { id: 'fo', label: 'Focal del objetivo', latex: 'f_o', unit: 'cm', min: 0.5, max: 4, step: 0.1, value: 1 },
-    { id: 'fe', label: 'Focal del ocular', latex: 'f_e', unit: 'cm', min: 0.5, max: 6, step: 0.1, value: 2 },
-    { id: 'L', label: 'Longitud del tubo', latex: 'L', unit: 'cm', min: 10, max: 24, step: 0.5, value: 16 },
-    { id: 'foT', label: 'Focal del objetivo', latex: 'f_o', unit: 'cm', min: 10, max: 80, step: 1, value: 50 },
-    { id: 'feT', label: 'Focal del ocular', latex: 'f_e', unit: 'cm', min: 2, max: 10, step: 0.5, value: 5 }
+    { id: 'do', label: 'Distancia del objeto', latex: 'd_o', unit: 'cm', min: 20, max: 1000, step: 5, value: 50, showIf: { modo: 'ojo' } },
+    { id: 'fLupa', label: 'Focal de la lupa', latex: 'f', unit: 'cm', min: 2, max: 20, step: 0.5, value: 5, showIf: { modo: 'lupa' } },
+    { id: 'dLupa', label: 'Objeto–lente', latex: 'd_o', unit: 'cm', min: 0.2, max: 19, step: 0.2, value: 4, showIf: { modo: 'lupa' } },
+    { id: 'fo', label: 'Focal del objetivo', latex: 'f_o', unit: 'cm', min: 0.5, max: 4, step: 0.1, value: 1, showIf: { modo: 'microscopio' } },
+    { id: 'fe', label: 'Focal del ocular', latex: 'f_e', unit: 'cm', min: 0.5, max: 6, step: 0.1, value: 2, showIf: { modo: 'microscopio' } },
+    { id: 'L', label: 'Longitud del tubo', latex: 'L', unit: 'cm', min: 10, max: 24, step: 0.5, value: 16, showIf: { modo: 'microscopio' } },
+    { id: 'foT', label: 'Focal del objetivo', latex: 'f_o', unit: 'cm', min: 10, max: 80, step: 1, value: 50, showIf: { modo: 'telescopio' } },
+    { id: 'feT', label: 'Focal del ocular', latex: 'f_e', unit: 'cm', min: 2, max: 10, step: 0.5, value: 5, showIf: { modo: 'telescopio' } }
   ];
 
   constructor(ctx) {
@@ -247,10 +247,27 @@ export default class OpticalInstruments extends SimModule {
     // Foco e imagen virtual (detrás del objeto, discontinua).
     scene.body(-fLupa, 0, { shape: 'circle', r: 0.1, color: 'textDim' });
     scene.label(-fLupa, -0.5, 'F', { avoid: true, color: 'textDim' });
-    const xImg = -di; // di < 0 → imagen a la izquierda
-    const hImg = h * (-di / dLupa);
+    // Imagen virtual: con el objeto casi en el foco, dᵢ → −∞ y la flecha se
+    // iba a x ≈ 600 (fuera del lienzo, invisible). Se acota manteniendo la
+    // dirección del rayo central y se avisa de que va fuera de escala.
+    const rawX = -di; // di < 0 → imagen a la izquierda
+    const rawH = h * (-di / dLupa);
+    const kFit = Math.min(1, 9.2 / Math.max(Math.abs(rawX), 1e-6), 2.6 / Math.max(Math.abs(rawH), 1e-6));
+    const xImg = rawX * kFit;
+    const hImg = rawH * kFit;
+    const fuera = kFit < 0.999;
     scene.vector(xImg, 0, 0, hImg, { color: 'force', width: 2.2, dash: [5, 3] });
-    scene.label(xImg + 0.4, hImg / 2, 'I (virtual)', { avoid: true, color: 'force' });
+    scene.label(xImg + 0.4, hImg / 2, fuera ? 'I (virtual, fuera de escala)' : 'I (virtual)', {
+      avoid: true,
+      color: 'force'
+    });
+    if (fuera) {
+      scene.label(xImg + 0.4, hImg / 2 - 0.7, `dᵢ real = ${roundTo(di, 0)} cm`, {
+        avoid: true,
+        color: 'textDim',
+        size: 11
+      });
+    }
 
     this._twoRays(scene, -dLupa, h, 0, fLupa, xImg, hImg, 'energy', false);
 

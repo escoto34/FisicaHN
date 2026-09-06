@@ -85,8 +85,13 @@ function captureDrawSignature(camera, inst) {
     new Proxy(obj, {
       get(target, prop, receiver) {
         const v = Reflect.get(target, prop, receiver);
-        if (typeof v !== 'function' || String(prop).startsWith('_')) return v;
+        // `scene.hud` es un objeto, no una función: la comprobación de tipo
+        // iba antes y lo devolvía sin envolver, así que las llamadas del HUD
+        // (chips, readout, leyenda, gráficas) quedaban fuera de la firma —
+        // justo la parte del dibujo donde varios módulos muestran el efecto
+        // de un parámetro.
         if (prop === 'hud') return wrap(v);
+        if (typeof v !== 'function' || String(prop).startsWith('_')) return v;
         return (...args) => {
           log.push(`${String(prop)}(${args.map((a) => safeJson(a)).join(',')})`);
           return v.apply(target, args);

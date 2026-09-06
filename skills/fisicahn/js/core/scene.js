@@ -724,7 +724,11 @@ export class Surface {
       const mx = (fx + to.x) / 2 - Math.sin(angle) * side * pad;
       const my = (fy + to.y) / 2 + Math.cos(angle) * side * pad;
       const text = opts.unit ? `${opts.label} ${opts.unit}` : opts.label;
-      this._screenText(mx, my, text, { color, size: 12, align: 'center', baseline: 'middle' });
+      // `avoidLabel`: la etiqueta entra en el registro anticolisión (§13.1) en
+      // vez de pintarse a ciegas. Es opcional para no mover las etiquetas ya
+      // colocadas a mano en los módulos que no lo piden.
+      if (opts.avoidLabel) this._screenLabel(mx, my, text, { color, size: 12, align: 'center', baseline: 'middle', avoid: true });
+      else this._screenText(mx, my, text, { color, size: 12, align: 'center', baseline: 'middle' });
     }
     return this;
   }
@@ -1022,6 +1026,28 @@ export class Surface {
       ctx.shadowBlur = 4;
     }
     ctx.fillText(text, sx, sy);
+  }
+
+  /**
+   * Como `label`, pero en coordenadas de pantalla: la usan las primitivas que
+   * ya han proyectado su punto (etiquetas de `vector`, por ejemplo) y quieren
+   * el registro anticolisión de §13.1.
+   */
+  _screenLabel(sx, sy, text, opts = {}) {
+    const ctx = this.ctx;
+    if (!ctx) return this;
+    const size = opts.size ?? 13;
+    ctx.save();
+    ctx.font = this.font(size, opts.weight);
+    const w = ctx.measureText(text).width;
+    const h = this.fontSize(size * 1.35);
+    const align = opts.align || 'center';
+    const baseline = opts.baseline || 'bottom';
+    const box = this._textBox(sx, sy, w, h, align, baseline);
+    const placed = this._placeBox(box, opts);
+    this._fillText(sx + (placed.x - box.x), sy + (placed.y - box.y), text, opts);
+    ctx.restore();
+    return this;
   }
 
   /**

@@ -197,6 +197,29 @@ export default class UnitsError extends SimModule {
       { color: 'textDim' }
     );
 
+    // Modo «cifras y errores»: la incertidumbre se dibuja como barra de error
+    // sobre cada magnitud. Antes el modo sólo cambiaba números del HUD y en el
+    // lienzo no se distinguía de una conversión normal.
+    if (modo === 'errores' && Number.isFinite(result)) {
+      const rel = this.errorAbs / Math.max(cantidad, 1e-12);
+      const bar = (y, len, color, texto) => {
+        const half = Math.max(0.12, Math.min(len * 0.5, len * rel));
+        const xEnd = x0 + len;
+        scene.line(xEnd - half, y, xEnd + half, y, { color, width: 2.4 });
+        scene.line(xEnd - half, y - 0.22, xEnd - half, y + 0.22, { color, width: 2.4 });
+        scene.line(xEnd + half, y - 0.22, xEnd + half, y + 0.22, { color, width: 2.4 });
+        scene.label(xEnd, y + 0.45, texto, { color, size: 11, avoid: true });
+      };
+      const sigIn = this.sig(cantidad, cifras);
+      bar(baseY + 0.35, L1, 'force', `± ${roundTo(this.errorAbs, 3)} ${from}`);
+      bar(baseY - 1.15, L2, 'force', `± ${roundTo(this.convert(this.errorAbs, from, to), Math.max(1, cifras - 1))} ${to}`);
+      scene.label(cx, baseY - 3.6, `${cifras} cifras significativas → ${sigIn.text} ${from} · ε = ${(rel * 100).toPrecision(2)} %`, {
+        color: 'textDim',
+        size: 11,
+        avoid: true
+      });
+    }
+
     // Resultado principal con la precisión pedida, en el HUD.
     const hud = scene.hud;
     const invalid = valid !== null;

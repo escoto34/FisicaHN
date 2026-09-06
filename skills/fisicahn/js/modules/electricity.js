@@ -58,7 +58,7 @@ export default class ElectricityModule extends SimModule {
     },
     { id: 'q1', label: 'Carga 1', latex: 'q_1', unit: 'µC', min: -3, max: 3, step: 0.5, value: 1 },
     { id: 'q2', label: 'Carga 2', latex: 'q_2', unit: 'µC', min: -3, max: 3, step: 0.5, value: -1 },
-    { id: 'q3', label: 'Carga 3 (solo con tres)', latex: 'q_3', unit: 'µC', min: -3, max: 3, step: 0.5, value: 1 },
+    { id: 'q3', label: 'Carga 3 (solo con tres)', latex: 'q_3', unit: 'µC', min: -3, max: 3, step: 0.5, value: 1, showIf: { modo: 'tres' } },
     { id: 'd', label: 'Separación q₁–q₂', latex: 'd', unit: 'm', min: 3, max: 8, step: 0.5, value: 6 }
   ];
 

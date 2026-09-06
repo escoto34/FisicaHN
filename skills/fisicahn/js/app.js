@@ -38,7 +38,7 @@ import { LayerStack } from './core/layers.js';
 import { Scene } from './core/scene.js';
 import { CanvasInteraction, MeasureTools } from './core/interaction.js';
 import { getTheme, getThemeName, setTheme, cycleTheme, toggleProjector, onThemeChange, THEMES } from './core/theme.js';
-import { renderSchemaHtml, bindSchema, defaultValues, syncSchema } from './core/params-schema.js';
+import { renderSchemaHtml, bindSchema, defaultValues, syncSchema, applyVisibility } from './core/params-schema.js';
 import { exportPng, exportSvg } from './core/scene-export.js';
 import { ComparisonController } from './core/compare.js';
 import { initDemoUI } from './core/demo-ui.js';
@@ -379,6 +379,18 @@ const ui = {
   /** @param {{ title?: string, items: { name: string, formula?: string, latex?: string, note?: string }[] }} data */
   setModuleFormulas(data) {
     setModuleFormulas(ui, data);
+  },
+  /**
+   * Vuelca en el panel los parámetros que el propio módulo cambió (arrastrar
+   * el satélite de `gravity` cambia r₀; la sonda de `hydraulics`, h). Sin
+   * esto el deslizador se quedaba en el valor viejo y la escena mostraba dos
+   * verdades a la vez.
+   */
+  syncParams() {
+    const instance = state.moduleInstances[state.currentModule];
+    const schema = state.currentModuleNamespace?.default?.params;
+    if (!instance?.params || !Array.isArray(schema) || !schema.length) return;
+    syncSchema(paramsPanel, schema, instance.params);
   },
   setData(html) {
     const panel = document.getElementById('tab-data');
@@ -1325,9 +1337,14 @@ function mountDeclarativeParams(mod, instance) {
   if (!instance.params) instance.params = defaultValues(schema);
   ui.setParams(renderSchemaHtml(schema, instance.params));
 
+  applyVisibility(paramsPanel, schema, instance.params);
+
   if (unbindParams) unbindParams();
   unbindParams = bindSchema(paramsPanel, schema, instance.params, (id, value) => {
     try {
+      // Un select de modo cambia qué controles aplican (`showIf`): el panel se
+      // reajusta antes del reset para que no queden deslizadores inertes.
+      applyVisibility(paramsPanel, schema, instance.params);
       // Un cambio de parámetro devuelve la simulación a su estado inicial: es
       // lo que hacían los 27 módulos a mano tras cada slider.
       instance.reset?.();

@@ -581,6 +581,12 @@ button.sidebar-brand-btn:hover .sidebar-title {
   margin-bottom: 14px;
 }
 
+/* Control que no aplica al modo actual (`showIf` del esquema de parámetros):
+   se oculta en vez de borrarse, así el enlace y la sincronización siguen. */
+.param-control[hidden] {
+  display: none !important;
+}
+
 .control-label {
   display: block;
   font-size: 0.82rem;

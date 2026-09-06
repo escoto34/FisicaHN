@@ -30,7 +30,7 @@ export default class Oscillatory extends SimModule {
     { id: 'A', label: 'Amplitud', latex: 'A', unit: 'm', min: 0.5, max: 7, step: 0.1, value: 5 },
     { id: 'k', label: 'Constante del muelle', latex: 'k', unit: 'N/m', min: 5, max: 200, step: 5, value: 60 },
     { id: 'm', label: 'Masa', latex: 'm', unit: 'kg', min: 0.2, max: 5, step: 0.2, value: 1 },
-    { id: 'g', label: 'Coef. de amortiguación', latex: '\\gamma', unit: '1/s', min: 0, max: 0.8, step: 0.05, value: 0.15 }
+    { id: 'g', label: 'Coef. de amortiguación', latex: '\\gamma', unit: '1/s', min: 0, max: 0.8, step: 0.05, value: 0.15, showIf: { modo: 'amortiguado' } }
   ];
 
   constructor(ctx) {

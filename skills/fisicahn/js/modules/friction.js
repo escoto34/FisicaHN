@@ -269,6 +269,34 @@ export default class FrictionModule extends SimModule {
       });
     }
 
+    // Umbral f_s,max y fricción cinética «fantasma»: en reposo, μ_k no movía
+    // nada en la escena (la fricción estática vale lo que vale el empuje).
+    // Estas dos marcas dejan ver a la vez cuánto falta para arrancar y qué
+    // fricción habrá al deslizar.
+    const fMax = this.fsMax();
+    const fKin = this.fk();
+    scene.line(cx - fMax * K_FORCE, GROUND_Y + 0.02, cx - fMax * K_FORCE, GROUND_Y + 0.42, {
+      color: 'accel',
+      width: 1.6,
+      dash: [3, 3],
+      alpha: 0.9
+    });
+    scene.label(cx - fMax * K_FORCE, GROUND_Y + 0.5, `f_s,max = ${roundTo(fMax, 1)} N`, {
+      color: 'accel',
+      size: 10,
+      avoid: true
+    });
+    if (this.mode === 'static' && fKin > 0.05) {
+      scene.vector(cx, GROUND_Y - 0.3, -fKin * K_FORCE, 0, {
+        color: 'accel',
+        width: 1.8,
+        alpha: 0.45,
+        dash: [2, 3],
+        label: `f_k = ${roundTo(fKin, 1)} N (al deslizar)`,
+        labelSide: -1
+      });
+    }
+
     // Normal y peso: verticales cortos, con etiqueta.
     const nLen = Math.min(this.N() * 0.02, 0.9);
     scene.vector(cx, GROUND_Y + BOX_H, 0, nLen, { color: 'field', width: 2, label: 'N', labelSide: 1 });

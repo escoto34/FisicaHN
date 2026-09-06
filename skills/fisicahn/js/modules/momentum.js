@@ -46,6 +46,7 @@ export default class MomentumModule extends SimModule {
     },
     {
       id: 'tipo',
+      showIf: { modo: 'choque' },
       type: 'select',
       label: 'Tipo de choque',
       value: 'elastico',
@@ -56,12 +57,12 @@ export default class MomentumModule extends SimModule {
       ]
     },
     { id: 'm1', label: 'Masa 1', latex: 'm_1', unit: 'kg', min: 0.5, max: 10, step: 0.5, value: 2 },
-    { id: 'm2', label: 'Masa 2', latex: 'm_2', unit: 'kg', min: 0.5, max: 10, step: 0.5, value: 3 },
-    { id: 'v1i', label: 'Velocidad inicial 1', latex: 'v_1', unit: 'm/s', min: -8, max: 8, step: 0.5, value: 4 },
-    { id: 'v2i', label: 'Velocidad inicial 2', latex: 'v_2', unit: 'm/s', min: -8, max: 8, step: 0.5, value: -1 },
-    { id: 'e', label: 'Coef. de restitución', latex: 'e', min: 0, max: 1, step: 0.05, value: 0.5 },
-    { id: 'F', label: 'Fuerza aplicada', latex: 'F', unit: 'N', min: 0, max: 40, step: 1, value: 12 },
-    { id: 'dt', label: 'Duración', latex: '\\Delta t', unit: 's', min: 0.1, max: 3, step: 0.1, value: 1 }
+    { id: 'm2', label: 'Masa 2', latex: 'm_2', unit: 'kg', min: 0.5, max: 10, step: 0.5, value: 3, showIf: { modo: 'choque' } },
+    { id: 'v1i', label: 'Velocidad inicial 1', latex: 'v_1', unit: 'm/s', min: -8, max: 8, step: 0.5, value: 4, showIf: { modo: 'choque' } },
+    { id: 'v2i', label: 'Velocidad inicial 2', latex: 'v_2', unit: 'm/s', min: -8, max: 8, step: 0.5, value: -1, showIf: { modo: 'choque' } },
+    { id: 'e', label: 'Coef. de restitución', latex: 'e', min: 0, max: 1, step: 0.05, value: 0.5, showIf: { modo: 'choque', tipo: 'inelastico' } },
+    { id: 'F', label: 'Fuerza aplicada', latex: 'F', unit: 'N', min: 0, max: 40, step: 1, value: 12, showIf: { modo: 'impulso' } },
+    { id: 'dt', label: 'Duración', latex: '\\Delta t', unit: 's', min: 0.1, max: 3, step: 0.1, value: 1, showIf: { modo: 'impulso' } }
   ];
 
   constructor(ctx) {

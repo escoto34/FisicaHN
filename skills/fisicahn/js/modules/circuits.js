@@ -41,16 +41,17 @@ export default class Circuits extends SimModule {
         { value: 'rc', label: 'RC carga/descarga' }
       ]
     },
-    { id: 'V', label: 'Tensión DC', latex: 'V', unit: 'V', min: 1, max: 24, step: 0.5, value: 12 },
-    { id: 'R1', label: 'R₁', latex: 'R_1', unit: 'Ω', min: 10, max: 500, step: 5, value: 100 },
-    { id: 'R2', label: 'R₂', latex: 'R_2', unit: 'Ω', min: 10, max: 500, step: 5, value: 200 },
-    { id: 'R', label: 'R (RLC/RC)', latex: 'R', unit: 'Ω', min: 5, max: 200, step: 1, value: 40 },
-    { id: 'L', label: 'Inductancia', latex: 'L', unit: 'H', min: 0.05, max: 2, step: 0.05, value: 0.5 },
-    { id: 'C', label: 'Capacidad', latex: 'C', unit: 'µF', min: 10, max: 1000, step: 10, value: 200 },
-    { id: 'f', label: 'Frecuencia AC', latex: 'f', unit: 'Hz', min: 10, max: 200, step: 1, value: 50 },
-    { id: 'Vac', label: 'V pico AC', latex: 'V_{pk}', unit: 'V', min: 1, max: 20, step: 0.5, value: 10 },
+    { id: 'V', label: 'Tensión DC', latex: 'V', unit: 'V', min: 1, max: 24, step: 0.5, value: 12, showIf: { mode: ['series', 'parallel', 'rc'] } },
+    { id: 'R1', label: 'R₁', latex: 'R_1', unit: 'Ω', min: 10, max: 500, step: 5, value: 100, showIf: { mode: ['series', 'parallel'] } },
+    { id: 'R2', label: 'R₂', latex: 'R_2', unit: 'Ω', min: 10, max: 500, step: 5, value: 200, showIf: { mode: ['series', 'parallel'] } },
+    { id: 'R', label: 'R (RLC/RC)', latex: 'R', unit: 'Ω', min: 5, max: 200, step: 1, value: 40, showIf: { mode: ['rlc', 'rc'] } },
+    { id: 'L', label: 'Inductancia', latex: 'L', unit: 'H', min: 0.05, max: 2, step: 0.05, value: 0.5, showIf: { mode: 'rlc' } },
+    { id: 'C', label: 'Capacidad', latex: 'C', unit: 'µF', min: 10, max: 1000, step: 10, value: 200, showIf: { mode: ['rlc', 'rc'] } },
+    { id: 'f', label: 'Frecuencia AC', latex: 'f', unit: 'Hz', min: 10, max: 200, step: 1, value: 50, showIf: { mode: 'rlc' } },
+    { id: 'Vac', label: 'V pico AC', latex: 'V_{pk}', unit: 'V', min: 1, max: 20, step: 0.5, value: 10, showIf: { mode: 'rlc' } },
     {
       id: 'accion',
+      showIf: { mode: 'rc' },
       type: 'select',
       label: 'Acción RC',
       value: 'carga',
@@ -61,6 +62,7 @@ export default class Circuits extends SimModule {
     },
     {
       id: 'diel',
+      showIf: { mode: 'rc' },
       type: 'select',
       label: 'Dieléctrico',
       value: 'aire',
@@ -122,6 +124,9 @@ export default class Circuits extends SimModule {
   }
 
   reset() {
+    // El esquema del circuito mide unas 10 × 5 u: con el encuadre de 24 × 15
+    // se veía como una miniatura en el centro.
+    this.frameWorld(12, 8);
     this.t = 0;
     this.q = 0;
     this.i = 0;

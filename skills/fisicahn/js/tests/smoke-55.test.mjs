@@ -35,13 +35,18 @@ const uiStub = () => ({
 
 /* Matriz 2D afín [a b c d e f]: x' = a·x + c·y + e ; y' = b·x + d·y + f */
 const ID = [1, 0, 0, 1, 0, 0];
+/* Post-multiplicación como la del lienzo: M' = M · N. La versión anterior
+ * multiplicaba transpuesto — para traslaciones puras daba lo mismo, pero en
+ * cuanto había un `rotate` (todo `body` con `rotation`) la traslación se
+ * giraba y el cuerpo se medía en un punto que no existe: el bloque del plano
+ * inclinado aparecía «fuera del viewbox» estando dentro. */
 const mul = (m, n) => [
-  m[0] * n[0] + m[1] * n[2],
-  m[0] * n[1] + m[1] * n[3],
-  m[2] * n[0] + m[3] * n[2],
-  m[2] * n[1] + m[3] * n[3],
-  m[4] * n[0] + m[5] * n[2] + n[4],
-  m[4] * n[1] + m[5] * n[3] + n[5]
+  m[0] * n[0] + m[2] * n[1],
+  m[1] * n[0] + m[3] * n[1],
+  m[0] * n[2] + m[2] * n[3],
+  m[1] * n[2] + m[3] * n[3],
+  m[0] * n[4] + m[2] * n[5] + m[4],
+  m[1] * n[4] + m[3] * n[5] + m[5]
 ];
 const apply = (m, x, y) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
 

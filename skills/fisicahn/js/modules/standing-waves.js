@@ -33,13 +33,13 @@ export default class StandingWaves extends SimModule {
         { value: 'batidos', label: 'Batidos' }
       ]
     },
-    { id: 'T', label: 'Tensión', latex: 'T', unit: 'N', min: 5, max: 500, step: 5, value: 120 },
-    { id: 'mu', label: 'Densidad lineal', latex: '\\mu', unit: 'kg/m', min: 0.01, max: 0.5, step: 0.01, value: 0.02 },
-    { id: 'L', label: 'Longitud', latex: 'L', unit: 'm', min: 0.5, max: 5, step: 0.1, value: 2 },
-    { id: 'n', label: 'Armónico', latex: 'n', min: 1, max: 8, step: 1, value: 3 },
-    { id: 'A', label: 'Amplitud', latex: 'A', unit: 'm', min: 0.05, max: 0.8, step: 0.05, value: 0.3 },
-    { id: 'f1', label: 'Frecuencia 1', latex: 'f_1', unit: 'Hz', min: 2, max: 12, step: 0.2, value: 6 },
-    { id: 'f2', label: 'Frecuencia 2', latex: 'f_2', unit: 'Hz', min: 2, max: 12, step: 0.2, value: 7 }
+    { id: 'T', label: 'Tensión', latex: 'T', unit: 'N', min: 5, max: 500, step: 5, value: 120, showIf: { modo: 'cuerda' } },
+    { id: 'mu', label: 'Densidad lineal', latex: '\\mu', unit: 'kg/m', min: 0.01, max: 0.5, step: 0.01, value: 0.02, showIf: { modo: 'cuerda' } },
+    { id: 'L', label: 'Longitud', latex: 'L', unit: 'm', min: 0.5, max: 5, step: 0.1, value: 2, showIf: { modo: 'cuerda' } },
+    { id: 'n', label: 'Armónico', latex: 'n', min: 1, max: 8, step: 1, value: 3, showIf: { modo: 'cuerda' } },
+    { id: 'A', label: 'Amplitud', latex: 'A', unit: 'm', min: 0.05, max: 0.8, step: 0.05, value: 0.3, showIf: { modo: 'cuerda' } },
+    { id: 'f1', label: 'Frecuencia 1', latex: 'f_1', unit: 'Hz', min: 2, max: 12, step: 0.2, value: 6, showIf: { modo: 'batidos' } },
+    { id: 'f2', label: 'Frecuencia 2', latex: 'f_2', unit: 'Hz', min: 2, max: 12, step: 0.2, value: 7, showIf: { modo: 'batidos' } }
   ];
 
   constructor(ctx) {
@@ -100,6 +100,17 @@ export default class StandingWaves extends SimModule {
   }
 
   reset() {
+    // La cuerda mide L metros y se dibujaba a escala 1 u/m dentro de un
+    // encuadre de 24 u: ocupaba una doceava parte del lienzo. El encuadre se
+    // ajusta ahora a la cuerda; el modo de batidos conserva el suyo, ancho.
+    if (this.params.modo === 'cuerda') {
+      const w = this.params.L * 1.55;
+      // Alto: la cuerda, los postes (2,4·A) y la cota de L deben caber.
+      const postH = Math.max(0.3, this._drawAmp() * 2.4);
+      this.frameWorld(w, Math.max(w / 1.55, postH * 2.8 + 0.4));
+    } else {
+      this.frameWorld(20, 9);
+    }
     this.t = 0;
     this.engine?.reset?.();
   }
@@ -131,15 +142,30 @@ export default class StandingWaves extends SimModule {
     else this._drawBatidos(scene);
   }
 
+  /**
+   * Amplitud dibujada: acotada a 0,45·L. Los deslizadores permiten A = 0,8 m
+   * en una cuerda de 0,5 m — imposible físicamente (la teoría de pequeñas
+   * oscilaciones deja de valer) y, en pantalla, una onda que se salía del
+   * encuadre.
+   */
+  _drawAmp() {
+    return Math.min(this.params.A, this.params.L * 0.45);
+  }
+
   _drawCuerda(scene) {
-    const { L, A, n } = this.params;
+    const { L, n } = this.params;
+    const A = this._drawAmp();
     const f = this.fN();
     const x0 = -L / 2;
     const k = (2 * Math.PI * f * this.t) % (2 * Math.PI);
     const cosK = Math.cos(k);
-    // Poste izquierdo y derecho (extremos fijos).
-    scene.rect(x0 - 0.3, -0.9, 0.3, 1.8, { color: 'textDim', width: 2 });
-    scene.rect(x0 + L - 0.0, -0.9, 0.3, 1.8, { color: 'textDim', width: 2 });
+    // Postes de los extremos fijos, a escala de la cuerda (con el encuadre
+    // ajustado a L en `reset`, un poste de 1,8 u tapaba media pantalla).
+    const postH = Math.max(0.3, A * 2.4);
+    const postW = Math.max(0.06, L * 0.045);
+    scene.rect(x0 - postW / 2, 0, postW, postH * 2, { color: 'textDim', width: 2 });
+    scene.rect(x0 + L + postW / 2, 0, postW, postH * 2, { color: 'textDim', width: 2 });
+    scene.dimension(x0, -postH - 0.12 * L, x0 + L, -postH - 0.12 * L, `L = ${L} m`, { color: 'textDim' });
 
     // y(x) = A·sin(nπ·x/L)·cos(ωt), muestreada por la escena.
     scene.curve((x) => A * Math.sin(((x - x0) / L) * Math.PI * n) * cosK, x0, x0 + L, { samples: 90, color: 'spring', width: 3 });
@@ -147,16 +173,22 @@ export default class StandingWaves extends SimModule {
     // Nodos (fijos) y vientres (máximo movimiento).
     for (let m = 0; m <= n; m++) {
       const xn = x0 + (m * L) / n;
-      scene.body(xn, 0, { shape: 'circle', r: 0.12, color: 'textDim' });
+      scene.body(xn, 0, { shape: 'circle', r: Math.max(0.04, L * 0.025), color: 'textDim' });
     }
     for (let m = 0; m < n; m++) {
       const xa = x0 + ((m + 0.5) * L) / n;
       const ya = A * Math.abs(Math.cos(k));
-      scene.body(xa, ya, { shape: 'circle', r: 0.12, color: 'energy' });
-      scene.body(xa, -ya, { shape: 'circle', r: 0.12, color: 'energy' });
+      const rb = Math.max(0.04, L * 0.025);
+      scene.body(xa, ya, { shape: 'circle', r: rb, color: 'energy' });
+      scene.body(xa, -ya, { shape: 'circle', r: rb, color: 'energy' });
     }
 
     scene.hud.chip(`Armónico n = ${n}`, 'top-left');
+    if (A < this.params.A - 1e-9) {
+      scene.hud.chip(`Amplitud dibujada ${roundTo(A, 2)} m (A = ${this.params.A} m no cabe en L = ${L} m)`, 'top-left', {
+        color: 'textDim'
+      });
+    }
     scene.hud.readout(
       [
         { label: 'v', value: roundTo(this.vPhase(), 1), unit: 'm/s' },

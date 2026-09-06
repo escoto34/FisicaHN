@@ -15,9 +15,15 @@ import { roundTo } from '../utils/math-helpers.js';
 const G = 9.8;
 const DEG = Math.PI / 180;
 const L = 8; // longitud del plano (m)
+/** Margen alrededor del mecanismo al reencuadrar (fracción). */
+const FRAME_PAD = 1.14;
 
 export default class InclinedPlane extends SimModule {
-  static viewport = { width: 24, height: 14 };
+  /** Encuadre de partida; `reset()` lo ajusta al triángulo del ángulo actual. */
+  static viewport = { width: 14, height: 11 };
+
+  // Sin `static anchor`: el triángulo cambia de tamaño con θ, así que lo que se
+  // mantiene fijo es el **centro del mecanismo** (ver `layout()`), no un vértice.
 
   static params = [
     { id: 'ang', label: 'Ángulo', latex: '\\theta', unit: '°', min: 0, max: 60, step: 1, value: 30 },
@@ -80,7 +86,41 @@ export default class InclinedPlane extends SimModule {
     this.s = 0;
     this.v = 0;
     this.t = 0;
+    const box = this.layout();
+    this.frameWorld(box.w * FRAME_PAD, box.h * FRAME_PAD);
     this.engine?.reset?.();
+  }
+
+  /**
+   * Encuadre del mecanismo para el ángulo actual.
+   *
+   * El módulo dibujaba anclado a `w.left`/`w.bottom` — la esquina inferior
+   * izquierda del lienzo —, así que el triángulo se iba a una esquina y dejaba
+   * media pantalla vacía. Aquí se calcula la caja del conjunto (triángulo +
+   * polea + contrapeso + cotas) y se centra en el origen, de modo que el mismo
+   * dibujo llena el encuadre a 5° y a 60°.
+   *
+   * @returns {{x0:number, yb:number, w:number, h:number, base:number, alto:number}}
+   */
+  layout() {
+    const th = this.params.ang * DEG;
+    const base = L * Math.cos(th);
+    const alto = L * Math.sin(th);
+    // Caja en coordenadas locales con el vértice de la base en (0, 0).
+    const left = -2.0; // cota de la base y arco del ángulo
+    const right = base + 2.1; // cara vertical, polea, contrapeso y cota h
+    const bottom = -2.0; // suelo con rayado, cota de la base y flecha del peso
+    const top = alto + 3.4; // vértice, polea, contrapeso y flechas de fuerza
+    const w = right - left;
+    const h = top - bottom;
+    return {
+      x0: -(left + right) / 2,
+      yb: -(bottom + top) / 2,
+      w,
+      h,
+      base,
+      alto
+    };
   }
 
   /** Gravedad medida sobre el plano: W∥ = m₁·g·sin θ (positivo hacia la base). */
@@ -94,6 +134,24 @@ export default class InclinedPlane extends SimModule {
 
   frictionMax() {
     return this.params.mu * this.normal();
+  }
+
+  /**
+   * Fricción real ejercida ahora (+ hacia la cima del plano).
+   *
+   * En reposo es la estática, que sólo iguala a la fuerza que intenta mover el
+   * bloque; en movimiento es la cinética completa, opuesta a la velocidad. Es
+   * lo que dibuja el vector F_r: un rozamiento que se ve crecer con μ y con N.
+   * @param {number} [a] - Aceleración ya calculada, para no repetirla.
+   */
+  frictionActual(a = this.acceleration()) {
+    const fMax = this.frictionMax();
+    const moving = Math.abs(this.v) > 0.01;
+    if (moving) return this.v > 0 ? -fMax : fMax;
+    // En reposo: equilibra la fuerza motriz hasta el tope estático.
+    const drive = this.params.polea ? this.params.m2 * G - this.WParallel() : -this.WParallel();
+    if (Math.abs(a) < 1e-9) return Math.max(-fMax, Math.min(fMax, -drive));
+    return drive > 0 ? -fMax : fMax;
   }
 
   /** Aceleración (a lo largo del plano, + hacia la cima). */
@@ -151,12 +209,12 @@ export default class InclinedPlane extends SimModule {
   draw(scene) {
     const { ang, m1, mu, polea, m2 } = this.params;
     const th = ang * DEG;
-    const w = scene.world();
-    const x0 = w.left + 1.4;
-    const yb = w.bottom + 1.55;
-    const baseEndX = x0 + L * Math.cos(th);
+    const box = this.layout();
+    const x0 = box.x0;
+    const yb = box.yb;
+    const baseEndX = x0 + box.base;
     const topX = baseEndX;
-    const topY = yb + L * Math.sin(th);
+    const topY = yb + box.alto;
 
     // Triángulo del plano (polígonos: el plano y la masa de apoyo).
     scene.polygon(
@@ -165,25 +223,32 @@ export default class InclinedPlane extends SimModule {
         { x: baseEndX, y: yb },
         { x: topX, y: topY }
       ],
-      { color: 'spring', fill: true, alpha: 0.12, width: 2 }
+      { color: 'spring', fill: 'spring', fillAlpha: 0.16, width: 2 }
     );
-    // Suelo horizontal (con rayado de apoyo) y pared vertical del triángulo.
-    scene.ground(Math.max(x0 - 1, w.left + 0.05), Math.min(baseEndX + 1, w.right - 0.05), yb, { width: 2 });
+    // Suelo horizontal (con rayado de apoyo) y cara vertical del triángulo.
+    scene.ground(x0 - 1.2, baseEndX, yb, { width: 2 });
     scene.polyline([{ x: baseEndX, y: yb }, { x: topX, y: topY }], { color: 'textDim', dash: [3, 4], alpha: 0.6 });
 
     // Ángulo en la base.
-    scene.angleArc(x0, yb, 0, th, Math.min(2.2, L * 0.3), { color: 'energy', label: `${ang}°`, fill: true });
+    scene.angleArc(x0, yb, 0, th, Math.min(2.0, L * 0.28), { color: 'energy', label: `${ang}°`, fill: true });
 
-    // Uso de `dimension` para la base y la altura.
-    scene.dimension(x0 - 0.6, yb, baseEndX - 0.6, yb, `L·cos ${ang}°`, { color: 'textDim' });
-    scene.dimension(baseEndX + 0.35, yb, baseEndX + 0.35, topY, `h`, { color: 'textDim', labelSide: -1 });
+    // Cotas de la base y la altura.
+    scene.dimension(x0, yb - 0.85, baseEndX, yb - 0.85, `L·cos ${ang}° = ${roundTo(box.base, 2)} m`, { color: 'textDim' });
+    if (box.alto > 0.4) {
+      // La cota de altura va por dentro del triángulo: fuera chocaba con la
+      // cuerda vertical del contrapeso.
+      scene.dimension(baseEndX - 0.45, yb, baseEndX - 0.45, topY, `h = ${roundTo(box.alto, 2)} m`, { color: 'textDim' });
+    }
 
     // Bloque sobre el plano.
     const bx = x0 + this.s * Math.cos(th);
     const by = yb + this.s * Math.sin(th);
     const blockSize = 1.0;
-    const px = blockSize * Math.cos(th);
-    const py = blockSize * Math.sin(th);
+    // Centro del bloque = punto del plano + medio lado en la dirección NORMAL.
+    // Antes se desplazaba (−cos θ, sen θ)·lado/2, que no es la normal: el
+    // bloque flotaba junto al plano en vez de apoyarse en él.
+    const px = blockSize * Math.sin(th);
+    const py = blockSize * Math.cos(th);
     scene.body(bx - px / 2, by + py / 2, {
       shape: 'rect',
       r: blockSize / 2,
@@ -193,59 +258,88 @@ export default class InclinedPlane extends SimModule {
       labelColor: 'mass'
     });
 
-    // Fuerzas: peso (vertical), normal (perpendicular al plano) y W∥.
+    // Fuerzas: peso (vertical), normal (perpendicular al plano), W∥ y fricción.
     const W = m1 * G;
     const N = this.normal();
     const Wp = this.WParallel();
-    // Escala común de fuerzas: 0.028 u/N (se leen las direcciones sin salir del mundo).
-    const k = 0.028;
-    scene.vector(bx, by + 0.55, 0, -W * k, { color: 'force', label: `W = ${roundTo(W, 1)} N`, labelSide: -1 });
-    scene.vector(bx + 1.1, by, -Math.sin(th) * N * k, Math.cos(th) * N * k, {
+    const a = this.acceleration();
+    // Escala común de fuerzas: se ajusta al mayor módulo para no salir del encuadre.
+    const k = Math.min(0.035, 2.1 / Math.max(W, N, 1));
+    const cbx = bx - px / 2;
+    const cby = by + py / 2;
+    scene.vector(cbx, cby, 0, -W * k, { color: 'force', label: `W = ${roundTo(W, 1)} N`, labelSide: -1, avoidLabel: true });
+    scene.vector(cbx, cby, -Math.sin(th) * N * k, Math.cos(th) * N * k, {
       color: 'mass2',
       label: `N = ${roundTo(N, 1)} N`,
-      labelSide: 1
+      labelSide: 1,
+      avoidLabel: true
     });
-    scene.vector(bx, by - 0.6, -Math.cos(th) * Wp * k, -Math.sin(th) * Wp * k, {
+    scene.vector(cbx, cby, -Math.cos(th) * Wp * k, -Math.sin(th) * Wp * k, {
       color: 'energy',
       label: `W∥ = ${roundTo(Wp, 1)} N`,
-      labelSide: 1
+      labelSide: 1,
+      avoidLabel: true
     });
+    // Fricción: se opone al movimiento (o a la tendencia si está en reposo).
+    const Fr = this.frictionActual(a);
+    if (Math.abs(Fr) > 0.05) {
+      const dir = Math.sign(Fr);
+      scene.vector(bx, by, dir * Math.cos(th) * Math.abs(Fr) * k, dir * Math.sin(th) * Math.abs(Fr) * k, {
+        color: 'warn',
+        width: 2.4,
+        label: `F_r = ${roundTo(Math.abs(Fr), 1)} N`,
+        labelSide: -1,
+        avoidLabel: true
+      });
+    }
 
-    // Polea y contrapeso.
+    // Polea y contrapeso: al subir el bloque, m₂ baja (la cuerda es inextensible).
     if (polea) {
-      const pulleyX = topX + 0.4;
-      const pulleyY = topY + 0.4;
-      scene.pulley(pulleyX, pulleyY, 0.5, { color: 'spring' });
-      // Cuerda: del bloque a la polea y vertical hasta m₂, sin salir del mundo.
-      const ropeEndY = Math.max(pulleyY - 4.5, w.bottom + 1.35);
+      const pulleyX = topX + 0.55;
+      const pulleyY = topY + 0.45;
+      scene.pulley(pulleyX, pulleyY, 0.45, { color: 'spring' });
+      const span = Math.max(0.9, pulleyY - (yb - 0.9));
+      const drop = 1.0 + (this.s / L) * (span - 1.6);
+      const ropeEndY = pulleyY - drop;
       scene.line(bx, by + 0.2, pulleyX, pulleyY, { color: 'spring', width: 2 });
       scene.line(pulleyX, pulleyY, pulleyX, ropeEndY, { color: 'spring', width: 2 });
-      scene.body(pulleyX, ropeEndY - 0.35, {
+      scene.body(pulleyX, ropeEndY - 0.4, {
         shape: 'rect',
-        r: 0.55,
+        r: 0.4,
         color: 'mass2',
         label: `m₂ = ${m2} kg`,
         labelColor: 'mass2'
       });
-      scene.vector(pulleyX, ropeEndY, 0, -Math.min(m2 * G * 0.028, 0.85), {
+      scene.vector(pulleyX, ropeEndY - 0.8, 0, -Math.min(m2 * G * k, 1.1), {
         color: 'force',
         label: `W₂ = ${roundTo(m2 * G, 1)} N`,
-        labelSide: -1
+        labelSide: -1,
+        avoidLabel: true
       });
     }
 
-    // HUD: aceleración y estado.
-    const a = this.acceleration();
+    // HUD.
     const hud = scene.hud;
     hud.chip(this.motionState(a), 'top-left');
+    hud.chip(`μ = ${mu} · F_r,max = ${roundTo(this.frictionMax(), 1)} N`, 'top-left');
     hud.readout(
       [
         { label: 'a', value: roundTo(a, 2), unit: 'm/s²' },
+        { label: 's', value: roundTo(this.s, 2), unit: 'm' },
         { label: 'W∥', value: roundTo(Wp, 1), unit: 'N' },
         { label: 'N', value: roundTo(N, 1), unit: 'N' },
         { label: 'F_r,max', value: roundTo(this.frictionMax(), 1), unit: 'N' }
       ],
       'bottom-left'
+    );
+    hud.legend(
+      [
+        { color: 'force', label: 'Peso W' },
+        { color: 'mass2', label: 'Normal N' },
+        { color: 'energy', label: 'Componente W∥' },
+        { color: 'warn', label: 'Fricción F_r' }
+      ],
+      'top-right'
     );
   }
 
