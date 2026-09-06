@@ -12,11 +12,16 @@
  * Estrategia:
  *  - Navegaciones: network-first (HTML fresco; si no hay red → índice en
  *    caché, que es estático).
- *  - Estáticos (js/css/assets): cache-first con rellenado al vuelo.
+ *  - Estáticos (js/css/assets): **stale-while-revalidate** — se sirve la copia
+ *    en caché (arranque instantáneo y offline) y en paralelo se pide la red
+ *    para dejar la versión nueva lista en la siguiente carga. Antes era
+ *    cache-first puro: un despliegue que no cambiara `VERSION` no llegaba
+ *    NUNCA a quien ya hubiera abierto la app, porque su caché servía los
+ *    módulos viejos para siempre.
  *  - El contenido del catálogo y los 46 módulos viven en js/ y se cachean
  *    con la misma regla al primer fetch (import dinámico incluido).
  */
-const VERSION = 'fisicahn-v1.6.0';
+const VERSION = 'fisicahn-v1.6.1';
 const CACHE = `fisica-hn-${VERSION}`;
 
 const SHELL = ['./', './index.html', './js/app.js', './js/physics-engine.js', './js/renderer.js', './css/main.css', './css/catalog.css', './manifest.webmanifest', './assets/favicon.svg', './assets/logo.svg'];
@@ -62,17 +67,24 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Estáticos: caché primero, relleno al vuelo.
+  // Estáticos: se responde con la caché y se revalida en segundo plano.
   event.respondWith(
     caches.match(req).then((hit) => {
-      if (hit) return hit;
-      return fetch(req).then((res) => {
-        if (res && res.status === 200 && res.type === 'basic') {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(req, copy));
-        }
-        return res;
-      });
+      const fresh = fetch(req)
+        .then((res) => {
+          if (res && res.status === 200 && res.type === 'basic') {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(req, copy));
+          }
+          return res;
+        })
+        .catch(() => hit); // sin red: vale la copia guardada
+      // Con copia: respuesta inmediata y actualización silenciosa detrás.
+      if (hit) {
+        event.waitUntil(fresh);
+        return hit;
+      }
+      return fresh;
     })
   );
 });
