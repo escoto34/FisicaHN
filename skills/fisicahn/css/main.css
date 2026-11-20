@@ -390,6 +390,68 @@ button.sidebar-brand-btn:hover .sidebar-title {
   display: flex;
 }
 
+/* «Pantalla completa» del lienzo: solo el canvas ocupa la pantalla.
+   No usa la Fullscreen API para no maximizar también los paneles del módulo. */
+body.canvas-maximized .main-area {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  padding: 8px;
+  background: var(--bg-primary);
+}
+
+body.canvas-maximized .canvas-wrapper {
+  max-width: none;
+  max-height: none;
+}
+
+body.canvas-maximized .canvas-stage {
+  min-height: 0;
+}
+
+/* La barra de vista y el HUD del canvas siguen dentro de la superficie.
+   En móvil la barra estaba oculta: el modo maximizado la devuelve al lienzo. */
+body.view-sim.canvas-maximized .view-controls {
+  display: flex;
+  opacity: 1;
+}
+
+body.canvas-maximized .mobile-sim-bar {
+  display: flex;
+}
+
+/* El panel inferior (información / fórmulas / datos / gráficas) vuelve a
+   entrar en la vista del lienzo como un muelle discreto, no como una columna
+   que roba altura al canvas. */
+body.view-sim.canvas-maximized .bottom-panel {
+  display: flex;
+  position: fixed;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  max-height: min(20dvh, 180px);
+  z-index: 110;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+
+body.view-sim.canvas-maximized.mobile-panel-expanded .bottom-panel {
+  max-height: min(48dvh, 440px);
+}
+
+/* Los paneles tipo hoja deben quedar por encima del canvas maximizado. */
+body.view-sim.canvas-maximized.mobile-params-expanded .right-panel,
+body.view-sim.canvas-maximized.mobile-panel-expanded .bottom-panel {
+  z-index: 220;
+}
+
+body.view-sim.canvas-maximized.mobile-params-expanded .mobile-params-scrim,
+body.view-sim.canvas-maximized.mobile-panel-expanded .mobile-panel-scrim {
+  z-index: 210;
+}
+
 .view-controls {
   position: absolute;
   top: 10px;
@@ -1343,8 +1405,57 @@ button.sidebar-brand-btn:hover .sidebar-title {
 
 /* —— Móviles (≤720px) —— */
 @media (max-width: 720px) {
+  /* En el teléfono el canvas manda: los paneles laterales e inferior viven
+     en hojas que se abren desde la barra «Parámetros / Panel». Antes había
+     una barra con Pausa/Parámetros/Reiniciar, el panel de controles con otra
+     Pausa y el reinicio de la cabecera: tres caminos para lo mismo. */
   body.view-sim {
-    grid-template-rows: auto minmax(0, 1fr) minmax(140px, 38vh) auto;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      "sidebar"
+      "main";
+  }
+
+  body.view-sim .right-panel,
+  body.view-sim .bottom-panel {
+    display: none;
+  }
+
+  body.view-sim.mobile-params-expanded .right-panel {
+    display: block;
+  }
+
+  body.view-sim.mobile-panel-expanded .bottom-panel {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: min(48dvh, 440px);
+    z-index: 80;
+    border-radius: 16px 16px 0 0;
+    border-top: 1px solid rgba(62, 207, 191, 0.35);
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.45);
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  body.view-sim.mobile-panel-expanded .bottom-content {
+    padding: 10px 14px;
+  }
+
+  /* La barra flotante de vista tapaba el canvas en pantallas pequeñas.
+     El zoom sigue disponible con pellizco y el reinicio con el botón de la
+     cabecera (que también reencuadra la cámara). */
+  body.view-sim .view-controls {
+    display: none;
+  }
+
+  /* Lienzo adaptado a la proporción del módulo, con un límite de altura. */
+  body.view-sim .canvas-stage {
+    flex: 1 1 auto;
+    min-height: min(calc(100vw / var(--module-aspect, 1.333) + 40px), 62dvh);
+    max-height: min(88dvh, 900px);
   }
 
   body.view-sim .sidebar {
@@ -1501,6 +1612,21 @@ body.view-sim.mobile-params-expanded .right-panel {
   display: none !important;
 }
 
+.mobile-panel-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.mobile-panel-scrim[hidden] {
+  display: none !important;
+}
+
 /* Landscape en teléfonos: más canvas, params más bajos */
 @media (max-width: 960px) and (orientation: landscape) and (max-height: 500px) {
   body.view-sim {
@@ -1532,14 +1658,21 @@ body.view-sim.mobile-params-expanded .right-panel {
   }
 
   body.view-sim .right-panel {
+    display: block;
     max-height: none;
     border-top: none;
     border-left: 1px solid var(--border-color);
   }
 
   body.view-sim .bottom-panel {
+    display: flex;
     max-height: 22vh;
     min-height: 72px;
+  }
+
+  /* En horizontal los paneles ya caben: la barra de hojas sería redundante. */
+  body.view-sim .mobile-sim-bar {
+    display: none;
   }
 }
 

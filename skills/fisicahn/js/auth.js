@@ -134,7 +134,7 @@ export async function sha256(text) {
 /**
  * WAVE 6 §6.6 — Sello del registro LOCAL (fuera de línea).
  *
- * ⚠️ Esto NO es una credencial de seguridad. Es un SHA-256 de una pasada con
+ * Atención: esto NO es una credencial de seguridad. Es un SHA-256 de una pasada con
  * sal constante y compartida, calculado en el cliente: un diccionario típico
  * se prueba a millones de intentos por segundo, y dos docentes del mismo
  * colegio con la misma contraseña producen el mismo hash. Sirve solo para

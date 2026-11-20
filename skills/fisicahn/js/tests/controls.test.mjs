@@ -143,7 +143,7 @@ const CANDIDATE_MODULES = [
   'mass-weight', 'mirrors', 'momentum', 'nuclear-energy', 'optical-instruments', 'optics',
   'oscillatory', 'particles', 'pendulum', 'photoelectric', 'projectile', 'quantum-history',
   'radioactivity', 'rotational', 'simple-machines', 'sound', 'special-relativity', 'standing-waves',
-  'statics', 'thermal-expansion', 'thermodynamics', 'tunneling', 'units-error', 'vectors',
+  'statics', 'thermal-expansion', 'thermodynamics', 'tunneling', 'vectors',
   'wave-optics', 'work-energy'
 ];
 /* Override para verificar un subconjunto: FISICAHN_MODULES=a,b node --test … */

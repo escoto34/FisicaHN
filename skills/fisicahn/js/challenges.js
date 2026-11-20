@@ -8,8 +8,9 @@ import { BUILTIN_CHALLENGES } from './builtin-challenges.js';
 const STORAGE_KEY = 'fisicahn_challenges';
 
 /**
- * Retos incorporados por módulo (WAVE 8.1). Se muestran en la pestaña «Retos»
- * cuando NO hay examen activo; se regeneran con
+ * Retos incorporados por módulo (WAVE 8.1). Son la cantera que el docente
+ * elige al crear un examen; no se muestran en práctica (la pestaña «Retos»
+ * solo existe durante un examen). Se regeneran con
  * `node scripts/gen-builtin-challenges.mjs` (§8.1).
  */
 export const CHALLENGE_ENGINES = BUILTIN_CHALLENGES;
@@ -136,27 +137,24 @@ export function checkNumericAnswer(value, expected, tolerance = 0.05) {
 }
 
 /**
- * Carga retos del módulo. Prioridad:
- *   1. En modo examen: solo el pack del docente (nada de retos incorporados).
- *   2. Sin examen: retos incorporados del motor (§8.1);
- *      si el docente además llevaba un pack local, se anexan al final.
+ * Carga los retos del módulo **solo durante un examen**.
+ *
+ * Fuera de un examen la pestaña Retos no existe: los retos incorporados son
+ * material del docente y se seleccionan al crear el examen (Mis trabajos →
+ * Retos del examen). Durante el examen se sirve exclusivamente el pack que
+ * publicó el docente, para no dejar respuestas incorporadas a la vista.
  */
 export async function loadChallengeDataForEngine(engineKey) {
   if (!engineKey) return [];
-  const builtIn = CHALLENGE_ENGINES[engineKey] || [];
 
   let examCode = null;
   try {
     const { getSession } = await import('./auth.js');
     const session = getSession();
-    if (session && session.mode === 'exam' && session.examCode) {
-      examCode = session.examCode;
-      // En examen, solo responden los retos del docente; los incorporados
-      // quedarían a la vista para quien no estuviera atento (integridad).
-      return [];
-    }
+    if (session?.mode !== 'exam' || !session.examCode) return [];
+    examCode = session.examCode;
   } catch {
-    /* sin sesión */
+    return [];
   }
 
   let examPack = getCachedExamChallengePack();
@@ -164,7 +162,7 @@ export async function loadChallengeDataForEngine(engineKey) {
     examPack?.modules &&
     Object.values(examPack.modules).some((arr) => Array.isArray(arr) && arr.length);
 
-  // Si no hay pack local, intentar nube (PC del docente lo publicó después de unirse)
+  // Si no hay pack local, intentar nube (el docente lo publicó después de unirse)
   if (!hasAny && examCode) {
     try {
       const { fetchExamChallengePack } = await import('./supabase-client.js');
@@ -178,15 +176,11 @@ export async function loadChallengeDataForEngine(engineKey) {
     }
   }
 
-  const out = [...builtIn];
-  if (examPack?.modules) {
-    const fromExam =
-      examPack.modules[engineKey] ||
-      examPack.modules[engineKey?.replace(/-/g, '_')] ||
-      [];
-    if (Array.isArray(fromExam)) out.push(...fromExam);
-  }
-  return out;
+  const fromExam =
+    examPack?.modules?.[engineKey] ||
+    examPack?.modules?.[engineKey.replace(/-/g, '_')] ||
+    [];
+  return Array.isArray(fromExam) ? fromExam : [];
 }
 
 export class ChallengeEngine {
@@ -316,8 +310,8 @@ export class ChallengeEngine {
       if (feedbackEl) {
         feedbackEl.className = 'challenge-feedback challenge-feedback-correct';
         feedbackEl.textContent = already
-          ? '✓ Correcto (ya sumado)'
-          : `✓ ¡Correcto! +${challenge.points || 10} pts`;
+          ? 'Correcto (ya sumado)'
+          : `¡Correcto! +${challenge.points || 10} pts`;
       }
     } else {
       this.progress.streak = 0;
@@ -327,7 +321,7 @@ export class ChallengeEngine {
           : challenge.options?.[challenge.answer] ?? challenge.answer;
       if (feedbackEl) {
         feedbackEl.className = 'challenge-feedback challenge-feedback-incorrect';
-        feedbackEl.textContent = `✗ Incorrecto. Respuesta: ${expected}`;
+        feedbackEl.textContent = `Incorrecto. Respuesta: ${expected}`;
       }
     }
     saveProgress(this.progress);
@@ -339,7 +333,7 @@ export class ChallengeEngine {
     nextBtn.type = 'button';
     nextBtn.className = 'challenge-btn challenge-btn-next';
     nextBtn.textContent =
-      this.currentIndex < this.challenges.length - 1 ? 'Siguiente →' : 'Finalizar ✓';
+      this.currentIndex < this.challenges.length - 1 ? 'Siguiente' : 'Finalizar';
     nextBtn.addEventListener('click', () => this.next());
     this.card.appendChild(nextBtn);
   }
@@ -366,7 +360,7 @@ export class ChallengeEngine {
       })();
 
     const p = document.createElement('p');
-    p.textContent = `💡 Pista ${this._hintIndex + 1}: ${hints[this._hintIndex]}`;
+    p.textContent = `Pista ${this._hintIndex + 1}: ${hints[this._hintIndex]}`;
     hintEl.appendChild(p);
     this._hintIndex++;
   }
@@ -441,7 +435,7 @@ export class ChallengeEngine {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'challenge-btn challenge-btn-submit';
-      btn.textContent = '✓ Responder';
+      btn.textContent = 'Responder';
       btn.addEventListener('click', () => this.checkAnswer(input.value));
       input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') this.checkAnswer(input.value);
@@ -454,7 +448,7 @@ export class ChallengeEngine {
     const hintBtn = document.createElement('button');
     hintBtn.type = 'button';
     hintBtn.className = 'challenge-btn challenge-btn-hint';
-    hintBtn.textContent = '💡 Pista';
+    hintBtn.textContent = 'Pista';
     hintBtn.addEventListener('click', () => this.getHint());
     this.card.appendChild(hintBtn);
 

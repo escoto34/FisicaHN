@@ -66,67 +66,6 @@
         "points": 10
       }
     ],
-    "units-error": [
-      {
-        "id": "ue-1",
-        "type": "numeric",
-        "question": "Convierte 3.5 km a metros.",
-        "answer": 3500,
-        "unit": "m",
-        "hint": "1 km = 1000 m",
-        "points": 10
-      },
-      {
-        "id": "ue-2",
-        "type": "numeric",
-        "question": "Un objeto tarda 2 h en recorrer una ruta. ¿Cuántos segundos son?",
-        "answer": 7200,
-        "unit": "s",
-        "hint": "1 h = 3600 s",
-        "points": 10
-      },
-      {
-        "id": "ue-3",
-        "type": "numeric",
-        "question": "Convierte 72 km/h a m/s.",
-        "answer": 20,
-        "unit": "m/s",
-        "hint": "Divide entre 3.6 (1000 m / 3600 s)",
-        "points": 15
-      },
-      {
-        "id": "ue-4",
-        "type": "multiple",
-        "question": "Una medida de 12.0 g tiene…",
-        "options": [
-          "2 cifras significativas",
-          "3 cifras significativas",
-          "1 cifra significativa",
-          "4 cifras significativas"
-        ],
-        "answer": 1,
-        "hint": "Los ceros entre el 2 y el 0 cuentan; el 0 final tras el punto también",
-        "points": 10
-      },
-      {
-        "id": "ue-5",
-        "type": "numeric",
-        "question": "Un error relativo del 5 % sobre una medida de 200 m, ¿qué error absoluto da?",
-        "answer": 10,
-        "unit": "m",
-        "hint": "Δ = ε · x = 0.05 · 200",
-        "points": 15
-      },
-      {
-        "id": "ue-6",
-        "type": "numeric",
-        "question": "Convierte 0.25 kg a gramos.",
-        "answer": 250,
-        "unit": "g",
-        "hint": "1 kg = 1000 g",
-        "points": 10
-      }
-    ],
     "vectors": [
       {
         "id": "vec-1",

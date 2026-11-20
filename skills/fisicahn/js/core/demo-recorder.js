@@ -20,7 +20,7 @@
  */
 // descarga JSON con Blob+URL nativos (sin dependencias)
 export const DEMO_FORMAT = 'fisicahn-demo-v1';
-export const DEFAULT_SAMPLE_RATE = 15;
+export const DEFAULT_SAMPLE_RATE = 30;
 
 /**
  * @typedef {object} DemoSample
@@ -129,7 +129,7 @@ export class DemoRecorder {
       moduleId: this.moduleId,
       createdAt: Date.now(),
       sampleRate: this.sampleRate,
-      duration: last ? Math.max(0, last.t - this.startedAt) : 0,
+      duration: last ? Math.max(0, last.t) : 0,
       samples: this.samples,
     };
   }
@@ -203,6 +203,7 @@ export class DemoStore {
  * @param {object} adapter
  * @param {() => void} adapter.resetSample — estado inicial del módulo
  * @param {(params: object, moduleState: object|null) => void} adapter.applySample
+ * @param {(t: number) => void} [adapter.onFrame] — cada frame, aunque no haya muestra
  * @param {object} [opts]
  * @param {number} [opts.speed=1]
  * @param {() => void} [opts.onDone]
@@ -241,6 +242,8 @@ export function replayDemo(demo, adapter, opts = {}) {
         onProgress?.((i / v.samples.length) * 100);
       }
     }
+    // El host puede repintar aunque no haya muestra nueva (motor en pausa).
+    adapter.onFrame?.(curT);
 
     if (i >= v.samples.length) {
       playing = false;

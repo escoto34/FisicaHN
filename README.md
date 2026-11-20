@@ -60,7 +60,7 @@ chmod +x FisicaHN-1.6.1.AppImage
 
 El catálogo cuenta con **50 módulos de física interactivos + Pizarra docente + Mis trabajos** organizados en 12 categorías curriculares con búsqueda instantánea y enlace profundo por modo (`#/m/momentum?mode=impulse`):
 
-1. **Medición y vectores:** Dimensiones, unidades y error (`units-error`), Vectores (`vectors`), Hipérbola (`hyperbola`).
+1. **Medición y vectores:** Vectores (`vectors`), Hipérbola (`hyperbola`).
 2. **Cinemática:** Cinemática (`kinematics`), Tiro parabólico (`projectile`).
 3. **Dinámica y fuerzas:** Fuerzas y movimiento (`forces-motion`), Fuerza cinética (`kinetic-force`), Fricción (`friction`), Plano inclinado y poleas (`inclined-plane`), Estática (`statics`), Máquinas simples (`simple-machines`), Masa y peso (`mass-weight`), Elasticidad y deformación (`elasticity`).
 4. **Trabajo, energía y momento:** Trabajo, energía y potencia (`work-energy`), Cantidad de movimiento e impulso (`momentum`), Colisiones multicuerpo 2D (`collisions-2d`).

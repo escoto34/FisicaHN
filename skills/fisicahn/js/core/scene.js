@@ -2296,6 +2296,31 @@ export class HudSurface extends Surface {
   plot(rect, spec = {}) {
     const ctx = this.ctx;
     if (!ctx || !rect) return this;
+
+    // En lienzos pequeños (móvil) una gráfica de 230×150 tapaba la simulación.
+    // Se reduce y se ancla a la esquina original; el módulo no tiene que saber
+    // el tamaño del lienzo ni duplicar sus rectángulos por dispositivo.
+    const vp = this.camera.viewport;
+    if (vp?.w > 1 && vp?.h > 1) {
+      const maxW = vp.w * (vp.w < 560 ? 0.46 : 0.62);
+      const maxH = vp.h * (vp.h < 380 ? 0.4 : 0.52);
+      const scale = Math.min(1, maxW / rect.w, maxH / rect.h);
+      if (scale < 0.999) {
+        const right = rect.x + rect.w;
+        const bottom = rect.y + rect.h;
+        const w = Math.max(84, rect.w * scale);
+        const h = Math.max(64, rect.h * scale);
+        const onRight = rect.x + rect.w / 2 > vp.x + vp.w / 2;
+        const onBottom = rect.y + rect.h / 2 > vp.y + vp.h / 2;
+        rect = {
+          x: onRight ? right - w : rect.x,
+          y: onBottom ? bottom - h : rect.y,
+          w,
+          h
+        };
+      }
+    }
+
     const series = spec.series || [];
     const padL = 34 * this.theme.fontScale;
     const padB = 20 * this.theme.fontScale;

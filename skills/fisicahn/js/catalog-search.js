@@ -243,9 +243,7 @@ export function resultCardHtml(res, queryTokens = null) {
   const icon = iconFor(mod.id, mod.category);
   const glyph = icon
     ? `<span class="catalog-card-glyph" aria-hidden="true">${icon}</span>`
-    : mod.glyph
-      ? `<span class="catalog-card-glyph" aria-hidden="true">${escapeHtml(mod.glyph)}</span>`
-      : '';
+    : '';
   const title = queryTokens
     ? highlightFirst(mod.title, queryTokens)
     : escapeHtml(mod.title);

@@ -12,6 +12,7 @@ import {
   archiveExamWorksForTeacher
 } from './works.js';
 import {
+  CHALLENGE_ENGINES,
   CHALLENGE_MODULE_LABELS,
   normalizeChallengePack,
   exportChallengePackJSON,
@@ -421,7 +422,9 @@ export function openWorksModal(opts = {}) {
           <div id="worksChallengeEditor" class="works-challenge-editor" hidden>
             <h3 class="works-challenge-title">Retos del examen</h3>
             <p class="works-exam-hint">
-              Elige un módulo y añade preguntas, o importa un JSON de retos. Puedes exportar el formulario para reutilizarlo.
+              Elige un módulo y añade preguntas con su respuesta. «Cargar retos del módulo» importa
+              los retos incorporados de ese módulo con sus respuestas ya rellenas. También puedes
+              importar o exportar el formulario como JSON.
             </p>
             <div class="works-challenge-row">
               <label>
@@ -465,6 +468,9 @@ export function openWorksModal(opts = {}) {
             </label>
             <div class="works-exam-actions">
               <button type="button" class="ctrl-btn primary" id="worksChAddBtn">Añadir reto</button>
+              <button type="button" class="ctrl-btn" id="worksChLoadBuiltinBtn" title="Añade los retos incorporados del módulo, con su respuesta, al examen">
+                Cargar retos del módulo
+              </button>
               <button type="button" class="ctrl-btn" id="worksChExportBtn">Exportar JSON</button>
               <button type="button" class="ctrl-btn" id="worksChImportBtn">Importar JSON</button>
               <button type="button" class="ctrl-btn" id="worksChPublishBtn">Publicar en examen</button>
@@ -958,6 +964,9 @@ function bindChallengeEditor(overlay) {
   overlay.querySelector('#worksChAddBtn')?.addEventListener('click', () => {
     addChallengeFromForm(overlay);
   });
+  overlay.querySelector('#worksChLoadBuiltinBtn')?.addEventListener('click', () => {
+    loadBuiltinChallengesIntoDraft(overlay);
+  });
   overlay.querySelector('#worksChExportBtn')?.addEventListener('click', () => {
     const draft = getChallengeDraft();
     const { filename } = exportChallengePackJSON(draft);
@@ -986,6 +995,41 @@ function bindChallengeEditor(overlay) {
   overlay.querySelector('#worksChPublishBtn')?.addEventListener('click', () =>
     publishChallengePack(overlay)
   );
+}
+
+/**
+ * Copia al borrador del examen los retos incorporados del módulo elegido
+ * (con su respuesta ya incluida), sin duplicar los que ya estén.
+ */
+function loadBuiltinChallengesIntoDraft(overlay) {
+  const moduleId = overlay.querySelector('#worksChModule')?.value || 'dynamics';
+  const builtin = CHALLENGE_ENGINES[moduleId] || [];
+  if (!builtin.length) {
+    alert(`El módulo «${CHALLENGE_MODULE_LABELS[moduleId] || moduleId}» no tiene retos incorporados.`);
+    return;
+  }
+  const draft = getChallengeDraft();
+  if (!draft.modules[moduleId]) draft.modules[moduleId] = [];
+  const existing = new Set(draft.modules[moduleId].map((c) => c.id));
+  let added = 0;
+  for (const base of builtin) {
+    const copy = JSON.parse(JSON.stringify(base));
+    copy.module = moduleId;
+    copy.id = copy.id || `${moduleId}-${Date.now().toString(36)}-${added}`;
+    if (existing.has(copy.id)) continue;
+    // Reidentificar si el docente ya editó uno con el mismo id.
+    while (existing.has(copy.id)) copy.id = `${copy.id}-copy`;
+    draft.modules[moduleId].push(copy);
+    existing.add(copy.id);
+    added++;
+  }
+  saveChallengeDraft(draft);
+  renderChallengeDraftList(overlay);
+  if (added) {
+    alert(`Añadidos ${added} reto(s) de «${CHALLENGE_MODULE_LABELS[moduleId] || moduleId}» con sus respuestas.`);
+  } else {
+    alert('Esos retos ya estaban en el examen.');
+  }
 }
 
 function addChallengeFromForm(overlay) {

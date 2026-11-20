@@ -18,6 +18,8 @@ import { clamp } from './geometry.js';
 const WHEEL_STEP = 1.0015;
 /** Umbral en px para distinguir un clic de un arrastre. */
 const DRAG_THRESHOLD = 4;
+/** Mantener pulsado este tiempo (ms) convierte el gesto en desplazamiento. */
+const LONG_PRESS_MS = 320;
 
 export class CanvasInteraction {
   /**
@@ -47,6 +49,10 @@ export class CanvasInteraction {
     this._dragId = null;
     this._downAt = null;
     this._moved = false;
+    /** Puntero y temporizador del gesto «mantener pulsado para desplazar». */
+    this._pressId = null;
+    this._pressTimer = null;
+    this._longPressPan = false;
     this._pointers = new Map();
     this._pinchDist = 0;
     this._hoverId = null;
@@ -92,6 +98,7 @@ export class CanvasInteraction {
         this._pinchDist = this._pinchDistance();
         this._dragId = null;
         this._panning = false;
+        this._clearLongPress();
         return;
       }
 
@@ -117,6 +124,13 @@ export class CanvasInteraction {
         this.onPickStart(id, world);
         e.preventDefault();
       }
+
+      // Mantener pulsado (ratón o dedo) inicia el desplazamiento de la cámara,
+      // incluso si debajo hay un objeto arrastrable: el arrastre rápido sigue
+      // moviendo el objeto, pero la pulsación larga toma el control del lienzo.
+      if (e.button === 0 || e.pointerType === 'touch') {
+        this._scheduleLongPress(e.pointerId, world);
+      }
     };
     c.addEventListener('pointerdown', this._onPointerDown);
 
@@ -141,7 +155,12 @@ export class CanvasInteraction {
       if (this._downAt && !this._moved) {
         const dx = p.x - this._downAt.x;
         const dy = p.y - this._downAt.y;
-        if (Math.hypot(dx, dy) > DRAG_THRESHOLD) this._moved = true;
+        if (Math.hypot(dx, dy) > DRAG_THRESHOLD) {
+          this._moved = true;
+          // Un movimiento normal antes del umbral temporal cancela el gesto
+          // de mantener pulsado (así no roba el clic/arrastre normal).
+          if (!this._panning) this._clearLongPress();
+        }
       }
 
       if (this._panning && prev) {
@@ -175,6 +194,7 @@ export class CanvasInteraction {
     this._onPointerUp = (e) => {
       this._pointers.delete(e.pointerId);
       if (this._pointers.size < 2) this._pinchDist = 0;
+      this._clearLongPress();
       const p = this._screenPos(e);
       const world = this.camera.screenToWorld(p.x, p.y, this._world);
 
@@ -183,10 +203,12 @@ export class CanvasInteraction {
         this._dragId = null;
       } else if (this._panning) {
         this._panning = false;
+        this.canvas.style.cursor = '';
       } else if (!this._moved && this.tool === 'pointer' && this.enabled) {
         const id = this.scene.pickAt(world.x, world.y);
         if (id) this._emit('onPick', id, world);
       }
+      this._longPressPan = false;
       this._downAt = null;
       c.releasePointerCapture?.(e.pointerId);
     };
@@ -208,6 +230,34 @@ export class CanvasInteraction {
     };
     document.addEventListener('keydown', this._onKeyDown);
     document.addEventListener('keyup', this._onKeyUp);
+  }
+
+  /** Arma (o rearama) el temporizador de pulsación larga para hacer pan. */
+  _scheduleLongPress(pointerId, world) {
+    this._clearLongPress();
+    this._pressId = pointerId;
+    this._longPressPan = false;
+    this._pressTimer = setTimeout(() => {
+      this._pressTimer = null;
+      if (this._pressId !== pointerId || this._moved || this._pointers.size !== 1) return;
+      // Si se estaba arrastrando un objeto, se suelta antes de tomar el pan.
+      if (this._dragId) {
+        this._emit('onDragEnd', this._dragId, world || this._world);
+        this._dragId = null;
+      }
+      this._panning = true;
+      this._longPressPan = true;
+      this.canvas.setPointerCapture?.(pointerId);
+      this.canvas.style.cursor = 'grabbing';
+    }, LONG_PRESS_MS);
+  }
+
+  _clearLongPress() {
+    if (this._pressTimer) {
+      clearTimeout(this._pressTimer);
+      this._pressTimer = null;
+    }
+    this._pressId = null;
   }
 
   /** Sólo se arrastra si el módulo declara qué hacer con el arrastre. */
@@ -250,6 +300,7 @@ export class CanvasInteraction {
   setEnabled(on) {
     this.enabled = on !== false;
     if (!this.enabled) {
+      this._clearLongPress();
       this._panning = false;
       this._dragId = null;
       this.canvas.style.cursor = '';
@@ -269,6 +320,7 @@ export class CanvasInteraction {
   }
 
   destroy() {
+    this._clearLongPress();
     const c = this.canvas;
     c.removeEventListener('wheel', this._onWheel);
     c.removeEventListener('pointerdown', this._onPointerDown);

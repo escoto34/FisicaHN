@@ -376,14 +376,6 @@ export const BUILTIN_CHALLENGES = {
     {"id":"t-4","type":"select","question":"Si la energía de la partícula supera la altura de la barrera…","answer":0,"hint":"Transmisión ≈ 1 cuando E > V","options":["Cruza sin atenuación","Rebota siempre","Se queda dentro","Crea un agujero"],"points":10},
     {"id":"t-5","type":"numeric","question":"T ≈ exp(−κ·2L) con −2κL = −0.02 → T =","answer":0.98,"unit":"T","hint":"e^(−0.02) ≈ 0.980","points":10},
   ],
-  'units-error': [
-    {"id":"ue-1","type":"numeric","question":"Convierte 3.5 km a metros.","answer":3500,"unit":"m","hint":"1 km = 1000 m","points":10},
-    {"id":"ue-2","type":"numeric","question":"Un objeto tarda 2 h en recorrer una ruta. ¿Cuántos segundos son?","answer":7200,"unit":"s","hint":"1 h = 3600 s","points":10},
-    {"id":"ue-3","type":"numeric","question":"Convierte 72 km/h a m/s.","answer":20,"unit":"m/s","hint":"Divide entre 3.6 (1000 m / 3600 s)","points":15},
-    {"id":"ue-4","type":"multiple","question":"Una medida de 12.0 g tiene…","answer":1,"hint":"Los ceros entre el 2 y el 0 cuentan; el 0 final tras el punto también","options":["2 cifras significativas","3 cifras significativas","1 cifra significativa","4 cifras significativas"],"points":10},
-    {"id":"ue-5","type":"numeric","question":"Un error relativo del 5 % sobre una medida de 200 m, ¿qué error absoluto da?","answer":10,"unit":"m","hint":"Δ = ε · x = 0.05 · 200","points":15},
-    {"id":"ue-6","type":"numeric","question":"Convierte 0.25 kg a gramos.","answer":250,"unit":"g","hint":"1 kg = 1000 g","points":10},
-  ],
   'vectors': [
     {"id":"vec-1","type":"numeric","question":"|v| de un vector con componentes (3, 4): ¿cuál es su magnitud?","answer":5,"unit":"u","hint":"√(3² + 4²) = √25","points":10},
     {"id":"vec-2","type":"multiple","question":"La suma de A = (4, 0) y B = (0, 3) tiene magnitud…","answer":1,"hint":"R = (4, 3); |R| = 5","options":["7","5","1","12"],"points":10},

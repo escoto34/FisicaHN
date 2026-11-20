@@ -135,7 +135,7 @@ const FIXED = [
   'mass-weight', 'mirrors', 'momentum', 'nuclear-energy', 'optical-instruments', 'optics',
   'oscillatory', 'particles', 'pendulum', 'photoelectric', 'placeholder', 'projectile',
   'quantum-history', 'radioactivity', 'rotational', 'simple-machines', 'sound', 'special-relativity',
-  'standing-waves', 'statics', 'thermal-expansion', 'thermodynamics', 'tunneling', 'units-error',
+  'standing-waves', 'statics', 'thermal-expansion', 'thermodynamics', 'tunneling',
   'vectors', 'wave-optics', 'work-energy'
 ];
 /* Override para verificar un subconjunto: FISICAHN_MODULES=a,b node --test … */
@@ -214,7 +214,7 @@ const ANCHORED = [
   'magnetic', 'mass-weight', 'mirrors', 'nuclear-energy', 'optical-instruments', 'optics',
   'particles', 'pendulum', 'photoelectric', 'placeholder', 'quantum-history', 'radioactivity',
   'simple-machines', 'special-relativity', 'standing-waves', 'statics', 'thermal-expansion', 'thermodynamics',
-  'tunneling', 'units-error', 'vectors', 'wave-optics', 'work-energy'
+  'tunneling', 'vectors', 'wave-optics', 'work-energy'
 ];
 /* Override para verificar un subconjunto: FISICAHN_MODULES=a,b node --test … */
 const ANCHORED_SEL = (process.env.FISICAHN_MODULES || '').split(',').map((s) => s.trim()).filter(Boolean);

@@ -4,7 +4,7 @@
  * Cada entrada = un motor real distinto o un enfoque claramente diferente.
  * IDs antiguos se redirigen en getById() para trabajos guardados previos.
  *
- * WAVE 4: cada entrada lleva `category` (§3.5), `glyph`/`accent` (icono y color),
+ * WAVE 4: cada entrada lleva `category` (§3.5), `accent` (color) e icono SVG
  * `serves[]` («Útil para», §3.4) y `modes[]` (modos internos con enlace
  * profundo, §4.4). Registrar un módulo nuevo es crear su archivo y añadir la
  * entrada aquí: `ENGINE_PATHS` (app.js) y `CHALLENGE_MODULE_LABELS`
@@ -19,18 +19,18 @@ export const LEVELS = [
 
 /** Categorías del menú (§3.5). `accent` alimenta `.catalog-card-accent-*`. */
 export const CATEGORIES = [
-  { id: 'medicion-vectores', label: 'Medición y vectores', glyph: '📏', accent: 'indigo' },
-  { id: 'cinematica', label: 'Cinemática', glyph: '🏃', accent: 'blue' },
-  { id: 'dinamica-fuerzas', label: 'Dinámica y fuerzas', glyph: '💪', accent: 'red' },
-  { id: 'energia-momento', label: 'Trabajo, energía y momento', glyph: '⚡', accent: 'orange' },
-  { id: 'rotacion-gravitacion', label: 'Rotación y gravitación', glyph: '🪐', accent: 'purple' },
-  { id: 'fluidos', label: 'Fluidos', glyph: '💧', accent: 'teal' },
-  { id: 'termica', label: 'Térmica', glyph: '🌡️', accent: 'amber' },
-  { id: 'oscilaciones-ondas', label: 'Oscilaciones y ondas', glyph: '🌊', accent: 'cyan' },
-  { id: 'optica', label: 'Óptica', glyph: '🔦', accent: 'green' },
-  { id: 'electricidad-magnetismo', label: 'Electricidad y magnetismo', glyph: '🧲', accent: 'pink' },
-  { id: 'fisica-moderna', label: 'Física moderna', glyph: '⚛️', accent: 'lime' },
-  { id: 'herramientas', label: 'Herramientas docentes', glyph: '🧰', accent: 'gray' }
+  { id: 'medicion-vectores', label: 'Medición y vectores', accent: 'indigo' },
+  { id: 'cinematica', label: 'Cinemática', accent: 'blue' },
+  { id: 'dinamica-fuerzas', label: 'Dinámica y fuerzas', accent: 'red' },
+  { id: 'energia-momento', label: 'Trabajo, energía y momento', accent: 'orange' },
+  { id: 'rotacion-gravitacion', label: 'Rotación y gravitación', accent: 'purple' },
+  { id: 'fluidos', label: 'Fluidos', accent: 'teal' },
+  { id: 'termica', label: 'Térmica', accent: 'amber' },
+  { id: 'oscilaciones-ondas', label: 'Oscilaciones y ondas', accent: 'cyan' },
+  { id: 'optica', label: 'Óptica', accent: 'green' },
+  { id: 'electricidad-magnetismo', label: 'Electricidad y magnetismo', accent: 'pink' },
+  { id: 'fisica-moderna', label: 'Física moderna', accent: 'lime' },
+  { id: 'herramientas', label: 'Herramientas docentes', accent: 'gray' }
 ];
 
 export function getCategory(categoryId) {
@@ -50,7 +50,6 @@ export const WORKS_MODULE = {
   titleEn: 'My works',
   level: 'all',
   category: 'herramientas',
-  glyph: '🗂️',
   accent: 'gray',
   blurb:
     'Importar o exportar JSON, y ver trabajos guardados o importados en este navegador.',
@@ -99,7 +98,6 @@ export const CATALOG = [
     titleEn: 'Whiteboard',
     level: 'middle',
     category: 'herramientas',
-    glyph: '🖊️',
     accent: 'gray',
     blurb: 'Pizarra en blanco para ejemplos del profesor (sin simulación física).',
     engineKey: 'whiteboard',
@@ -110,50 +108,11 @@ export const CATALOG = [
       'Herramienta docente: dibujo libre. No es un módulo de física con leyes propias.'
   },
   {
-    id: 'units-error',
-    title: 'Unidades y errores',
-    titleEn: 'Units & error analysis',
-    level: 'middle',
-    category: 'medicion-vectores',
-    glyph: '📐',
-    accent: 'indigo',
-    blurb: 'Conversión de unidades, cifras significativas y propagación de errores.',
-    engineKey: 'units-error',
-    status: 'ready',
-    serves: [
-      'Conversión de unidades',
-      'Cifras significativas',
-      'Error absoluto y relativo',
-      'Unidades del SI',
-      'Notación científica',
-      'Múltiplos y submúltiplos'
-    ],
-    modes: [
-      {
-        id: 'convertir',
-        label: 'Conversión',
-        param: 'modo',
-        value: 'convertir',
-        serves: ['Conversión de unidades', 'Múltiplos y submúltiplos']
-      },
-      {
-        id: 'errores',
-        label: 'Cifras y errores',
-        param: 'modo',
-        value: 'errores',
-        serves: ['Cifras significativas', 'Error absoluto y relativo']
-      }
-    ],
-    topic:
-      'Medición y tratamiento de errores: no simula una ley física, sino la metrología previa. Es la base de todos los demás módulos.'
-  },
-  {
     id: 'vectors',
     title: 'Vectores',
     titleEn: 'Vectors',
     level: 'middle',
     category: 'medicion-vectores',
-    glyph: '🧭',
     accent: 'indigo',
     blurb: 'Suma de vectores por el paralelogramo y descomposición en componentes.',
     engineKey: 'vectors',
@@ -191,7 +150,6 @@ export const CATALOG = [
     titleEn: 'Hyperbola',
     level: 'high',
     category: 'medicion-vectores',
-    glyph: '🛰️',
     accent: 'indigo',
     blurb:
       'Lugar geométrico con |PF₁ − PF₂| = 2a: arrastra P y comprueba que la diferencia de distancias a los focos no cambia.',
@@ -214,7 +172,6 @@ export const CATALOG = [
     titleEn: 'Kinematics',
     level: 'high',
     category: 'cinematica',
-    glyph: '🏃',
     accent: 'blue',
     blurb:
       'MRU y MRUV en 1D o en el plano: posición, velocidad y aceleración (sin fuerzas).',
@@ -238,7 +195,6 @@ export const CATALOG = [
     titleEn: 'Projectile motion',
     level: 'high',
     category: 'cinematica',
-    glyph: '🚀',
     accent: 'blue',
     blurb: 'Tiro parabólico: alcance, altura máxima y tiempo de vuelo.',
     engineKey: 'projectile',
@@ -261,7 +217,6 @@ export const CATALOG = [
     titleEn: 'Forces & Motion',
     level: 'middle',
     category: 'dinamica-fuerzas',
-    glyph: '💪',
     accent: 'red',
     blurb: 'Segunda ley de Newton: F = m·a. Fuerza neta, masa y aceleración.',
     engineKey: 'dynamics',
@@ -283,7 +238,6 @@ export const CATALOG = [
     titleEn: 'Mass vs weight',
     level: 'middle',
     category: 'dinamica-fuerzas',
-    glyph: '⚖️',
     accent: 'red',
     blurb: 'Distinguir masa (invariante) de peso (m·g, depende del astro).',
     engineKey: 'mass-weight',
@@ -321,7 +275,6 @@ export const CATALOG = [
     titleEn: 'Inclined plane',
     level: 'high',
     category: 'dinamica-fuerzas',
-    glyph: '⛰️',
     accent: 'red',
     blurb: 'Descomposición del peso, fricción y polea con contrapeso.',
     engineKey: 'inclined-plane',
@@ -360,7 +313,6 @@ export const CATALOG = [
     titleEn: 'Kinetic force & energy',
     level: 'middle',
     category: 'dinamica-fuerzas',
-    glyph: '🚀',
     accent: 'red',
     blurb:
       'Fuerza neta → aceleración y energía cinética: a = F/m, Ec = ½mv², W = ΔEc.',
@@ -382,7 +334,6 @@ export const CATALOG = [
     titleEn: 'Elasticity (stress-strain)',
     level: 'high',
     category: 'dinamica-fuerzas',
-    glyph: '🪜',
     accent: 'red',
     blurb:
       'Curva σ–ε: ley de Hooke, límite elástico σy, régimen plástico y rotura.',
@@ -407,7 +358,6 @@ export const CATALOG = [
     titleEn: 'Friction',
     level: 'middle',
     category: 'dinamica-fuerzas',
-    glyph: '🛷',
     accent: 'red',
     blurb:
       'Muñeco empuja una caja: fricción estática (no arranca) y cinética (desliza). μ_s, μ_k.',
@@ -428,7 +378,6 @@ export const CATALOG = [
     titleEn: 'Statics',
     level: 'high',
     category: 'dinamica-fuerzas',
-    glyph: '🪢',
     accent: 'red',
     blurb:
       'Equilibrio de fuerzas: masa colgada de dos cuerdas. ΣFₓ = 0, ΣFᵧ = 0 y tensiones.',
@@ -444,7 +393,6 @@ export const CATALOG = [
     titleEn: 'Simple Machines',
     level: 'middle',
     category: 'dinamica-fuerzas',
-    glyph: '⚖️',
     accent: 'red',
     blurb:
       'Palanca, poleas, plano inclinado y torno: ventaja mecánica VM, fuerza necesaria, eficiencia η y trabajo de entrada vs salida.',
@@ -492,7 +440,6 @@ export const CATALOG = [
     titleEn: 'Momentum',
     level: 'high',
     category: 'energia-momento',
-    glyph: '🎱',
     accent: 'orange',
     blurb: 'Colisiones 1D elásticas e inelásticas; p = m·v y conservación.',
     engineKey: 'momentum',
@@ -528,7 +475,6 @@ export const CATALOG = [
     titleEn: 'Multi-body collisions (2D)',
     level: 'high',
     category: 'energia-momento',
-    glyph: '🎯',
     accent: 'orange',
     blurb: 'Varios discos en el plano: choques con e, conservación de p⃗ y Ec.',
     engineKey: 'collisions-2d',
@@ -547,7 +493,6 @@ export const CATALOG = [
     titleEn: 'Work, Energy & Power',
     level: 'high',
     category: 'energia-momento',
-    glyph: '⚙️',
     accent: 'orange',
     blurb: 'Bloque con F y rozamiento: W = F d cosθ, ΔEc y P = F·v.',
     engineKey: 'work-energy',
@@ -570,7 +515,6 @@ export const CATALOG = [
     titleEn: 'Circular & Rotational',
     level: 'high',
     category: 'rotacion-gravitacion',
-    glyph: '🛞',
     accent: 'purple',
     blurb: 'MCU, τ = Iα, momento de inercia y precesión simple de peonza.',
     engineKey: 'rotational',
@@ -623,7 +567,6 @@ export const CATALOG = [
     titleEn: 'Oscillations & Energy',
     level: 'advanced',
     category: 'oscilaciones-ondas',
-    glyph: '🪀',
     accent: 'cyan',
     blurb:
       'MHS en un resorte: x = A cos(ωt+φ), periodo, y Ec ↔ Ep (Em constante).',
@@ -662,7 +605,6 @@ export const CATALOG = [
     titleEn: 'Pendulum',
     level: 'high',
     category: 'oscilaciones-ondas',
-    glyph: '🕰️',
     accent: 'cyan',
     blurb:
       'Periodo real frente a T = 2π√(L/g), y doble péndulo con sensibilidad al caos.',
@@ -703,7 +645,6 @@ export const CATALOG = [
     titleEn: 'Standing Waves',
     level: 'high',
     category: 'oscilaciones-ondas',
-    glyph: '🎸',
     accent: 'cyan',
     blurb: 'Modos normales de una cuerda fija, armónicos y batidos por superposición.',
     engineKey: 'standing-waves',
@@ -742,7 +683,6 @@ export const CATALOG = [
     titleEn: 'Fluids',
     level: 'high',
     category: 'fluidos',
-    glyph: '💧',
     accent: 'teal',
     blurb: 'Arquímedes (flotación) y Bernoulli (tubo de Venturi) en un mismo laboratorio.',
     engineKey: 'fluids',
@@ -783,7 +723,6 @@ export const CATALOG = [
     titleEn: 'Pressure and Hydraulic Press',
     level: 'middle',
     category: 'fluidos',
-    glyph: '🛢️',
     accent: 'teal',
     blurb: 'Presión hidrostática con sonda arrastrable, prensa de Pascal y vasos comunicantes.',
     engineKey: 'hydraulics',
@@ -830,7 +769,6 @@ export const CATALOG = [
     titleEn: 'Thermodynamics',
     level: 'advanced',
     category: 'termica',
-    glyph: '🌡️',
     accent: 'amber',
     blurb: 'Gas ideal (P–V), ciclo de Carnot y conducción/difusión de calor.',
     engineKey: 'thermodynamics',
@@ -851,7 +789,6 @@ export const CATALOG = [
     titleEn: 'Calorimetry',
     level: 'high',
     category: 'termica',
-    glyph: '🧊',
     accent: 'amber',
     blurb: 'Equilibrio térmico de mezclas, calor latente con meseta de fusión y conducción/convección/radiación.',
     engineKey: 'calorimetry',
@@ -914,7 +851,6 @@ export const CATALOG = [
     titleEn: 'Kinetic Theory',
     level: 'advanced',
     category: 'termica',
-    glyph: '🎈',
     accent: 'amber',
     blurb: 'Moléculas en una caja: temperatura como energía cinética media y Maxwell-Boltzmann.',
     engineKey: 'kinetic-theory',
@@ -952,7 +888,6 @@ export const CATALOG = [
     titleEn: 'Thermal Expansion',
     level: 'high',
     category: 'termica',
-    glyph: '📐',
     accent: 'amber',
     blurb: 'ΔL = α·L₀·ΔT lineal, superficial y volumétrica, y la tira bimetálica del termostato.',
     engineKey: 'thermal-expansion',
@@ -1005,7 +940,6 @@ export const CATALOG = [
     titleEn: 'Sound & Waves',
     level: 'high',
     category: 'oscilaciones-ondas',
-    glyph: '🔊',
     accent: 'cyan',
     blurb:
       'Ondas sonoras: frentes, Doppler, e intensidad sonora con escala de decibelios.',
@@ -1044,7 +978,6 @@ export const CATALOG = [
     titleEn: 'Electric Field & Charges',
     level: 'middle',
     category: 'electricidad-magnetismo',
-    glyph: '⚡',
     accent: 'pink',
     blurb:
       'Ley de Coulomb, campo E y potencial entre cargas puntuales (electrostática).',
@@ -1066,7 +999,6 @@ export const CATALOG = [
     titleEn: 'DC / AC Circuits',
     level: 'high',
     category: 'electricidad-magnetismo',
-    glyph: '🔌',
     accent: 'pink',
     blurb: 'Serie/paralelo (Ohm) e impedancia RLC con resonancia e i(t).',
     engineKey: 'circuits',
@@ -1120,7 +1052,6 @@ export const CATALOG = [
     titleEn: 'Capacitors and Dielectrics',
     level: 'high',
     category: 'electricidad-magnetismo',
-    glyph: '🔋',
     accent: 'pink',
     blurb: 'Placas paralelas con dieléctrico animado, carga y descarga RC, y asociación serie/paralelo.',
     engineKey: 'capacitors',
@@ -1167,7 +1098,6 @@ export const CATALOG = [
     titleEn: 'Magnetic Fields · Lorentz',
     level: 'middle',
     category: 'electricidad-magnetismo',
-    glyph: '🧲',
     accent: 'pink',
     blurb:
       'Carga en B uniforme: F = q(v×B). Círculo sin masa en el centro (≠ gravedad).',
@@ -1189,7 +1119,6 @@ export const CATALOG = [
     titleEn: 'Electromagnetic Waves',
     level: 'advanced',
     category: 'electricidad-magnetismo',
-    glyph: '📡',
     accent: 'pink',
     blurb: 'Onda plana: E ⊥ B ⊥ propagación; c = f·λ.',
     engineKey: 'em-waves',
@@ -1225,7 +1154,6 @@ export const CATALOG = [
     titleEn: 'Universal Gravity',
     level: 'high',
     category: 'rotacion-gravitacion',
-    glyph: '🪐',
     accent: 'purple',
     blurb: 'Satélite alrededor de una masa central (F ∝ 1/r²). Hay cuerpo en el centro.',
     engineKey: 'gravity',
@@ -1246,7 +1174,6 @@ export const CATALOG = [
     titleEn: 'Kepler & Gravity Assist',
     level: 'advanced',
     category: 'rotacion-gravitacion',
-    glyph: '🛰️',
     accent: 'purple',
     blurb: 'Elipses T²∝a³, periodo medido y sobrevuelo (slingshot) — gravedad, no B.',
     engineKey: 'kepler',
@@ -1281,7 +1208,6 @@ export const CATALOG = [
     titleEn: 'Light & Geometric Optics',
     level: 'high',
     category: 'optica',
-    glyph: '🔦',
     accent: 'green',
     blurb:
       'Interfaz plana: reflexión, refracción (Snell) y RTI. No forma imagen con lente.',
@@ -1304,7 +1230,6 @@ export const CATALOG = [
     titleEn: 'Thin Lenses · imagen',
     level: 'high',
     category: 'optica',
-    glyph: '🔍',
     accent: 'green',
     blurb:
       'Lente convergente/divergente: focos F, objeto → imagen y 1/f = 1/d₀ + 1/dᵢ.',
@@ -1325,7 +1250,6 @@ export const CATALOG = [
     titleEn: 'Spherical Mirrors',
     level: 'high',
     category: 'optica',
-    glyph: '🪞',
     accent: 'green',
     blurb: 'Imágenes en espejos cóncavos y convexos con rayos y 1/f = 1/d₀ + 1/dᵢ.',
     engineKey: 'mirrors',
@@ -1364,7 +1288,6 @@ export const CATALOG = [
     titleEn: 'Electromagnetic Induction',
     level: 'high',
     category: 'electricidad-magnetismo',
-    glyph: '🧲',
     accent: 'pink',
     blurb: 'Faraday-Lenz: fem por flujo variable, y el transformador.',
     engineKey: 'induction',
@@ -1403,7 +1326,6 @@ export const CATALOG = [
     titleEn: 'Interference & Diffraction',
     level: 'advanced',
     category: 'optica',
-    glyph: '🌈',
     accent: 'green',
     blurb: 'Doble rendija (Young) e intensidad de difracción de una rendija.',
     engineKey: 'wave-optics',
@@ -1423,7 +1345,6 @@ export const CATALOG = [
     titleEn: 'Optical Instruments',
     level: 'high',
     category: 'optica',
-    glyph: '🔬',
     accent: 'green',
     blurb: 'Ojo, lupa, microscopio y telescopio: lentes encadenadas.',
     engineKey: 'optical-instruments',
@@ -1452,7 +1373,6 @@ export const CATALOG = [
     titleEn: 'Atomic Physics',
     level: 'advanced',
     category: 'fisica-moderna',
-    glyph: '⚛️',
     accent: 'lime',
     blurb: 'Modelo de Bohr: niveles, órbitas y fotones en saltos de energía.',
     engineKey: 'atomic',
@@ -1472,7 +1392,6 @@ export const CATALOG = [
     titleEn: 'Photoelectric Effect',
     level: 'advanced',
     category: 'fisica-moderna',
-    glyph: '☀️',
     accent: 'lime',
     blurb: 'hf y trabajo de extracción φ: K_max = hf − φ y frecuencia umbral.',
     engineKey: 'photoelectric',
@@ -1492,7 +1411,6 @@ export const CATALOG = [
     titleEn: 'Blackbody Radiation',
     level: 'advanced',
     category: 'fisica-moderna',
-    glyph: '🔥',
     accent: 'lime',
     blurb:
       'Espectro de Planck B(λ,T), ley de Wien λ_max = b/T, Stefan–Boltzmann P = σAT⁴ y el color de un cuerpo caliente.',
@@ -1539,7 +1457,6 @@ export const CATALOG = [
     titleEn: 'Radioactive Decay',
     level: 'advanced',
     category: 'fisica-moderna',
-    glyph: '☢️',
     accent: 'lime',
     blurb: 'N(t) = N₀ e^(−λt), vida media y actividad A = λN.',
     engineKey: 'radioactivity',
@@ -1559,7 +1476,6 @@ export const CATALOG = [
     titleEn: 'Quantum Tunneling',
     level: 'advanced',
     category: 'fisica-moderna',
-    glyph: '🕳️',
     accent: 'lime',
     blurb: 'Barrera de potencial: T ≈ e^(−2κL) aunque E < V₀.',
     engineKey: 'tunneling',
@@ -1579,7 +1495,6 @@ export const CATALOG = [
     titleEn: 'Charges in B (particles)',
     level: 'advanced',
     category: 'fisica-moderna',
-    glyph: '🧪',
     accent: 'lime',
     blurb:
       'Varias especies (e⁻, p⁺, α…) en B: curvatura y r = mv/|q|B (estilo espectrómetro).',
@@ -1601,7 +1516,6 @@ export const CATALOG = [
     titleEn: 'Wave-Particle Duality',
     level: 'advanced',
     category: 'fisica-moderna',
-    glyph: '🌊',
     accent: 'lime',
     blurb: 'Electrones uno a uno que forman un patrón de interferencia: λ = h/p.',
     engineKey: 'de-broglie',
@@ -1621,7 +1535,6 @@ export const CATALOG = [
     titleEn: 'Fission, Fusion and E = mc²',
     level: 'advanced',
     category: 'fisica-moderna',
-    glyph: '☢️',
     accent: 'lime',
     blurb: 'Curva de energía de enlace por nucleón: por qué fisión y fusión liberan energía.',
     engineKey: 'nuclear-energy',
@@ -1646,7 +1559,6 @@ export const CATALOG = [
     titleEn: 'Special Relativity',
     level: 'advanced',
     category: 'fisica-moderna',
-    glyph: '🚀',
     accent: 'lime',
     blurb: 'Factor γ: dilatación temporal, contracción de longitud y relatividad de la simultaneidad.',
     engineKey: 'special-relativity',
@@ -1671,7 +1583,6 @@ export const CATALOG = [
     titleEn: 'History of Quantum Mechanics',
     level: 'advanced',
     category: 'fisica-moderna',
-    glyph: '📜',
     accent: 'lime',
     blurb: 'Línea de tiempo interactiva 1900-1935: los diez hitos que construyeron la física cuántica.',
     engineKey: 'quantum-history',

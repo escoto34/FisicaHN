@@ -5,7 +5,7 @@
 
 import { PhysicsEngine } from './physics-engine.js';
 import { Renderer } from './renderer.js';
-import { CATALOG, getById, getUnifiedCatalog, getSimulationCatalog, WORKS_MODULE, getCategory, buildEnginePaths } from './catalog.js';
+import { CATALOG, getById, getUnifiedCatalog, getSimulationCatalog, WORKS_MODULE, buildEnginePaths } from './catalog.js';
 import { searchState, closestTerms, resultCardHtml } from './catalog-search.js';
 import { normalizeText, escapeHtml } from './core/text.js';
 import { iconFor, categoryIcon } from './core/icons.js';
@@ -495,7 +495,12 @@ const legacyUi = { ...ui, setData: throttleSetData(ui.setData) };
 
 /** Tras init del módulo: retos solo en modo examen con pack del docente. */
 async function setupChallengesForEngine(engineKey) {
-  if (!engineKey || engineKey === 'whiteboard' || engineKey === 'placeholder') {
+  if (
+    !engineKey ||
+    engineKey === 'whiteboard' ||
+    engineKey === 'placeholder' ||
+    getSession()?.mode !== 'exam'
+  ) {
     ui.setChallenges(null);
     return;
   }
@@ -660,9 +665,7 @@ export function catalogCardHtml(mod, opts = {}) {
   const icon = iconFor(mod.id, mod.category);
   const glyph = icon
     ? `<span class="catalog-card-glyph" aria-hidden="true">${icon}</span>`
-    : mod.glyph
-      ? `<span class="catalog-card-glyph" aria-hidden="true">${escapeHtml(mod.glyph)}</span>`
-      : '';
+    : '';
   const mode = opts.mode ? ` data-catalog-mode="${escapeHtml(opts.mode)}"` : '';
   return `
     <button type="button" class="catalog-card${mod.special === 'works' ? ' catalog-card-works' : ''}${
@@ -708,13 +711,10 @@ function bindCatalogCardClicks() {
 function sectionHeaderHtml(catId, label, n, level) {
   const key = catalogSectionKey(catId);
   const isCollapsed = !!state.catalogCollapsed[key];
-  const cat = getCategory(catId);
   const icon = categoryIcon(catId);
   const glyph = icon
     ? `<span class="catalog-sec-glyph" aria-hidden="true">${icon}</span>`
-    : cat?.glyph
-      ? `<span class="catalog-sec-glyph" aria-hidden="true">${escapeHtml(cat.glyph)}</span>`
-      : '';
+    : '';
   return `
     <button type="button" class="catalog-section-head" data-collapse-key="${escapeHtml(key)}"
       aria-expanded="${String(!isCollapsed)}">
@@ -1070,8 +1070,9 @@ function showCatalog(opts = {}) {
   catalogView.hidden = false;
   simShell.hidden = true;
   document.body.classList.add('view-catalog');
-  document.body.classList.remove('view-sim');
+  document.body.classList.remove('view-sim', 'canvas-maximized');
   setMobileParamsExpanded(false);
+  setMobilePanelExpanded(false);
   // Cortar el bucle RAF por completo (cero CPU en el menú)
   try {
     engine?.stop?.();
@@ -1092,6 +1093,7 @@ function showSimShell() {
   document.body.classList.add('view-sim');
   document.body.classList.remove('view-catalog');
   setMobileParamsExpanded(false);
+  setMobilePanelExpanded(false);
   bindMobileSimBar();
   // Tras mostrar el lab, el canvas pasa a tener tamaño real → redimensionar buffer
   requestAnimationFrame(() => {
@@ -1227,12 +1229,27 @@ async function destroyCurrentEngine() {
 }
 
 /**
+ * Ajusta el tamaño del lienzo móvil a la proporción del mundo del módulo
+ * (`static viewport`): los módulos altos reciben más alto y los panorámicos
+ * menos, siempre con un tope para no comerse la pantalla.
+ * @param {{width?: number, height?: number}|null} vp
+ */
+function applyModuleCanvasAspect(vp) {
+  const worldW = Number(vp?.width) || 20;
+  const worldH = Number(vp?.height) || 15;
+  const ratio = Math.min(2.6, Math.max(0.8, worldW / worldH));
+  document.documentElement.style.setProperty('--module-aspect', ratio.toFixed(3));
+}
+
+/**
  * @param {string} engineKey
  * @param {object|null} catalogEntry
  * @param {{ id: string, param: string, value: * }|null} [initialMode] — modo
  *   interno del catálogo para enlaces profundos (#/m/<id>?mode=…).
  */
 async function loadEngineModule(engineKey, catalogEntry = null, initialMode = null) {
+  setMobileParamsExpanded(false);
+  setMobilePanelExpanded(false);
   await destroyCurrentEngine();
 
   const path = ENGINE_PATHS[engineKey] || ENGINE_PATHS.placeholder;
@@ -1261,6 +1278,7 @@ async function loadEngineModule(engineKey, catalogEntry = null, initialMode = nu
     // global que la app imponía a los 27 motores (§2.2).
     const vp = mod?.default?.viewport || instance.viewport || null;
     camera?.setWorldSize(vp?.width || 20, vp?.height || 15);
+    applyModuleCanvasAspect(vp);
     renderer?.resetCamera?.();
     renderer?.clearOverlays?.();
     layers?.invalidateAll();
@@ -1621,49 +1639,76 @@ function updatePlayPauseUI() {
   }
 }
 
+/**
+ * Hojas móviles: parámetros y panel inferior. Solo una puede estar abierta.
+ * El scrim cierra al tocar fuera; el canvas recupera tamaño al cerrar.
+ */
+function ensureSheetScrim(id, className, label, close) {
+  let scrim = document.getElementById(id);
+  if (!scrim) {
+    scrim = document.createElement('button');
+    scrim.type = 'button';
+    scrim.id = id;
+    scrim.className = className;
+    scrim.setAttribute('aria-label', label);
+    scrim.addEventListener('click', close);
+    document.body.appendChild(scrim);
+  }
+  return scrim;
+}
+
 function setMobileParamsExpanded(open) {
+  if (open) setMobilePanelExpanded(false);
   const params = document.getElementById('mobileParamsBtn');
   document.body.classList.toggle('mobile-params-expanded', open);
   if (params) {
-    params.textContent = open ? 'Cerrar params' : 'Parámetros';
+    params.textContent = open ? 'Cerrar parámetros' : 'Parámetros';
     params.classList.toggle('primary', !!open);
+    params.setAttribute('aria-expanded', String(!!open));
   }
-  let scrim = document.getElementById('mobileParamsScrim');
-  if (open) {
-    if (!scrim) {
-      scrim = document.createElement('button');
-      scrim.type = 'button';
-      scrim.id = 'mobileParamsScrim';
-      scrim.className = 'mobile-params-scrim';
-      scrim.setAttribute('aria-label', 'Cerrar panel de parámetros');
-      scrim.addEventListener('click', () => setMobileParamsExpanded(false));
-      document.body.appendChild(scrim);
-    }
-    scrim.hidden = false;
-  } else if (scrim) {
-    scrim.hidden = true;
+  const scrim = ensureSheetScrim(
+    'mobileParamsScrim',
+    'mobile-params-scrim',
+    'Cerrar panel de parámetros',
+    () => setMobileParamsExpanded(false)
+  );
+  scrim.hidden = !open;
+  requestAnimationFrame(() => engine?.resizeCanvas?.());
+}
+
+function setMobilePanelExpanded(open) {
+  if (open) setMobileParamsExpanded(false);
+  const panel = document.getElementById('mobilePanelBtn');
+  document.body.classList.toggle('mobile-panel-expanded', open);
+  if (panel) {
+    panel.textContent = open ? 'Cerrar panel' : 'Panel';
+    panel.classList.toggle('primary', !!open);
+    panel.setAttribute('aria-expanded', String(!!open));
   }
+  const scrim = ensureSheetScrim(
+    'mobilePanelScrim',
+    'mobile-panel-scrim',
+    'Cerrar panel inferior',
+    () => setMobilePanelExpanded(false)
+  );
+  scrim.hidden = !open;
   requestAnimationFrame(() => engine?.resizeCanvas?.());
 }
 
 function bindMobileSimBar() {
-  const play = document.getElementById('mobilePlayBtn');
   const params = document.getElementById('mobileParamsBtn');
-  const reset = document.getElementById('mobileResetBtn');
-  if (play && play.dataset.bound !== '1') {
-    play.dataset.bound = '1';
-    play.addEventListener('click', () => togglePause());
-  }
+  const panel = document.getElementById('mobilePanelBtn');
   if (params && params.dataset.bound !== '1') {
     params.dataset.bound = '1';
     params.addEventListener('click', () => {
-      const open = !document.body.classList.contains('mobile-params-expanded');
-      setMobileParamsExpanded(open);
+      setMobileParamsExpanded(!document.body.classList.contains('mobile-params-expanded'));
     });
   }
-  if (reset && reset.dataset.bound !== '1') {
-    reset.dataset.bound = '1';
-    reset.addEventListener('click', () => resetBtn?.click());
+  if (panel && panel.dataset.bound !== '1') {
+    panel.dataset.bound = '1';
+    panel.addEventListener('click', () => {
+      setMobilePanelExpanded(!document.body.classList.contains('mobile-panel-expanded'));
+    });
   }
 }
 
@@ -1687,9 +1732,11 @@ resetBtn?.addEventListener('click', () => {
   if (inst && typeof inst.reset === 'function') {
     inst.reset(engine, renderer, ui);
   }
-  // Reiniciar la simulación reanuda el seguimiento (§17.2).
+  // Reiniciar devuelve también la perspectiva: encuadre, zoom y seguimiento.
+  camera?.reset?.();
   camera?.resumeFollow?.();
   updateViewControlsUI();
+  engine?.requestPaint?.();
 });
 
 /* ============================================
@@ -1759,12 +1806,31 @@ stepBtn?.addEventListener('click', () => {
   updatePlayPauseUI();
 });
 
-document.getElementById('fullscreenBtn')?.addEventListener('click', () => {
-  if (!document.fullscreenElement) {
-    document.body.requestFullscreen().catch(() => {});
-  } else {
-    document.exitFullscreen().catch(() => {});
+/**
+ * «Pantalla completa» del lienzo: amplía solo el canvas (no el módulo entero)
+ * con una capa CSS fija. La barra de vista y el HUD siguen dentro del canvas,
+ * así que al maximizar vuelven a quedar visibles sobre la simulación.
+ * @param {boolean} on
+ */
+function setCanvasMaximized(on) {
+  document.body.classList.toggle('canvas-maximized', !!on);
+  const btn = document.getElementById('fullscreenBtn');
+  if (btn) {
+    btn.setAttribute('aria-label', on ? 'Salir de pantalla completa' : 'Ampliar el lienzo');
+    btn.title = on ? 'Salir de pantalla completa (Esc)' : 'Ampliar el lienzo';
+    btn.classList.toggle('active', !!on);
+    btn.innerHTML = on
+      ? '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M9 3v6H3m12-6v6h6M9 21v-6H3m12 6v-6h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+      : '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
   }
+  requestAnimationFrame(() => {
+    engine?.resizeCanvas?.();
+    engine?.requestPaint?.();
+  });
+}
+
+document.getElementById('fullscreenBtn')?.addEventListener('click', () => {
+  setCanvasMaximized(!document.body.classList.contains('canvas-maximized'));
 });
 
 document.getElementById('settingsBtn')?.addEventListener('click', () => {
@@ -1966,7 +2032,8 @@ document.addEventListener('keydown', (e) => {
       break;
     case 'Escape':
       e.preventDefault();
-      goToCatalog();
+      if (document.body.classList.contains('canvas-maximized')) setCanvasMaximized(false);
+      else goToCatalog();
       break;
     case 'KeyI': {
       const inst = state.moduleInstances[state.currentModule];

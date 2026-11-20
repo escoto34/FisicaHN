@@ -65,26 +65,45 @@ test('checkNumericAnswer: tolerancia relativa configurable (5 % por defecto)', a
   assert.ok(!checkNumericAnswer('10.2', '10', 0.01), 'fuera de 1 %');
 });
 
-test('descubrimiento de retos sin examen: solo los del motor', async () => {
-  const { engineHasBuiltInChallenges, loadChallengeDataForEngine } = await import(
-    '../challenges.js'
-  );
-
+test('retos: solo se sirven durante un examen (pack del docente)', async () => {
+  const store = new Map();
   globalThis.localStorage = {
-    getItem: () => null,
-    setItem: () => {},
-    removeItem: () => {}
+    getItem: (k) => store.get(k) ?? null,
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: (k) => store.delete(k)
   };
 
-  assert.ok(engineHasBuiltInChallenges('projectile'), 'projectile tiene retos');
+  const {
+    engineHasBuiltInChallenges,
+    loadChallengeDataForEngine,
+    setCachedExamChallengePack
+  } = await import('../challenges.js');
+
+  assert.ok(engineHasBuiltInChallenges('projectile'), 'projectile tiene retos incorporados');
   assert.ok(!engineHasBuiltInChallenges('no-existe'), 'módulo fantasma sin retos');
 
-  const retos = await loadChallengeDataForEngine('projectile');
-  assert.ok(Array.isArray(retos) && retos.length >= 2, 'retos del motor sin examen');
+  // En práctica la pestaña Retos no existe: no se sirve nada.
+  assert.deepEqual(await loadChallengeDataForEngine('projectile'), [], 'sin examen, sin retos');
 
-  // Sin sesión/examen no debe incluir retos ajenos en la lista.
-  const conPack = await loadChallengeDataForEngine('momentum');
-  assert.ok(conPack.length >= 2, 'momentum también');
+  // En examen se sirve exactamente el pack publicado por el docente.
+  store.set(
+    'fisicahn_session_v1',
+    JSON.stringify({ mode: 'exam', examCode: 'ABC123', role: 'student' })
+  );
+  setCachedExamChallengePack(
+    {
+      modules: {
+        projectile: [
+          { id: 'p1', type: 'numeric', question: '¿Alcance?', answer: 42, unit: 'm' }
+        ]
+      }
+    },
+    'ABC123'
+  );
+  const retos = await loadChallengeDataForEngine('projectile');
+  assert.equal(retos.length, 1);
+  assert.equal(retos[0].id, 'p1');
+  assert.deepEqual(await loadChallengeDataForEngine('momentum'), [], 'módulo sin retos en el pack');
 });
 
 test('escenarios guiados: checkParamsMatch con tolerancia relativa', async () => {

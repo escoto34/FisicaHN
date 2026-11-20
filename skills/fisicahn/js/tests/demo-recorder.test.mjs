@@ -172,3 +172,38 @@ test('DemoStore persiste y borra (localStorage stub)', async () => {
   assert.deepEqual(DemoStore.list(), []);
   delete globalThis.localStorage;
 });
+test('DemoRecorder: duration es relativa al inicio, aunque el reloj no empiece en 0', async () => {
+  const { DemoRecorder, replayDemo } = await import('../core/demo-recorder.js');
+  const clock = fakeClock(12.5);
+  const rec = new DemoRecorder({
+    getTime: () => clock.now,
+    sample: () => ({ params: { p: 1 }, moduleState: null }),
+    sampleRate: 10,
+    moduleId: 'pendulum',
+  });
+  rec.start();
+  clock.advance(0.4);
+  rec.tick();
+  const demo = rec.stop();
+  assert.ok(Math.abs(demo.duration - 0.4) < 1e-9, 'duración = último t, no t − reloj inicial');
+
+  // El host repinta cada frame aunque no haya una muestra nueva.
+  const realRaf = globalThis.requestAnimationFrame;
+  const realCaf = globalThis.cancelAnimationFrame;
+  let step = null;
+  globalThis.requestAnimationFrame = (cb) => { step = cb; return 1; };
+  globalThis.cancelAnimationFrame = () => {};
+  try {
+    let frames = 0;
+    const ctl = replayDemo(demo, {
+      applySample() {},
+      onFrame() { frames++; },
+    }, { speed: 1 });
+    step?.(16);
+    assert.equal(frames, 1, 'onFrame se llama en cada frame de reproducción');
+    ctl.pause();
+  } finally {
+    globalThis.requestAnimationFrame = realRaf;
+    globalThis.cancelAnimationFrame = realCaf;
+  }
+});

@@ -5,9 +5,9 @@
  * «no DOM en módulos» de §3.1 aplica solo a js/modules).
  *
  * La sección «Demo» del panel lateral:
- *   ● Grabar      — muestras en el grid de 1/sampleRate (tiempo simulado)
- *   ▶ Reproducir  — timeline determinista sobre el snapshot del host
- *   ⬇ Exportar / ⬆ Importar / 🗂 Mis demos — JSON ligero (KB, no vídeo)
+ *   Grabar      — muestras en el grid de 1/sampleRate (tiempo simulado)
+ *   Reproducir  — timeline determinista sobre el snapshot del host
+ *   Exportar / Importar / Mis demos — JSON ligero (KB, no vídeo)
  *
  * Los módulos legacy sin getState/setState solo guardan parámetros: la
  * reproducción es visual (misma configuración que al grabar).
@@ -26,6 +26,18 @@ const ICON_PLAY =
   '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><polygon points="6 4 20 12 6 20"/></svg>';
 const ICON_REC =
   '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="currentColor"/></svg>';
+const ICON_DOWN =
+  '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 19h16"/></svg>';
+const ICON_UP =
+  '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21V9m0 0-4 4m4-4 4 4M4 5h16"/></svg>';
+const ICON_FOLDER =
+  '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
+const ICON_VIDEO =
+  '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="12" height="12" rx="2"/><path d="m15 10 6-3v10l-6-3z"/></svg>';
+const ICON_STOP =
+  '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/></svg>';
+const ICON_TRASH =
+  '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2m-8 0 1 12h8l1-12"/></svg>';
 
 const SPEED_OPTS = [0.5, 1, 2, 4];
 
@@ -73,13 +85,13 @@ function buildDom() {
       </button>
     </div>
     <div class="btn-row" id="demoFileRow">
-      <button type="button" class="ctrl-btn ctrl-btn-small" id="demoSaveBtn" disabled>⬇ Exportar</button>
-      <button type="button" class="ctrl-btn ctrl-btn-small" id="demoImportBtn">⬆ Importar</button>
-      <button type="button" class="ctrl-btn ctrl-btn-small" id="demoGalleryBtn">🗂 Mis demos</button>
+      <button type="button" class="ctrl-btn ctrl-btn-small" id="demoSaveBtn" disabled>${ICON_DOWN}<span>Exportar</span></button>
+      <button type="button" class="ctrl-btn ctrl-btn-small" id="demoImportBtn">${ICON_UP}<span>Importar</span></button>
+      <button type="button" class="ctrl-btn ctrl-btn-small" id="demoGalleryBtn">${ICON_FOLDER}<span>Mis demos</span></button>
     </div>
     <div class="btn-row" id="videoRecRow">
       <button type="button" class="ctrl-btn ctrl-btn-small" id="videoRecBtn" title="WebM del lienzo (MediaRecorder)">
-        🎬 Vídeo
+        ${ICON_VIDEO}<span>Vídeo</span>
       </button>
       <button type="button" class="ctrl-btn ctrl-btn-small" id="pngSeqBtn" title="Descargar 12 fotogramas PNG">
         PNG ×12
@@ -156,7 +168,9 @@ async function stopVideoRec() {
 function updateVideoUi(on, pct) {
   const btn = byId('videoRecBtn');
   if (!btn) return;
-  btn.textContent = on ? `⏹ Parar vídeo ${pct ? Math.round(pct) + '%' : ''}` : '🎬 Vídeo';
+  btn.innerHTML = on
+    ? `${ICON_STOP}<span>Parar vídeo ${pct ? Math.round(pct) + '%' : ''}</span>`
+    : `${ICON_VIDEO}<span>Vídeo</span>`;
   btn.classList.toggle('recording-active', on);
 }
 
@@ -245,20 +259,31 @@ function updateRecUi() {
 /**
  * @param {object} demo objeto v1
  */
-function playDemo(demo) {
+async function playDemo(demo) {
   stopPlayback();
+  if (!demo) return;
+
+  // La demo puede ser de otro módulo: hay que esperar a que el host lo cargue
+  // antes de empezar a aplicar muestras (si no, se pintaban en el motor viejo
+  // y la reproducción arrancaba a trompicones).
+  if (demo.moduleId && demo.moduleId !== hooks.getModuleId?.() && hooks.openModule) {
+    try {
+      await hooks.openModule(demo.moduleId);
+    } catch (e) {
+      showHint('No se pudo abrir el módulo de la demo: ' + (e?.message || e));
+      return;
+    }
+  }
+
   const engine = hooks.engine?.();
-  if (!demo || !engine) return;
-  const moduleId = demo.moduleId;
+  if (!engine) return;
+  engine.pause?.();
+  engine.reset?.();
   const adapter = {
     resetSample: () => {
-      if (moduleId && moduleId !== hooks.getModuleId?.() && hooks.openModule) {
-        void hooks.openModule(moduleId).then(() => engine.pause?.());
-      } else {
-        engine.pause?.();
-        engine.reset?.();
-        engine.requestPaint?.();
-      }
+      engine.pause?.();
+      engine.reset?.();
+      engine.requestPaint?.();
       hooks.onTransportChanged?.();
     },
     applySample: (params, moduleState) => {
@@ -277,6 +302,9 @@ function playDemo(demo) {
       }
       engine.requestPaint?.();
     },
+    // Repinta también entre muestras: el motor está en pausa y, sin esto,
+    // sólo se pintaba a la tasa de muestreo de la grabación.
+    onFrame: () => engine.requestPaint?.(),
     onDone: () => {
       playing = null;
       engine.pause?.();
@@ -369,8 +397,8 @@ function showGallery() {
             <span class="demo-gallery-name">${escAttr(e.moduleId)}</span>
             <span class="demo-gallery-meta">${e.demo.samples.length} inst · ${e.demo.duration.toFixed(1)} s</span>
             <span class="demo-gallery-actions">
-              <button type="button" class="ctrl-btn ctrl-btn-small" data-action="replay">▶ Abrir</button>
-              <button type="button" class="ctrl-btn ctrl-btn-small" data-action="drop" aria-label="Eliminar">🗑</button>
+              <button type="button" class="ctrl-btn ctrl-btn-small" data-action="replay">${ICON_PLAY}<span>Abrir</span></button>
+              <button type="button" class="ctrl-btn ctrl-btn-small" data-action="drop" aria-label="Eliminar">${ICON_TRASH}</button>
             </span>
           </div>`
           )
@@ -395,7 +423,7 @@ function showGallery() {
       const demo = item && DemoStore.get(item.dataset.id);
       if (!demo) return;
       overlay.remove();
-      if (btn.dataset.action === 'play') {
+      if (btn.dataset.action === 'replay') {
         lastDemo = demo;
         byId('demoPlayBtn').disabled = false;
         playDemo(demo);

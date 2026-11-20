@@ -1,7 +1,7 @@
 /**
  * gen-builtin-challenges.mjs — Regenera js/builtin-challenges.js.
  *
- * WAVE 8.1: el registro de retos incorporados (pestaña «Retos» sin examen)
+ * WAVE 8.1: el registro de retos incorporados (cantera para exámenes)
  * se deriva de las semillas en skills/fisicahn/data/challenges/:
  *   - 4 JSON legacy (cinematica/dinamica/electricidad/optica-retos.json)
  *   - el pack de ejemplo (ejemplo-pack-examen.json)
@@ -21,7 +21,7 @@ const DATA = path.join(SRC, 'data', 'challenges');
 const OUT = path.join(SRC, 'js', 'builtin-challenges.js');
 
 const ENGINE_KEYS = [
-  'units-error','vectors','hyperbola','kinematics','projectile','dynamics','mass-weight',
+  'vectors','hyperbola','kinematics','projectile','dynamics','mass-weight',
   'inclined-plane','force-kinetic','elasticity','friction','statics','momentum','collisions-2d',
   'work-energy','rotational','oscillatory','pendulum','standing-waves','fluids','thermodynamics',
   'calorimetry','kinetic-theory','thermal-expansion','sound','electricity','circuits','magnetic',

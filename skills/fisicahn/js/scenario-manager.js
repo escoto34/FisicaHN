@@ -425,8 +425,8 @@ export class ScenarioRunner {
       const params = this.adapter?.getParams?.() || {};
       const ok = checkStepFulfilled(step, params);
       feedback.textContent = ok
-        ? '✔ Configuración correcta. Continúa.'
-        : '✘ Aún no coincide. Revisa los valores y pulsa «Configurar así» o ajústalos a mano.';
+        ? 'Configuración correcta. Continúa.'
+        : 'Aún no coincide. Revisa los valores y pulsa «Configurar así» o ajústalos a mano.';
       feedback.style.color = ok ? 'var(--accent, #3ecfbf)' : 'var(--error, #ef5350)';
       if (ok) {
         if (this.stepIndex < s.steps.length - 1) {
