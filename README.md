@@ -25,7 +25,7 @@ Se distribuye en 5 formatos desde una única fuente de verdad (`skills/fisicahn`
 - **App de escritorio** (Electron para Windows y Linux)
 - **App Android** (Capacitor APK para tablets y celulares)
 
-Versión actual: **1.6.1** (Hoja de ruta WAVEs 0 a 18 completada al 100%; los 50 motores en el contrato declarativo `SimModule` + `draw(scene)`).
+Versión actual: **1.6.2** (Hoja de ruta WAVEs 0 a 18 completada al 100%; las 50 entradas del catálogo en el contrato declarativo `SimModule` + `draw(scene)`).
 
 ---
 
@@ -35,14 +35,14 @@ Versión actual: **1.6.1** (Hoja de ruta WAVEs 0 a 18 completada al 100%; los 50
 |------------|------------|--------------|
 | **Web / PWA** | Cualquiera con o sin internet | Abre el sitio web, instálalo como PWA para uso sin conexión |
 | **ZIP Offline** | USB, NetSupport, laboratorios bloqueados | Descarga `fisicahn.zip`, descomprime y abre `index.html` |
-| **Escritorio** | Windows (Instalador / Portable) o Linux (AppImage / DEB) | Descarga los binarios desde [Releases v1.6.1](https://github.com/escoto34/FisicaHN/releases/tag/v1.6.1) |
-| **Android** | Tablets y teléfonos | Instala `FisicaHN-1.6.1-release.apk` |
+| **Escritorio** | Windows (Instalador / Portable) o Linux (AppImage / DEB) | Descarga los binarios desde [Releases v1.6.2](https://github.com/escoto34/FisicaHN/releases/tag/v1.6.2) |
+| **Android** | Tablets y teléfonos | Instala `FisicaHN-1.6.2-release.apk` |
 
 ### Linux (AppImage)
 
 ```bash
-chmod +x FisicaHN-1.6.1.AppImage
-./FisicaHN-1.6.1.AppImage
+chmod +x FisicaHN-1.6.2.AppImage
+./FisicaHN-1.6.2.AppImage
 ```
 
 ---
@@ -58,7 +58,7 @@ chmod +x FisicaHN-1.6.1.AppImage
 
 ## Qué hay en el laboratorio
 
-El catálogo cuenta con **50 módulos de física interactivos + Pizarra docente + Mis trabajos** organizados en 12 categorías curriculares con búsqueda instantánea y enlace profundo por modo (`#/m/momentum?mode=impulse`):
+El catálogo cuenta con **49 módulos de física interactivos + Pizarra docente + Mis trabajos** organizados en 12 categorías curriculares con búsqueda instantánea y enlace profundo por modo (`#/m/momentum?mode=impulse`):
 
 1. **Medición y vectores:** Vectores (`vectors`), Hipérbola (`hyperbola`).
 2. **Cinemática:** Cinemática (`kinematics`), Tiro parabólico (`projectile`).
@@ -85,13 +85,13 @@ El catálogo cuenta con **50 módulos de física interactivos + Pizarra docente 
 
 ---
 
-## Descargas (Versión 1.6.1)
+## Descargas (Versión 1.6.2)
 
-Publicadas en [GitHub Releases v1.6.1](https://github.com/escoto34/FisicaHN/releases/tag/v1.6.1):
+Publicadas en [GitHub Releases v1.6.2](https://github.com/escoto34/FisicaHN/releases/tag/v1.6.2):
 
-- **Windows:** `FisicaHN Setup 1.6.1.exe` (Instalador NSIS) y `FisicaHN-Portable-1.6.1.exe` (Portable)
-- **Linux:** `FisicaHN-1.6.1.AppImage` y `fisicahn-desktop_1.6.1_amd64.deb`
-- **Android:** `FisicaHN-1.6.1-release.apk`
+- **Windows:** `FisicaHN Setup 1.6.2.exe` (Instalador NSIS) y `FisicaHN-Portable-1.6.2.exe` (Portable)
+- **Linux:** `FisicaHN-1.6.2.AppImage` y `fisicahn-desktop_1.6.2_amd64.deb`
+- **Android:** `FisicaHN-1.6.2-release.apk`
 - **PWA / Web:** Disponible en el sitio web de la aplicación.
 
 ---
