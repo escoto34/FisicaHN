@@ -2,9 +2,8 @@
  * @fileoverview Masa y peso — la masa no cambia de astro; el peso sí (tanda 5.1).
  *
  * Un cuerpo con `m` se despliega sobre una báscula preparada para la gravedad
- * del planeta elegido; el HUD compara W = m·g entre astros como barras, para
- * que se vea el contraste sin salir del lienzo. Ejercita `body`, `chip` y el
- * `plot` de barras (`scene.rect`) para la comparación multipanel.
+ * del planeta elegido. La comparación W = m·g entre astros se muestra en la
+ * pestaña Gráficas del panel de consulta, separada del fenómeno en el lienzo.
  */
 
 import { SimModule } from '../core/sim-module.js';
@@ -42,8 +41,6 @@ export default class MassWeight extends SimModule {
   constructor(ctx) {
     super(ctx);
     this.params = { m: 50, astro: 'tierra' };
-    /** Elementos de la gráfica de barras (etiquetas y colores fijos; sólo cambia `value`). */
-    this._barItems = ASTROS.map((a, i) => ({ value: 0, color: i % 2 ? 'mass2' : 'energy', label: a.label.slice(0, 3) }));
   }
 
   astro() {
@@ -83,6 +80,7 @@ export default class MassWeight extends SimModule {
       ]
     });
     this.clearChallenges();
+    this.setModuleGraphs(this.graphData());
   }
 
   reset() {
@@ -135,9 +133,6 @@ export default class MassWeight extends SimModule {
     // Etiqueta del astro bajo el cuerpo.
     scene.chip(bx, topP + 2.9, `${a.label}: g = ${a.g} m/s²`, { avoid: true, color: 'energy' });
 
-    // Comparación multipanel: barra de W por astro (rect es el «plot» de barras).
-    this.drawWeightBars(scene, w);
-
     const hud = scene.hud;
     hud.chip(`Masa ${m} kg — ${a.label}`, 'top-left');
     hud.readout(
@@ -150,21 +145,19 @@ export default class MassWeight extends SimModule {
     );
   }
 
-  /** Barras W por astro, ancladas a la derecha (escala N): primitiva `bars`. */
-  drawWeightBars(scene, w) {
+  /** Comparación para el panel Gráficas (no se mezcla con el espacio físico). */
+  graphData() {
     const { m } = this.params;
-    const barW = 0.5;
-    const gap = 0.32;
-    const x0 = w.right - 8.6;
-    const top = w.top - 1.1;
-    const usable = 10.5;
-    const items = this._barItems;
-    for (let i = 0; i < ASTROS.length; i++) items[i].value = this.weight(m, ASTROS[i].g);
-    scene.bars(x0, top - usable, items, { max: this.weight(m, MAX_G), hMax: usable, barW, gap, minH: 0.2, labelSize: 9, labelOffset: 0.55 });
-    scene.label(x0 + ((barW * 6 + gap * 5) / 2), top + 0.6, 'Peso W por astro', { avoid: true,
-      color: 'textDim',
-      size: 10
-    });
+    return {
+      title: 'Peso en cada astro',
+      description: `Comparación para una masa constante de ${m} kg.`,
+      unit: 'N',
+      items: ASTROS.map((astro) => ({
+        label: astro.label,
+        value: roundTo(this.weight(m, astro.g), 1),
+        active: astro.id === this.params.astro
+      }))
+    };
   }
 
   /* ---------- datos numéricos (§3.1) ---------- */

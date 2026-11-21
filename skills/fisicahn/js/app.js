@@ -5,7 +5,7 @@
 
 import { PhysicsEngine } from './physics-engine.js';
 import { Renderer } from './renderer.js';
-import { CATALOG, getById, getUnifiedCatalog, getSimulationCatalog, WORKS_MODULE, buildEnginePaths } from './catalog.js';
+import { CATALOG, CATEGORIES, getById, getUnifiedCatalog, getSimulationCatalog, WORKS_MODULE, buildEnginePaths } from './catalog.js';
 import { searchState, closestTerms, resultCardHtml } from './catalog-search.js';
 import { normalizeText, escapeHtml } from './core/text.js';
 import { iconFor, categoryIcon } from './core/icons.js';
@@ -103,6 +103,8 @@ let demoTick = null;
 let demoUi = null;
 /** Estado de plegado de las secciones del catálogo (persistente). */
 const COLLAPSED_KEY = 'fisicahn_catalog_collapsed';
+const SIDEBAR_COMPACT_KEY = 'fisicahn_sidebar_compact';
+const BOTTOM_COMPACT_KEY = 'fisicahn_bottom_compact';
 
 /** Rutas de motores derivadas del catálogo (§4.5): una sola fuente. */
 const ENGINE_PATHS = buildEnginePaths();
@@ -142,6 +144,8 @@ const stepBtn = document.getElementById('stepBtn');
 const paramsPanel = document.getElementById('paramsPanel');
 const bottomTabs = document.querySelectorAll('.bottom-tab');
 const bottomContent = document.getElementById('bottomContent');
+const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+const bottomPanelToggle = document.getElementById('bottomPanelToggle');
 const toolBtns = document.querySelectorAll('.tool-btn');
 /** @type {ChallengeEngine|null} */
 let challengeEngine = null;
@@ -400,6 +404,48 @@ const ui = {
     }
   },
   /**
+   * Gráficas complementarias: el módulo aporta datos y el host conserva una
+   * única presentación accesible, fuera del canvas físico.
+   */
+  setGraphs(data) {
+    const tabBtn = document.querySelector('.bottom-tab[data-tab="graphs"]');
+    const panel = document.getElementById('tab-graphs');
+    if (!tabBtn || !panel) return;
+    const items = Array.isArray(data?.items) ? data.items : [];
+    if (!data || !items.length) {
+      tabBtn.hidden = true;
+      panel.hidden = true;
+      panel.innerHTML = '';
+      delete panel.dataset.graphSignature;
+      if (tabBtn.classList.contains('active')) this.showTab('info');
+      return;
+    }
+    const max = Math.max(...items.map((item) => Number(item.value) || 0), 1);
+    const signature = JSON.stringify(data);
+    if (panel.dataset.graphSignature === signature) return;
+    panel.dataset.graphSignature = signature;
+    tabBtn.hidden = false;
+    panel.hidden = false;
+    panel.innerHTML = `
+      <section class="module-graph" aria-label="${escapeHtml(data.title || 'Gráfica del módulo')}">
+        <div class="module-graph-heading">
+          <div><h3>${escapeHtml(data.title || 'Gráfica')}</h3>${data.description ? `<p>${escapeHtml(data.description)}</p>` : ''}</div>
+          ${data.unit ? `<span class="module-graph-unit">${escapeHtml(data.unit)}</span>` : ''}
+        </div>
+        <div class="bar-chart" role="list">
+          ${items.map((item) => {
+            const value = Number(item.value) || 0;
+            const width = Math.max(2, Math.min(100, (value / max) * 100));
+            return `<div class="bar-chart-row${item.active ? ' is-active' : ''}" role="listitem">
+              <span class="bar-chart-label">${escapeHtml(item.label || '')}</span>
+              <span class="bar-chart-track" aria-hidden="true"><span class="bar-chart-fill" style="width:${width.toFixed(2)}%"></span></span>
+              <strong class="bar-chart-value">${escapeHtml(String(value))} <small>${escapeHtml(data.unit || '')}</small></strong>
+            </div>`;
+          }).join('')}
+        </div>
+      </section>`;
+  },
+  /**
    * @param {null|{ engineKey: string, challenges: Array }|string} data
    * null/'' → oculta pestaña Retos; objeto → monta motor en #tab-challenges
    */
@@ -480,6 +526,7 @@ const ui = {
       target.classList.add('active');
       if (tabId === 'challenges') target.hidden = false;
       if (tabId === 'scenarios') target.hidden = false;
+      if (tabId === 'graphs') target.hidden = false;
     }
   }
 };
@@ -1104,6 +1151,29 @@ function showSimShell() {
   });
 }
 
+function setSidebarCompact(compact) {
+  document.body.classList.toggle('sidebar-compact', compact);
+  if (sidebarToggleBtn) {
+    sidebarToggleBtn.setAttribute('aria-expanded', String(!compact));
+    sidebarToggleBtn.setAttribute('aria-label', compact ? 'Expandir navegación' : 'Contraer navegación');
+    sidebarToggleBtn.title = compact ? 'Expandir navegación' : 'Contraer navegación';
+  }
+  try { localStorage.setItem(SIDEBAR_COMPACT_KEY, compact ? '1' : '0'); } catch { /* ignore */ }
+  requestAnimationFrame(() => engine?.resizeCanvas?.());
+}
+
+function setBottomPanelCompact(compact) {
+  if (matchMedia('(max-width: 720px)').matches) return;
+  document.body.classList.toggle('bottom-panel-compact', compact);
+  if (bottomPanelToggle) {
+    bottomPanelToggle.setAttribute('aria-expanded', String(!compact));
+    bottomPanelToggle.setAttribute('aria-label', compact ? 'Expandir panel de consulta' : 'Contraer panel de consulta');
+    bottomPanelToggle.title = compact ? 'Expandir panel de consulta' : 'Contraer panel de consulta';
+  }
+  try { localStorage.setItem(BOTTOM_COMPACT_KEY, compact ? '1' : '0'); } catch { /* ignore */ }
+  requestAnimationFrame(() => engine?.resizeCanvas?.());
+}
+
 /** Barra lateral: cabecera fija (logo / todos / trabajos) + lista de módulos con scroll (PC). */
 function fillSidebarUnified() {
   if (!sidebarNav) return;
@@ -1122,16 +1192,34 @@ function fillSidebarUnified() {
     worksHost.appendChild(worksBtn);
   }
 
-  // Lista plana de módulos (sin secciones por categoría).
-  for (const mod of getSimulationCatalog()) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'module-btn';
-    btn.dataset.catalogId = mod.id;
-    if (mod.id === state.catalogId) btn.classList.add('active');
-    btn.innerHTML = `<span>${escapeHtml(mod.title)}</span>`;
-    btn.addEventListener('click', () => openCatalogModule(mod.id));
-    sidebarNav.appendChild(btn);
+  // Categorías curriculares agrupadas: conserva el acceso a todos los módulos
+  // sin convertir la navegación en una lista plana interminable.
+  const modules = getSimulationCatalog();
+  for (const category of CATEGORIES) {
+    const categoryModules = modules.filter((mod) => mod.category === category.id);
+    if (!categoryModules.length) continue;
+    const group = document.createElement('section');
+    group.className = 'sidebar-group';
+    const head = document.createElement('div');
+    head.className = 'sidebar-group-head sidebar-group-label';
+    head.innerHTML = `<span class="sidebar-group-glyph">${categoryIcon(category.id)}</span><span class="sidebar-group-title">${escapeHtml(category.label)}</span>`;
+    group.appendChild(head);
+    const body = document.createElement('div');
+    body.className = 'sidebar-group-body';
+    for (const mod of categoryModules) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'module-btn';
+      btn.dataset.catalogId = mod.id;
+      btn.setAttribute('title', mod.title);
+      btn.setAttribute('aria-label', mod.title);
+      if (mod.id === state.catalogId) btn.classList.add('active');
+      btn.innerHTML = `<span class="module-icon">${iconFor(mod.id, mod.category) || ''}</span><span class="module-label">${escapeHtml(mod.title)}</span>`;
+      btn.addEventListener('click', () => openCatalogModule(mod.id));
+      body.appendChild(btn);
+    }
+    group.appendChild(body);
+    sidebarNav.appendChild(group);
   }
 }
 
@@ -1226,6 +1314,7 @@ async function destroyCurrentEngine() {
   // El panel de escenarios pertenece al módulo: se desmonta con él.
   scenarioRunner?.destroy?.();
   scenarioRunner = null;
+  ui.setGraphs(null);
 }
 
 /**
@@ -1435,6 +1524,7 @@ function pumpReadout(instance) {
       )
       .join('')}</div>`
   );
+  if (implementsMethod(instance, 'graphData')) ui.setGraphs(instance.graphData());
 }
 
 /**
@@ -1907,6 +1997,14 @@ catalogBackBtn?.addEventListener('click', () => {
 
 bottomTabs.forEach((btn) => {
   btn.addEventListener('click', () => ui.showTab(btn.dataset.tab));
+});
+
+sidebarToggleBtn?.addEventListener('click', () => {
+  setSidebarCompact(!document.body.classList.contains('sidebar-compact'));
+});
+
+bottomPanelToggle?.addEventListener('click', () => {
+  setBottomPanelCompact(!document.body.classList.contains('bottom-panel-compact'));
 });
 
 toolBtns.forEach((btn) => {
@@ -2483,6 +2581,12 @@ try {
 }
 
 async function init() {
+  try {
+    setSidebarCompact(localStorage.getItem(SIDEBAR_COMPACT_KEY) === '1');
+    setBottomPanelCompact(localStorage.getItem(BOTTOM_COMPACT_KEY) === '1');
+  } catch {
+    /* preferencias opcionales */
+  }
   // App de escritorio (Electron / NetSupport): ocultar enlaces web
   if (window.FisicaHNDesktop?.isDesktop) {
     document.documentElement.dataset.desktop = '1';

@@ -130,6 +130,22 @@ export class SimModule {
   }
 
   /**
+   * Describe una gráfica complementaria para el panel de consulta. La gráfica
+   * vive fuera del lienzo: el canvas conserva únicamente el fenómeno físico.
+   * @param {{title?: string, description?: string, unit?: string, items?: Array<{label:string,value:number,active?:boolean}>}|null} data
+   */
+  setModuleGraphs(data) {
+    /** @type {any} */
+    const ui = this.ui;
+    if (ui && typeof ui.setGraphs === 'function') ui.setGraphs(data);
+  }
+
+  /** Datos de gráfica actualizables; los módulos que no los necesitan devuelven null. */
+  graphData() {
+    return null;
+  }
+
+  /**
    * Reencuadra el mundo visible desde el propio módulo.
    *
    * `static viewport` fija un solo encuadre, pero hay motores cuyos modos
