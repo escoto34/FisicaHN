@@ -143,7 +143,8 @@ export class Surface {
     this.ctx = null;
     this.theme = getTheme();
     this.screenSpace = opts.screenSpace === true;
-    this._fontFamily = 'system-ui, -apple-system, "Segoe UI", sans-serif';
+    /* Share (Carrois Apostrophe) — texto del motor de gráficos, en negrita. */
+    this._fontFamily = "'Share', 'Nunito', system-ui, sans-serif";
     /** Segundos desde el arranque del módulo; la escena lo sincroniza en `beginFrame`. */
     this.elapsed = 0;
     /** Caché de cadenas `font` por (tamaño, peso, escala del tema). */
@@ -219,7 +220,7 @@ export class Surface {
    * `chip` la pedían dos veces por etiqueta y la concatenación era una de las
    * pocas asignaciones de cadena que quedaban en el bucle caliente.
    */
-  font(size = 12, weight = '') {
+  font(size = 12, weight = 'bold') {
     const cache = this._fontCache;
     const scale = this.theme.fontScale;
     if (cache.scale !== scale) {
@@ -2246,7 +2247,7 @@ export class HudSurface extends Surface {
     const a = this.anchorPoint(anchor, opts.padX, opts.padY);
     const lh = this.fontSize(opts.lineHeight ?? 17);
     ctx.save();
-    ctx.font = `${Math.round(this.fontSize(12))}px ui-monospace, "SFMono-Regular", monospace`;
+    ctx.font = `bold ${Math.round(this.fontSize(12))}px 'Share', 'Nunito', sans-serif`;
     const decimals = opts.decimals ?? 2;
     const lines = new Array(rows.length);
     let wMax = 0;

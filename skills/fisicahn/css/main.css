@@ -2,6 +2,56 @@
    FísicaHN — Sistema de Diseño y Layout
    ============================================ */
 
+/* --- Fuentes auto-alojadas (PWA / offline / USB) ---
+   Nunito     → interfaz general (Vernon Adams, Cyreal, Jacques Le Bailly)
+   Oswald     → títulos de tema y nombre de módulo (Vernon Adams, Kalapi Gajjar, Cyreal)
+   Share      → fórmulas y texto del motor de gráficos, en negrita (Carrois Apostrophe)
+   BBH Bogle  → la marca FísicaHN (Studio DRAMA) */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('../assets/fonts/nunito-var.woff2') format('woff2-variations'),
+       url('../assets/fonts/nunito-var.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Oswald';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('../assets/fonts/oswald-var.woff2') format('woff2-variations'),
+       url('../assets/fonts/oswald-var.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Share';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../assets/fonts/share-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Share';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../assets/fonts/share-700.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Share';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../assets/fonts/share-400-italic.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'BBH Bogle';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../assets/fonts/bbh-bogle-400.woff2') format('woff2');
+}
+
 /* --- Custom Properties (Design System) --- */
 :root {
   --bg-primary: #0c0f14;
@@ -13,8 +63,15 @@
   --accent-secondary: #e8a838;
   --danger: #f07178;
   --success: #3ecf7a;
-  --font-ui: system-ui, -apple-system, 'Inter', sans-serif;
-  --font-mono: 'JetBrains Mono', 'Cascadia Code', monospace;
+  --font-ui: 'Nunito', system-ui, -apple-system, sans-serif;
+  --font-heading: 'Oswald', 'Nunito', sans-serif;
+  --font-formula: 'Share', 'Nunito', sans-serif;
+  /* BBH Bogle no incluye letras acentuadas: los glifos ausentes (í, á…)
+     caen automáticamente a Nunito, que sí los tiene. */
+  --font-brand: 'BBH Bogle', 'Nunito', sans-serif;
+  /* Sin familia monoespaciada propia en el esquema de 4 fuentes: las cifras
+     y textos técnicos van en Nunito (dígitos de ancho fijo). */
+  --font-mono: 'Nunito', ui-monospace, monospace;
   --radius: 8px;
   --radius-sm: 4px;
   --transition: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -200,6 +257,7 @@ button.sidebar-brand-btn:hover .sidebar-title {
 .sidebar-title {
   font-size: 1.2rem;
   font-weight: 700;
+  font-family: var(--font-brand);
   color: var(--accent);
   letter-spacing: -0.02em;
 }
@@ -348,6 +406,7 @@ button.sidebar-brand-btn:hover .sidebar-title {
 
 .module-title {
   font-size: 1.1rem;
+  font-family: var(--font-heading);
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -581,6 +640,8 @@ body.view-sim.canvas-maximized.mobile-panel-expanded .mobile-panel-scrim {
   min-width: 0;
   min-height: 0;
   display: block; /* evita hueco baseline inline */
+  /* Texto del motor: Share (la familia la lee `renderer._fontFamily()`) */
+  font-family: var(--font-formula);
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius);
@@ -632,6 +693,7 @@ body.view-sim.canvas-maximized.mobile-panel-expanded .mobile-panel-scrim {
 
 .panel-title {
   font-size: 0.75rem;
+  font-family: var(--font-heading);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -1027,6 +1089,7 @@ body.view-sim.canvas-maximized.mobile-panel-expanded .mobile-panel-scrim {
 }
 .formula-section-title {
   font-weight: 600;
+  font-family: var(--font-heading);
   margin: 0 0 4px;
   color: var(--text-primary);
 }
@@ -1042,6 +1105,7 @@ body.view-sim.canvas-maximized.mobile-panel-expanded .mobile-panel-scrim {
   margin-bottom: 4px;
 }
 .formula-expr {
+  font-family: var(--font-formula);
   font-size: 1.05rem;
   color: var(--accent);
   line-height: 1.5;
@@ -1069,12 +1133,24 @@ body.view-sim.canvas-maximized.mobile-panel-expanded .mobile-panel-scrim {
   font-size: 0.95em;
 }
 .tex-fallback {
-  font-family: var(--font-mono);
+  font-family: var(--font-formula);
   color: var(--accent);
 }
 /* KaTeX en tema oscuro */
 .katex {
   color: inherit;
+}
+/* Fórmulas en Share: letras y cifras en Share; los glifos matemáticos que
+   Share no trae (√, ∑, ∫, delimitadores…) caen por glifo a las fuentes
+   KaTeX de la cadena. Selectores con especificidad > KaTeX (que se carga
+   bajo demanda después de este archivo). */
+body .katex,
+body .katex .mathnormal,
+body .katex .mathbf,
+body .katex .mathit,
+body .katex .textrm,
+body .katex .text {
+  font-family: var(--font-formula), KaTeX_Main, KaTeX_Math, KaTeX_AMS, KaTeX_Size1, KaTeX_Size2, KaTeX_Size3, KaTeX_Size4, serif;
 }
 .slider-row.param-row,
 .param-row.slider-row {
@@ -1183,6 +1259,10 @@ body.view-sim.canvas-maximized.mobile-panel-expanded .mobile-panel-scrim {
   font-size: 0.85rem;
   line-height: 1.6;
   color: var(--text-secondary);
+}
+.tab-text strong {
+  font-family: var(--font-brand);
+  font-weight: 700;
 }
 
 .tab-text kbd {
@@ -2021,6 +2101,7 @@ body.works-modal-open { overflow: hidden; }
 }
 .works-modal-header h2 {
   font-size: 1.35rem;
+  font-family: var(--font-heading);
   font-weight: 600;
   color: var(--text-primary);
   margin: 0 0 6px;
@@ -2450,6 +2531,7 @@ body.works-modal-open { overflow: hidden; }
 }
 .session-gate-card h2 {
   font-size: 1.25rem;
+  font-family: var(--font-heading);
   margin-bottom: 8px;
   color: var(--accent);
 }
@@ -2676,6 +2758,7 @@ body.works-modal-open { overflow: hidden; }
 }
 .user-menu-header h2 {
   font-size: 1.2rem;
+  font-family: var(--font-heading);
   color: var(--accent);
   margin: 0;
 }

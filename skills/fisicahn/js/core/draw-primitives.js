@@ -71,7 +71,7 @@ export function arrowHead(ctx, tx, ty, angle, size = 10) {
  * @returns {{width:number,height:number}} Dimensiones dibujadas.
  */
 export function chip(ctx, x, y, text, opts = {}) {
-  const font = opts.font || '12px sans-serif';
+  const font = opts.font || "bold 12px 'Share', 'Nunito', sans-serif";
   const padding = opts.padding ?? 8;
   ctx.save();
   ctx.font = font;
@@ -284,7 +284,7 @@ export function legend(ctx, items, x, y, lineLength = 14) {
   let cursorX = x;
   const lineHeight = 16;
   ctx.save();
-  ctx.font = '12px system-ui, sans-serif';
+  ctx.font = "bold 12px 'Share', 'Nunito', sans-serif";
   items.forEach((item, i) => {
     ctx.fillStyle = item.color;
     ctx.strokeStyle = item.color;

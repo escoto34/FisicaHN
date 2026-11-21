@@ -70,6 +70,7 @@
 .catalog-title {
   font-size: 1.5rem;
   font-weight: 700;
+  font-family: var(--font-brand);
   color: var(--accent);
   letter-spacing: -0.02em;
 }
@@ -184,6 +185,7 @@
 
 .catalog-card-title {
   font-size: 1rem;
+  font-family: var(--font-heading);
   font-weight: 600;
   line-height: 1.3;
 }
@@ -495,6 +497,7 @@
 .catalog-sec-title {
   flex: 1;
   min-width: 0;
+  font-family: var(--font-heading);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -678,6 +681,7 @@
 .sidebar-group-title {
   flex: 1;
   min-width: 0;
+  font-family: var(--font-heading);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

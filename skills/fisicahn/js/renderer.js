@@ -257,12 +257,12 @@ export class Renderer {
     ctx.setLineDash([]);
     if (!this._gridFont) {
       try {
-        this._gridFont = getComputedStyle(this.canvas).fontFamily || 'monospace';
+        this._gridFont = getComputedStyle(this.canvas).fontFamily || "'Share', sans-serif";
       } catch {
-        this._gridFont = 'monospace';
+        this._gridFont = "'Share', sans-serif";
       }
     }
-    ctx.font = `${Math.round(10 * theme.fontScale)}px ${this._gridFont}`;
+    ctx.font = `bold ${Math.round(10 * theme.fontScale)}px ${this._gridFont}`;
     ctx.fillStyle = labelColor;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
@@ -543,7 +543,7 @@ export class Renderer {
     const fontSize = (opts.fontSize || 13) * theme.fontScale;
 
     ctx.save();
-    ctx.font = `${Math.round(fontSize)}px ${this._fontFamily()}`;
+    ctx.font = `bold ${Math.round(fontSize)}px ${this._fontFamily()}`;
     ctx.fillStyle = color;
     ctx.textAlign = opts.align || 'center';
     ctx.textBaseline = opts.baseline || 'bottom';
@@ -559,9 +559,9 @@ export class Renderer {
   _fontFamily() {
     if (!this._gridFont) {
       try {
-        this._gridFont = getComputedStyle(this.canvas).fontFamily || 'sans-serif';
+        this._gridFont = getComputedStyle(this.canvas).fontFamily || "'Share', sans-serif";
       } catch {
-        this._gridFont = 'sans-serif';
+        this._gridFont = "'Share', sans-serif";
       }
     }
     return this._gridFont;
@@ -573,7 +573,7 @@ export class Renderer {
     const p = this.worldToCanvas(wx, wy, _p);
 
     ctx.save();
-    ctx.font = `${Math.round(12 * theme.fontScale)}px ${this._fontFamily()}`;
+    ctx.font = `bold ${Math.round(12 * theme.fontScale)}px ${this._fontFamily()}`;
     const metrics = ctx.measureText(text);
     const pad = 6;
     const bw = metrics.width + pad * 2;

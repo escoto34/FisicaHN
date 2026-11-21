@@ -44,7 +44,7 @@ class SvgRecordingContext {
     this.lineCap = 'butt';
     this.lineJoin = 'miter';
     this.globalAlpha = 1;
-    this.font = '12px sans-serif';
+    this.font = "bold 12px 'Share', 'Nunito', sans-serif";
     this.textAlign = 'start';
     this.textBaseline = 'alphabetic';
     this.shadowColor = 'transparent';

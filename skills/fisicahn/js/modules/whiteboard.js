@@ -551,7 +551,7 @@ export function render(ctxDraw) {
   for (const s of strokes) {
     if (s.type === 'text') {
       ctxDraw.fillStyle = s.color;
-      ctxDraw.font = '20px system-ui, sans-serif';
+      ctxDraw.font = "bold 20px 'Share', 'Nunito', sans-serif";
       ctxDraw.fillText(s.text, s.x, s.y);
     } else {
       drawStroke(s);
@@ -571,7 +571,7 @@ export function render(ctxDraw) {
   if (current && current.type !== 'erasing') drawStroke(current);
 
   ctxDraw.fillStyle = lightBg ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.4)';
-  ctxDraw.font = '12px system-ui';
+  ctxDraw.font = "bold 12px 'Share', 'Nunito', sans-serif";
   ctxDraw.textAlign = 'left';
   ctxDraw.fillText(`Herramienta: ${labelTool(tool)} · ${strokes.length} objetos`, 12, h - 12);
   ctxDraw.restore();

@@ -24,7 +24,7 @@
 const VERSION = 'fisicahn-v1.6.2';
 const CACHE = `fisica-hn-${VERSION}`;
 
-const SHELL = ['./', './index.html', './js/app.js', './js/physics-engine.js', './js/renderer.js', './css/main.css', './css/catalog.css', './manifest.webmanifest', './assets/favicon.svg', './assets/logo.svg'];
+const SHELL = ['./', './index.html', './js/app.js', './js/physics-engine.js', './js/renderer.js', './css/main.css', './css/catalog.css', './manifest.webmanifest', './assets/favicon.svg', './assets/logo.svg', './assets/fonts/nunito-var.woff2', './assets/fonts/oswald-var.woff2', './assets/fonts/share-400.woff2', './assets/fonts/share-700.woff2', './assets/fonts/bbh-bogle-400.woff2'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
