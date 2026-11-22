@@ -92,7 +92,8 @@ export default class Fluids extends SimModule {
     /** Velocidad vertical del cubo (m/s). */
     this.vy = 0;
     /** Última pareja (W, E) enviada a la pestaña Gráficas. */
-    this._lastWE = '';
+    this._lastW = NaN;
+    this._lastE = NaN;
   }
 
   init(meta = null) {
@@ -175,7 +176,8 @@ export default class Fluids extends SimModule {
     this.t = 0;
     this.y = this._equilibriumY();
     this.vy = 0;
-    this._lastWE = '';
+    this._lastW = NaN;
+    this._lastE = NaN;
     this.setModuleGraphs(this.graphData());
     const v = this.params.modo === 'bernoulli' ? VIEW_BER : VIEW_ARQ;
     this.frameWorld(v.width, v.height);
@@ -285,13 +287,6 @@ export default class Fluids extends SimModule {
       this.y = ceil;
       if (this.vy > 0) this.vy = 0;
     }
-    // La balanza W/E del panel Gráficas sigue al empuje real mientras el cuerpo
-    // se sumerge; solo se rehace si cambia algún valor mostrado.
-    const key = `${roundTo(this.weight(), 1)}|${roundTo(this.buoyant(), 1)}`;
-    if (key !== this._lastWE) {
-      this._lastWE = key;
-      this.setModuleGraphs(this.graphData());
-    }
   }
 
   /* ---------- dibujo declarativo (§2.4) ---------- */
@@ -369,7 +364,18 @@ export default class Fluids extends SimModule {
     }
 
     // La comparación W frente a E (el corazón del principio) se muestra en la
-    // pestaña Gráficas (`graphData`), fuera del espacio físico del tanque.
+    // pestaña Gráficas (`graphData`), fuera del espacio físico del tanque. Se
+    // refresca desde el dibujo, solo si cambia algún valor mostrado: el bucle de
+    // física no paga ese coste (presupuesto de rendimiento).
+    {
+      const wr = roundTo(W, 1);
+      const er = roundTo(E, 1);
+      if (wr !== this._lastW || er !== this._lastE) {
+        this._lastW = wr;
+        this._lastE = er;
+        this.setModuleGraphs(this.graphData());
+      }
+    }
 
     const hud = scene.hud;
     hud.chip(floating ? 'Flota: E iguala a W' : `Se hunde · a = g·(1 − ρf/ρb) = ${roundTo(this.acceleration(), 2)} m/s²`, 'top-left');

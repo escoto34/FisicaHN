@@ -58,7 +58,7 @@ export default class DeBroglie extends SimModule {
     this._hitVersion = 0;
     this._hitBufVersion = -1;
     this._graphVersion = -1;
-    this._graphAcc = 0;
+    this._graphT = 0;
     this.spawnAcc = 0;
   }
 
@@ -96,7 +96,7 @@ export default class DeBroglie extends SimModule {
     this.hits.clear();
     this._hitVersion++;
     this.spawnAcc = 0;
-    this._graphAcc = 0;
+    this._graphT = 0;
     this.setModuleGraphs(this.graphData());
     this.engine?.reset?.();
   }
@@ -153,15 +153,6 @@ export default class DeBroglie extends SimModule {
       }
     }
     this.flying.length = write;
-    // El histograma se refresca ~2 veces/s; el host omite el DOM si no cambió.
-    this._graphAcc += dt;
-    if (this._graphAcc >= 0.5) {
-      this._graphAcc = 0;
-      if (this._graphVersion !== this._hitVersion) {
-        this._graphVersion = this._hitVersion;
-        this.setModuleGraphs(this.graphData());
-      }
-    }
   }
 
   /** Histograma de impactos por franja de la pantalla, para la pestaña Gráficas. */
@@ -198,6 +189,14 @@ export default class DeBroglie extends SimModule {
     scene.line(0, 4, 0, -4, { color: 'textDim', width: 6 });
     scene.body(0, d / 2, { shape: 'circle', r: 0.1, color: 'field', glow: false });
     scene.body(0, -d / 2, { shape: 'circle', r: 0.1, color: 'field', glow: false });
+
+    // El histograma de la pestaña Gráficas se refresca desde el dibujo (≤2/s y solo
+    // si hay impactos nuevos): así el bucle de física no paga ese coste.
+    if (this.t - this._graphT >= 0.5 && this._graphVersion !== this._hitVersion) {
+      this._graphT = this.t;
+      this._graphVersion = this._hitVersion;
+      this.setModuleGraphs(this.graphData());
+    }
 
     // Pantalla detectora: cada impacto es un punto sobre ella. El histograma
     // estadístico vive en la pestaña Gráficas (`graphData`), no en el plano.
