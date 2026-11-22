@@ -2129,7 +2129,10 @@ export class HudSurface extends Surface {
   anchorPoint(anchor = 'top-left', padX = 12, padY = 12) {
     const vp = this.camera.viewport;
     const px = padX * this.theme.fontScale;
-    const py = padY * this.theme.fontScale;
+    // En 'top-right', el toolbar DOM (.view-controls, 36px) flota a top:10px, right:10px.
+    // Con padY=46, las leyendas e insignias del canvas nacen debajo del toolbar y no quedan tapadas.
+    const effectivePadY = anchor === 'top-right' && padY === 12 ? 46 : padY;
+    const py = effectivePadY * this.theme.fontScale;
     switch (anchor) {
       case 'top-right':
         return { x: vp.x + vp.w - px, y: vp.y + py, align: 'right', dir: 1 };

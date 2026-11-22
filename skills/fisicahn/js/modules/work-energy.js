@@ -133,8 +133,12 @@ export default class WorkEnergyModule extends SimModule {
   update(dt) {
     if (this.dragging) return;
     this.t += dt;
-    const Fx = this.params.F * Math.cos(this.theta());
-    const fk = this.fk();
+    const th = toRad(this.params.theta);
+    const cosTh = Math.cos(th);
+    const sinTh = Math.sin(th);
+    const Fx = this.params.F * cosTh;
+    const N = Math.max(this.params.m * G - this.params.F * sinTh, 0);
+    const fk = this.params.mu_k * N;
     const Fnet = Fx - (this.v >= 0 ? fk : -fk);
     // En reposo, si F·cosθ no supera al rozamiento (≈ estático), no arranca.
     if (Math.abs(this.v) < 1e-4 && Math.abs(Fx) <= fk) {
@@ -148,7 +152,8 @@ export default class WorkEnergyModule extends SimModule {
       this.Wfric += -fk * Math.abs(dx);
       this.Wnet += Fnet * dx;
     }
-    this.histEc.push({ x: this.t, y: this.Ec() });
+    const ec = 0.5 * this.params.m * this.v * this.v;
+    this.histEc.push({ x: this.t, y: ec });
     this.histWapp.push({ x: this.t, y: this.Wapp });
     this.histWfric.push({ x: this.t, y: this.Wfric });
     // Pista en bucle: vuelve al inicio con los contadores a cero, para que
