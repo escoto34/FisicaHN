@@ -790,6 +790,33 @@ body.view-sim.canvas-maximized.mobile-panel-expanded .mobile-panel-scrim {
   gap: 4px;
 }
 
+.keyboard-hints {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  opacity: 0.78;
+}
+
+.keyboard-hints kbd {
+  display: inline-block;
+  padding: 1px 4px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-primary);
+}
+
+@media (max-width: 900px) {
+  .keyboard-hints {
+    display: none;
+  }
+}
+
 /* ============================================
    Right Panel
    ============================================ */
@@ -1901,6 +1928,9 @@ body .katex .text {
     padding: 0 8px;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
   }
 
   body.view-sim .bottom-tab {

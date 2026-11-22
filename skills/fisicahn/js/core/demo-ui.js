@@ -370,16 +370,25 @@ function onImportFile(ev) {
   file
     .text()
     .then((text) => {
+      let parsed;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        throw new Error('El archivo seleccionado no tiene formato JSON válido.');
+      }
+      if (!parsed || parsed.format !== 'fisicahn-demo-v1') {
+        throw new Error('El archivo no es una demo compatible (se requiere formato fisicahn-demo-v1).');
+      }
       const demo = demoFromJson(text);
-      if (!demo) throw new Error('El archivo no es una demo v1.');
+      if (!demo) throw new Error('No se pudo validar la estructura interna de la demostración.');
       lastDemo = demo;
       byId('demoSaveBtn').disabled = false;
       byId('demoPlayBtn').disabled = false;
       showHint(
-        `Importada: ${demo.moduleId} · ${demo.samples.length} instantes · ${demo.duration.toFixed(1)} s`
+        `Demo cargada: ${demo.moduleId} · ${demo.samples.length} instantes · ${demo.duration.toFixed(1)} s`
       );
     })
-    .catch((e) => showHint(e?.message || 'Import fallido.'));
+    .catch((e) => showHint(e?.message || 'Error al importar la demo.'));
 }
 
 /* ---------- Mis demos ---------- */
