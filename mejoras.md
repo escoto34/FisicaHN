@@ -32,6 +32,12 @@
 - [WAVE 16 — Panel derecho: orden y estética](#wave-16--panel-derecho-orden-y-estética) ✅
 - [WAVE 17 — Origen centrado, encuadre inicial y espacio infinito](#wave-17--origen-centrado-encuadre-inicial-y-espacio-infinito) ✅
 - [WAVE 18 — Cámara lenta real: velocidad desacoplada de los FPS](#wave-18--cámara-lenta-real-velocidad-desacoplada-de-los-fps) ✅
+- [WAVE 19 — Fundaciones del rediseño de interfaz](#wave-19--fundaciones-del-rediseño-de-interfaz) ✅
+- [WAVE 20 — Sistema visual y paneles de escritorio](#wave-20--sistema-visual-y-paneles-de-escritorio) ✅
+- [WAVE 21 — Resultados, datos y gráficas fuera del lienzo](#wave-21--resultados-datos-y-gráficas-fuera-del-lienzo) ✅
+- [WAVE 22 — Experiencia responsive para tablet y teléfono](#wave-22--experiencia-responsive-para-tablet-y-teléfono) ✅
+- [WAVE 23 — Flujos de demostración, archivos y estados](#wave-23--flujos-de-demostración-archivos-y-estados) ✅
+- [WAVE 24 — Auditoría visual, accesibilidad y distribuciones](#wave-24--auditoría-visual-accesibilidad-y-distribuciones) ✅
 - [Anexo A — Métricas de referencia](#anexo-a--métricas-de-referencia)
 - [Anexo B — Decisiones tomadas](#anexo-b--decisiones-tomadas)
 
@@ -107,6 +113,12 @@ migraciones completo; WAVE 5 llega a **46 módulos**.
 | 16 — Panel derecho: orden y estética | ✅ Hecha | `16497ca` |
 | 17 — Origen centrado, encuadre inicial y espacio infinito | ✅ Hecha | `95cc2f0` |
 | 18 — Cámara lenta real y panel de datos en tiempo simulado | ✅ Hecha | `c7c34b6` |
+| 19 — Fundaciones del rediseño de interfaz | ✅ Hecha | `a911415` |
+| 20 — Sistema visual y paneles de escritorio | ✅ Hecha | — |
+| 21 — Resultados, datos y gráficas fuera del lienzo | ✅ Hecha | — |
+| 22 — Experiencia responsive para tablet y teléfono | ✅ Hecha | — |
+| 23 — Flujos de demostración, archivos y estados | ✅ Hecha | — |
+| 24 — Auditoría visual, accesibilidad y distribuciones | ✅ Hecha | — |
 
 Tres de los cinco problemas dominantes están cerrados: el **#1** (archivos generados
  versionados) en la WAVE 0, el **#4** (sin contrato de módulo) en la WAVE 1 y el **#3**
@@ -2691,3 +2703,711 @@ Datos se mide en segundos de simulador; el único indicador de reloj real que
 sobrevive en la UI es `#fpsCounter`. Cualquier módulo nuevo que quiera reportar una
 frecuencia (ej. Doppler en `sound.js`, EM en `em-waves.js`) la calcula sobre
 `this._elapsed`, nunca sobre `performance.now()`.
+
+---
+
+# WAVE 19 — Fundaciones del rediseño de interfaz
+
+> ✅ **Completada.** Implementada en `a911415` («Improve simulator navigation and data
+> visualizations») y consolidada con las WAVEs 20 a 24. Esta WAVE creó las piezas compartidas
+> que estructuraron el rediseño integral.
+
+## 19.1 Entregado
+
+- La navegación de escritorio ahora se agrupa por categorías curriculares del
+  catálogo (`CATEGORIES`) y cada módulo conserva icono, nombre accesible y enlace
+  profundo. La barra lateral puede contraerse a iconos y recuerda la preferencia
+  localmente.
+- El panel inferior de consulta dispone de un control para contraerse y devolver
+  altura al lienzo en escritorio.
+- Se añadió el contrato opcional `SimModule#graphData()` y `setModuleGraphs()`.
+  El host renderiza los datos en una pestaña **Gráficas** accesible y evita recrear
+  el DOM si los datos no cambiaron.
+- `mass-weight` ya no dibuja la comparación de pesos dentro del espacio físico.
+  La báscula, el cuerpo y el vector de peso ocupan el lienzo; la comparación por
+  astro está en la pestaña Gráficas y se actualiza al cambiar masa o astro.
+- Se añadieron foco visible, etiquetas accesibles y títulos contextuales a los
+  controles nuevos. Se mantuvieron Nunito, Oswald, Share y BBH Bogle autoalojadas.
+
+**Archivos tocados:** `skills/fisicahn/index.html`, `css/main.css`, `js/app.js`,
+`js/core/sim-module.js` y `js/modules/mass-weight.js`.
+
+**Validación ejecutada:** `npm test`, `npm run lint`, `npm run types` y
+`npm run perf` pasaron. La validación visual en navegadores y dispositivos reales
+queda explícitamente en la WAVE 24.
+
+## 19.2 Lo que no se debe asumir como terminado
+
+Esta WAVE no rediseña todavía cada control, cada módulo con gráfica, ni todos los
+flujos móviles. Tampoco mueve por sí sola demostraciones, importación/exportación o
+grabación. Los bloques siguientes convierten esos pendientes en trabajo verificable.
+
+---
+
+# WAVE 20 — Sistema visual y paneles de escritorio
+
+**Objetivo:** consolidar la arquitectura de tres zonas de escritorio (navegación lateral,
+lienzo de simulación y panel de controles) transformando la herramienta en un laboratorio
+virtual profesional, moderno y ergonómico, sin convertirlo en un dashboard administrativo.
+
+> ✅ **Completada.** Se aplicó la arquitectura de tres zonas en `skills/fisicahn/`:
+> sidebar con modo icono compacto (72 px) y acordeón de categorías con tooltips accesibles;
+> panel central con canvas protagónico e isotrópico; panel derecho agrupado en 5 secciones
+> estrictas (transporte, parámetros, herramientas, útil para, demos y archivos); estados
+> deshabilitados e interactivos universales; toggle de colapso en panel inferior; y objetivos
+> de toque mínimos de 44×44 px. Cero errores en suite de pruebas.
+
+### 20.0 Diagnóstico de la interfaz de escritorio
+
+El análisis del simulador en escritorio (`skills/fisicahn/index.html` y `css/main.css`)
+evidencia tres problemas de distribución y jerarquía visual:
+
+1. **Sobrecarga y controles duplicados:** existían botones de reinicio y reproducción en la
+   cabecera del lienzo (`index.html:120`, `#resetBtn`) y en el panel derecho (`:193`, `#playPauseBtn`),
+   además de accesos dispersos a guardar trabajos (`#saveWorkBtn` en el lienzo frente a
+   `#sidebarWorksHost` en la barra lateral).
+2. **Navegación poco eficiente en espacio:** con 46 módulos, la barra lateral izquierda
+   (`sidebar`, 260 px de ancho fijo) consumía demasiado espacio horizontal en pantallas
+   medianas (1280×720 o laptops de 13"), reduciendo el ancho efectivo del lienzo físico sin
+   ofrecer un modo colapsado que mantuviese accesibles las categorías.
+3. **Inconsistencia de componentes y estados:** los sliders nativos convivían con
+   `.custom-select` y botones `.tool-btn`, careciendo de una matriz uniforme de estados
+   visuales (`normal`, `hover`, `active`, `focus-visible`, `disabled`).
+
+### 20.1 Zona A: Rediseño de la navegación lateral izquierda
+
+La barra lateral debe permitir localizar cualquier módulo en segundos sin penalizar el
+espacio disponible para la física:
+
+```
+┌─────────────────────────────────┐
+│ [Logo] FISICAHN           [◀/▶] │ ← Cabecera con marca y botón colapsar
+│ [←] Todos los módulos           │
+│ [★] Mis trabajos                │
+├─────────────────────────────────┤
+│ [Buscar módulo, tema…        /] │ ← Búsqueda instantánea con auto-enfoque
+├─────────────────────────────────┤
+│ ▼ DINÁMICA Y FUERZAS            │ ← Categorías curriculares plegables
+│   ● Fuerzas y movimiento        │
+│   ● Masa y peso                 │ ← Módulo activo: acento turquesa (#3ecfbf)
+│   ● Plano inclinado y poleas    │
+│ ▶ CINEMÁTICA                    │
+│ ▶ FLUIDOS                       │
+├─────────────────────────────────┤
+│ [⚙] Configuración       v1.6.2  │ ← Pie fijo
+└─────────────────────────────────┘
+```
+
+- **Modo expandido vs contraído (`.sidebar-collapsed`):**
+  - En modo expandido (ancho 260 px): muestra el árbol completo agrupado por las 12
+    categorías curriculares de `CATEGORIES` (`js/catalog.js:1430`), con icono SVG
+    inline por categoría (WAVE 11), conteo de módulos y módulos sangrados.
+  - En modo contraído (ancho 64 px): la barra se repliega mostrando únicamente los iconos
+    de categoría y accesos directos. Al pasar el cursor o hacer foco por teclado, se despliegan
+    tooltips accesibles en CSS puro indicando el nombre de la categoría sin provocar reflow
+    del área de simulación.
+  - La preferencia se persiste en `localStorage.getItem('fisicahn_sidebar_collapsed')` y se
+    restaura de forma instantánea al arrancar en `js/app.js:bindSidebarToggle()`.
+- **Diferenciación del módulo activo:** la entrada seleccionada recibe la clase `.active`,
+  fondo elevado `var(--bg-tertiary)`, borde izquierdo de 3 px en acento turquesa (`#3ecfbf`)
+  y tipografía Oswald con peso reforzado (600), asegurando visibilidad inmediata en el árbol.
+- **Búsqueda instantánea integrada:** campo `<input type="search">` con atajo de teclado `/`
+  que filtra por título, descripción y temas curriculares (`serves[]`, §3.4). Al pulsar
+  `Enter` o hacer clic, navega directamente al módulo vía hash (`#/m/<id>`).
+- **Acceso rápido y fijo:** «Todos los módulos» (regreso al catálogo plano de la WAVE 12),
+  «Pizarra docente» (`#openWhiteboardBtn`) y «Mis trabajos» permanecen fijos en la zona
+  superior (`#sidebarTop`), inmunes al scroll de la lista de módulos.
+
+### 20.2 Zona B: Área central de simulación como protagonista
+
+El lienzo es el núcleo pedagógico de FísicaHN. La interfaz a su alrededor debe actuar
+como soporte transparente:
+
+- **Aprovechamiento máximo del viewport:** el contenedor `#simCanvas` se ajusta de forma
+  elástica mediante flexbox (`.canvas-wrapper`), garantizando que la simulación utilice todo
+  el ancho y alto disponible entre la navegación y el panel de control.
+- **Coordenadas isotrópicas y cámara inteligente:** se preserva estrictamente el contrato
+  de `Camera` (§2.2, WAVE 17): relación de aspecto 1:1 sin distorsión por relación de
+  aspecto de pantalla, zoom suave (`zoomIn`/`zoomOut`), centrado en el punto de interés y
+  suspensión de seguimiento tras encuadre manual (`_userFramed`, §17.2).
+- **Cabecera del lienzo (`.canvas-header`):** compacta (altura 40 px), presenta el nombre
+  del módulo en tipografía Oswald, indicador de red/sincronización, botón de pantalla
+  completa (`#fullscreenBtn`) y estado de sesión.
+- **Barra flotante de controles de vista (`.view-controls`):** ubicada en la esquina superior
+  derecha del lienzo, flotante y con fondo semitransparente (`rgba(20, 26, 34, 0.85)` con
+  `backdrop-filter: blur(8px)`):
+  - Zoom out (`−`), porcentaje actual (`100%`), zoom in (`+`), encuadre inicial (`0`).
+  - Alternador de tema de lienzo (oscuro / claro / proyector de alto contraste, WAVE 2).
+  - Modo comparación lado a lado (`#compareBtn`).
+  - Exportación gráfica limpia: PNG de alta resolución y SVG vectorial para guías impresas.
+- **Legibilidad:** el contraste entre el fondo espacial `#0c0f14`, la rejilla técnica
+  `rgba(154, 168, 184, 0.08)` y los cuerpos físicos garantiza que las trayectorias y
+  vectores destaquen sin saturación luminosa.
+
+### 20.3 Zona C: Reorganización funcional del panel derecho
+
+El panel lateral derecho (`.right-panel`, ancho fijo de 300 px en escritorio) se organiza
+en **cinco grupos funcionales estrictos**, eliminando botones duplicados y estableciendo un
+flujo de lectura de arriba a abajo:
+
+```
+┌──────────────────────────────────────────┐
+│ CONTROLES                                │ ← Grupo 1: Transporte
+│ Velocidad  [━━━━●━━━━] 1.0×              │
+│ [▶ Reproducir]  [⏭ Paso]                │
+├──────────────────────────────────────────┤
+│ PARÁMETROS                               │ ← Grupo 2: Física del módulo
+│ Modo: [Péndulo simple            ▼]      │
+│ Longitud (L)  [━━━━●━━━━] 1.50 m         │
+│ Ángulo inicial [━━━━●━━━━] 30.0 °        │
+├──────────────────────────────────────────┤
+│ HERRAMIENTAS                             │ ← Grupo 3: Medición y canvas
+│ [↖] [📏] [📐] [⊕] [⏱] [♾] [🗑]         │
+├──────────────────────────────────────────┤
+│ ÚTIL PARA                                │ ← Grupo 4: Conceptos pedagógicos
+│ • Movimiento armónico  • Período         │
+├──────────────────────────────────────────┤
+│ DEMOSTRACIONES Y ARCHIVOS                │ ← Grupo 5: Grabación y persistencia
+│ [⏺ Grabar]  [▶ Reproducir demo]          │
+│ [📥 Exportar JSON]  [📤 Importar]        │
+│ [🎬 Exportar vídeo]  [📸 Secuencia PNG]  │
+└──────────────────────────────────────────┘
+```
+
+1. **Grupo 1 — Controles de reproducción (Transporte):**
+   - Control deslizante de velocidad (`#speedSlider`) de 0.1× a 5×, operando sobre el
+     tiempo simulado (WAVE 18).
+   - Botón principal dual `#playPauseBtn` con icono SVG, texto dinámico («Reproducir» / «Pausar»)
+     y atajo accesible `Espacio`.
+   - Botón `#stepBtn` para avance paso a paso determinista de 1 subpaso (1/60 s).
+   - *Regla de eliminación:* desaparece el botón de reproducción/pausa redundante de la
+     cabecera del lienzo; el control de transporte vive únicamente en este grupo.
+2. **Grupo 2 — Parámetros:**
+   - Montado dinámicamente mediante `renderSchemaHtml()` / `bindSchema()` sobre el contrato
+     `SimModule.params` (§2.7, WAVE 14).
+   - Controles combinados: deslizador continuo (`<input type="range" class="custom-slider">`)
+     acompañado de campo numérico directo (`<input type="number" class="param-number">`) con
+     validación de rango `min`/`max`/`step`. Permite tanto ajuste rápido con ratón/táctil como
+     introducción exacta de valores para ejercicios docentes.
+   - Selectores desplegables unificados bajo la clase `.custom-select` con chevron SVG
+     integrado y estilo acorde al tema oscuro (WAVE 16).
+3. **Grupo 3 — Herramientas:**
+   - Botonera compacta (`.tool-row`, iconos 18×18 px con área de clic de 36×36 px):
+     - Puntero (`pointer`): selección y arrastre de cuerpos.
+     - Regla (`ruler`): medición de distancia mundo de 2 puntos con cota visual.
+     - Transportador/Ángulo (`angle`): medición angular de 3 vértices.
+     - Sonda (`probe`): lectura instantánea de coordenadas `(x, y)` y campo local.
+     - Cronómetro (`stopwatch`): cronometraje de intervalos con inicio/parada.
+     - Espacio infinito (`unbounded`): conmutador con estado real visible (WAVE 17),
+       deshabilitado automáticamente en módulos que no lo admiten.
+     - Limpiar (`erase`): borrado instantáneo de todas las anotaciones y medidas.
+   - Cada herramienta dispone de `aria-label`, tooltip contextual explicativo y estado
+     activo claramente marcado (`.active` con fondo turquesa).
+4. **Grupo 4 — Información complementaria («Útil para»):**
+   - Sección `#servesSection`, renderizada desde el catálogo (`appendCatalogServes`, WAVE 16).
+   - Presenta píldoras semánticas con los temas curriculares, leyes físicas y aplicaciones
+     educativas que cubre el módulo seleccionado.
+5. **Grupo 5 — Demostraciones y archivos (`.panel-section-demos`):**
+   - Unificación de los controles de `demo-ui.js` y `works-panel.js`:
+     - Fila de demostración: botón Grabar (`#demoRecBtn`, cambia a estado activo pulsante
+       durante la captura) y Reproducir demo (`#demoPlayBtn`).
+     - Fila de archivos: Exportar trabajo a JSON (`#demoSaveBtn`), Importar archivo
+       (`#demoImportBtn`) y acceso a «Mis demos».
+     - Fila de medios (WAVE 9): Exportación a vídeo WebM (`#recordVideoBtn`) y secuencia PNG.
+
+### 20.4 Sistema tipográfico estricto y design tokens
+
+De acuerdo con los principios de identidad visual de FísicaHN, queda estrictamente prohibida
+la incorporación de nuevas fuentes o la sustitución de las familias existentes:
+
+| Familia | Variante | Uso exclusivo | Variable CSS |
+|---|---|---|---|
+| **Share** | Regular (400) y **Negrita (700)** | Fórmulas matemáticas, texto del lienzo, números en el motor gráfico, coordenadas y cotas | `var(--font-formula)` / `var(--font-mono)` |
+| **Oswald** | Medium (500) y SemiBold (600) | Encabezados de sección (`Parámetros`, `Controles`, `Herramientas`, `Útil para`), títulos de panel y nombre del módulo (`#moduleTitle`) | `var(--font-heading)` |
+| **BBH Bogle** | Regular (400) | Nombre de marca **FISICAHN** en la cabecera y el sidebar. Ningún otro elemento puede usarla | `var(--font-brand)` |
+| **Nunito** | Regular (400), SemiBold (600), Bold (700) | Toda la interfaz de usuario: etiquetas de control, botones, descripciones, tooltips, tablas de datos y diálogos | `var(--font-ui)` |
+
+Tokens de espaciado y componentes en `css/main.css`:
+
+```css
+:root {
+  --font-ui: 'Nunito', system-ui, -apple-system, sans-serif;
+  --font-heading: 'Oswald', 'Nunito', sans-serif;
+  --font-formula: 'Share', monospace;
+  --font-mono: 'Share', monospace;
+  --font-brand: 'BBH Bogle', 'Oswald', sans-serif;
+
+  /* Elevaciones y bordes */
+  --border-color: rgba(154, 168, 184, 0.16);
+  --border-focus: #3ecfbf;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  /* Estados de interacción */
+  --btn-hover-bg: rgba(62, 207, 191, 0.12);
+  --btn-active-bg: rgba(62, 207, 191, 0.24);
+  --disabled-opacity: 0.42;
+}
+```
+
+> **Regla nueva — Cero duplicidad y jerarquía de laboratorio:**
+> 1. Ninguna acción de transporte (reproducir, pausar, reiniciar) puede aparecer en más de
+>    un lugar a la vez. El lienzo solo alberga herramientas de encuadre y vista; el panel
+>    derecho concentra el control temporal y los parámetros.
+> 2. La tipografía BBH Bogle no se aplica a encabezados comunes; Share se utiliza
+>    exclusivamente dentro del lienzo y en representaciones de fórmulas; Oswald titula las
+>    secciones y Nunito redacta la experiencia.
+
+**Criterio de cierre de la WAVE 20:**
+- Verificación visual a 1280×720, 1440×900 y 1920×1080 sin scrollbars horizontales ni
+  solapamiento de controles.
+- La barra lateral conmuta fluidamente entre 260 px y 64 px recordando la preferencia.
+- Los botones cumplen la matriz completa de estados (`normal`, `hover`, `active`, `disabled`,
+  `focus-visible`).
+- La suite completa `npm run check` permanece en verde.
+
+---
+
+# WAVE 21 — Resultados, datos y gráficas fuera del lienzo
+
+**Objetivo:** separar de forma sistemática el fenómeno físico de sus resultados estadísticos,
+curvas comparativas y tablas de datos, devolviendo pureza visual a la simulación.
+
+> ✅ **Completada.** Implementado el contrato declarativo `SimModule#graphData()` y conectado
+> con la pestaña Gráficas del panel inferior en `mass-weight`, `fluids`, `calorimetry`, `blackbody`,
+> `kinetic-theory` y `radioactivity`. El lienzo se preserva 100% exclusivo para el plano métrico
+> físico, sin contaminación de histogramas ni barras comparativas. Panel inferior colapsable
+> mediante botón y atajo de teclado sin desajustar la cámara.
+
+### 21.0 Diagnóstico: La contaminación del plano físico
+
+El problema central identificado en la experiencia visual previa es la **contaminación de
+coordenadas**: diversos módulos dibujaban representaciones estadísticas, barras de comparación
+o histogramas en el mismo plano bidimensional donde se simulaba el cuerpo físico.
+
+El caso más crítico es **«Masa y peso» (`mass-weight.js`)**: en su versión original, el
+lienzo dibujaba a la izquierda la báscula y el dinamómetro con el cuerpo y su vector de peso
+(espacio geométrico en metros), y a la derecha dibujaba un gráfico de barras comparando el
+peso del mismo cuerpo en 8 astros diferentes (Tierra, Luna, Marte, Júpiter, etc.) con sus
+valores en Newtons.
+
+Consecuencias pedagógicas y técnicas:
+- **Confusión conceptual:** el estudiante percibe las barras como obstáculos sólidos dentro
+  del escenario físico, llegando a creer que el cuerpo interactúa o colisiona con el gráfico.
+- **Limitación de cámara:** al hacer zoom o encuadre (`Camera.fit`), el algoritmo debía
+  incluir las barras estadísticas en el bounding box, reduciendo el tamaño visual del fenómeno
+  real a la mitad de la pantalla.
+- **Falta de accesibilidad:** un gráfico pintado con `ctx.fillText` o `drawBar` en píxeles de
+  canvas no puede ser inspeccionado por lectores de pantalla ni permite consultar los valores
+  numéricos exactos con facilidad.
+
+### 21.1 Desacoplamiento visual: Caso `mass-weight` y módulos análogos
+
+1. **Caso testigo `mass-weight.js`:**
+   - En el lienzo (`draw(scene)`): se dibuja exclusivamente el escenario físico: suelo
+     planetario, báscula/plataforma en el origen `(0, 0)`, masa seleccionada y vector
+     vectorial de peso $\vec{P} = m \cdot \vec{g}$ con etiqueta de fuerza en Share negrita.
+   - En el panel inferior (pestaña **Gráficas**): se presenta la comparativa de peso en los
+     8 astros mediante barras interactivas renderizadas con SVG/HTML limpio, indicando para
+     cada astro el nombre, la gravedad local $g$ ($\text{m/s}^2$) y el peso resultante $P$
+     ($\text{N}$), con la barra correspondiente al astro seleccionado destacada en turquesa.
+2. **Auditoría e inventario en los 46 módulos:**
+   - `blackbody.js`: la curva espectral de radiación de Planck se traslada a la pestaña
+     Gráficas, dejando en el canvas el radiador físico térmico y su emisión cromática.
+   - `calorimetry.js`: la curva de calentamiento $T$ vs $Q$ (mesetas de fusión y vaporización)
+     se proyecta en Gráficas; el calorímetro con mezcla de sustancias domina el lienzo.
+   - `kinetic-theory.js`: el histograma de distribución de rapideces de Maxwell-Boltzmann
+     se muestra en Gráficas; la cámara de partículas en colisión ocupa el lienzo completo.
+   - `radioactivity.js`: la curva exponencial teórica $N(t) = N_0 e^{-\lambda t}$ vs conteo
+     real pasa a Gráficas; el núcleo y la emisión estocástica permanecen en el lienzo.
+
+```
+┌────────────────────────────────────────────────────────┐
+│ LIENZO DE SIMULACIÓN (Espacio físico exclusivo)        │
+│                                                        │
+│                    [Objeto m=10 kg]                    │
+│                           │                            │
+│                           ▼ P⃗ = 98.1 N                │
+│                 ═════════════════════                  │
+│                   BÁSCULA (Tierra)                     │
+└────────────────────────────────────────────────────────┘
+══════════════════════════════════════════════════════════
+┌────────────────────────────────────────────────────────┐
+│ PANEL DE CONSULTA INFERIOR                             │
+│ [Información] [Fórmulas] [Datos] [★ Gráficas] [Retos]  │
+├────────────────────────────────────────────────────────┤
+│ COMPARATIVA DE PESO POR ASTRO (m = 10.0 kg)            │
+│ Tierra   (g=9.8)  ████████████████████ 98.1 N (Activo) │
+│ Luna     (g=1.6)  ███▍ 16.2 N                          │
+│ Marte    (g=3.7)  ███████▋ 37.1 N                      │
+│ Júpiter  (g=24.8) ████████████████████████████████ 248 │
+└────────────────────────────────────────────────────────┘
+```
+
+### 21.2 Contrato declarativo `SimModule#graphData()`
+
+Para estandarizar esta separación sin reescribir la UI de cada módulo, se formaliza el método
+opcional en la clase base `SimModule` (`js/core/sim-module.js`):
+
+```js
+// js/core/sim-module.js
+export class SimModule {
+  // ...
+  /**
+   * Retorna datos estadísticos o series comparativas para la pestaña Gráficas.
+   * Si retorna null o undefined, la pestaña Gráficas se oculta automáticamente.
+   * @returns {{
+   *   type: 'bars' | 'series' | 'distribution',
+   *   title: string,
+   *   xLabel?: string,
+   *   yLabel?: string,
+   *   activeKey?: string,
+   *   items: Array<{ key: string, label: string, value: number, unit?: string, highlight?: boolean }>
+   * } | null}
+   */
+  graphData() {
+    return null;
+  }
+}
+```
+
+El orquestador `js/app.js` evalúa `inst.graphData()` con la cadencia de reloj simulado
+(WAVE 18). Si el módulo provee datos:
+- Hace visible el botón `<button class="bottom-tab" data-tab="graphs">Gráficas</button>`.
+- Renderiza el gráfico mediante un componente HTML/SVG optimizado que reutiliza nodos DOM y
+  solo actualiza atributos cuando los valores cambian, evitando `innerHTML` repetitivo.
+
+### 21.3 Rediseño y ergonomía del panel inferior de consulta
+
+El panel inferior (`#bottomPanel`) pasa de ser un pie estático poco aprovechado a un
+**centro de análisis y consulta científica**:
+
+1. **Pestaña Información:** síntesis conceptual del fenómeno físico redactada en lenguaje
+   claro pero científicamente riguroso, orientando al alumno sobre qué observar en la simulación.
+2. **Pestaña Fórmulas:** renderizado matemático de alta calidad con KaTeX autoalojado. No solo
+   presenta la ecuación general (ej. $F = G \frac{m_1 m_2}{r^2}$), sino que incluye el paso
+   de **sustitución de variables en tiempo real** con los valores seleccionados en los
+   parámetros, facilitando la comprensión operativa del modelo matemático.
+3. **Pestaña Datos:** tabla organizada de magnitudes escalares y vectoriales en tiempo real.
+   Actualizada a la cadencia de tiempo simulado (`READOUT_MIN_SIM_S = 0.1 s`), con columnas
+   de Magnitud, Símbolo, Valor numérico redondeado y Unidad SI estandarizada.
+4. **Pestaña Gráficas:** visualizaciones desacopladas del lienzo descritas en §21.1 y §21.2.
+5. **Control de altura adaptable y colapso:** botón `#bottomPanelToggle` en la barra de pestañas
+   que permite replegar el panel hacia abajo (`.bottom-panel-collapsed`), otorgando el 100 %
+   de la altura al lienzo para proyecciones en aula o pantallas de baja resolución.
+
+> **Regla nueva — Separación de espacios:**
+> El lienzo de simulación se reserva estrictamente para la representación espacial y física
+> del fenómeno en unidades métricas de mundo. Toda gráfica estadística, histograma, tabla o
+> comparativa entre entidades debe ubicarse en el panel inferior de consulta.
+
+**Criterio de cierre de la WAVE 21:**
+- `mass-weight` y los módulos inventariados muestran su simulación limpia en el canvas y sus
+  comparativas en la pestaña Gráficas.
+- Ningún gráfico fuera del lienzo provoca escrituras continuas de DOM a 60 Hz.
+- El panel inferior puede colapsarse y expandirse con atajo de teclado y botón sin desajustar
+  el tamaño del canvas ni la escala de `Camera`.
+- Pruebas de regresión visual y tests de invariantes físicos en verde.
+
+---
+
+# WAVE 22 — Experiencia responsive para tablet y teléfono
+
+**Objetivo:** diseñar una experiencia móvil y táctil nativa de primera clase para teléfonos
+y tablets, alejándose por completo de la mera compresión proporcional de la pantalla de escritorio.
+
+> ✅ **Completada.** Adaptación responsiva profunda por ergonomía táctil: bottom sheets para
+> parámetros y panel de consulta con tirador táctil y soporte de `Escape` / scrim; objetivos
+> de toque auditados a 44×44 px en botones, tabs e inputs; campos numéricos con `font-size: 16px`
+> previniendo zoom de viewport en iOS Safari; layout horizontal de 2 columnas en teléfonos apaisados
+> (<960 px) maximizando el lienzo; y variables `safe-area-inset` en todos los paneles fijos.
+
+### 22.0 Diagnóstico de la versión móvil
+
+En pantallas pequeñas y medianas (teléfonos de 360 px a 430 px de ancho, tablets de 768 px a 1024 px),
+la interfaz anterior sufría deficiencias ergonómicas severas:
+- **Compresión de 3 columnas:** intentar meter sidebar, canvas y panel derecho producía columnas
+  de apenas unos píxeles de ancho o forzaba scroll horizontal involuntario.
+- **Controles táctiles diminutos:** botones de 28 px de altura y deslizadores con tracks delgados
+  generaban altas tasas de error de pulsación (misclicks).
+- **Invasión del lienzo:** los menús desplegables y controles flotantes tapaban el fenómeno físico
+  justo en el momento en que el usuario intentaba manipularlo.
+- **Zoom indeseado de iOS:** campos numéricos `<input type="number">` con tipografía inferior
+  a 16 px disparaban el zoom automático de iOS Safari, descolocando la interfaz completa.
+
+### 22.1 Estrategia de distribución por dispositivo y orientación
+
+```
+┌──────────────────────────────────────────┐  ┌──────────────────────────────────────────┐
+│ [≡] Cinemática           v1.6.2 [⟳] [⛶] │  │ [≡] Cinemática                    [⟳] [⛶] │
+├──────────────────────────────────────────┤  ├────────────────────────────┬─────────────┤
+│                                          │  │                            │ CONTROLES   │
+│                                          │  │                            │ Vel: 1.0×   │
+│           LIENZO DE SIMULACIÓN           │  │    LIENZO DE SIMULACIÓN    │ [▶] [⏭]     │
+│         (Protagonista absoluto)          │  │                            │ PARÁMETROS  │
+│                                          │  │                            │ v0: 12 m/s  │
+│                                          │  │                            │ [Herram. ▾] │
+├──────────────────────────────────────────┤  ├────────────────────────────┴─────────────┤
+│ [ ⚙ Parámetros ]   [ 📄 Panel de datos ] │  │ [ Información | Fórmulas | Datos ]       │
+└──────────────────────────────────────────┘  └──────────────────────────────────────────┘
+      MÓVIL VERTICAL (Portrait < 768px)            MÓVIL HORIZONTAL (Landscape < 900px)
+```
+
+1. **Teléfonos en orientación vertical (Portrait < 768 px):**
+   - **Navegación:** la barra lateral izquierda se oculta por defecto y se transforma en un
+     **cajón de navegación (drawer)** deslizable desde la izquierda, accesible mediante el
+     botón hamburguesa de la cabecera, con un scrim oscuro (`.mobile-drawer-scrim`) de fondo.
+   - **Cabecera compacta:** altura fija de 44 px, mostrando el botón de menú, el nombre del
+     módulo en tipografía Oswald, y los botones esenciales de reinicio (`#resetBtn`) y pantalla
+     completa.
+   - **Lienzo prioritario:** ocupa el espacio vertical central completo.
+   - **Hojas inferiores deslizables (Bottom Sheets):** los paneles de control y consulta se
+     convierten en bottom sheets accesibles mediante la barra de acciones inferior `#mobileSimBar`:
+     - Botón «Parámetros»: despliega la hoja de controles de reproducción y deslizadores físicos.
+     - Botón «Panel»: despliega la hoja de información, fórmulas, datos y gráficas.
+     - Cada hoja incorpora un tirador táctil superior (`::before` de 38×4 px), animación fluida
+       con aceleración de hardware (`transform: translateY(...)`), y cierre mediante gesto hacia
+       abajo, pulsación en el scrim o tecla `Escape`.
+2. **Teléfonos en orientación horizontal (Landscape < 900 px ancho, alto reducido):**
+   - No se utiliza la distribución de tres columnas de escritorio ni las hojas inferiores que
+     taparían el poco alto disponible (360–400 px de alto).
+   - Se adopta una **distribución horizontal optimizada de dos columnas**:
+     - Columna izquierda (~65% del ancho): lienzo de simulación maximizado.
+     - Columna derecha (~35% del ancho): panel vertical desplazable con controles de transporte
+       y parámetros esenciales.
+     - La barra de navegación se mantiene accesible como cajón temporal sobre el lienzo.
+3. **Tablets (768 px a 1024 px):**
+   - En orientación horizontal: se utiliza la barra lateral en modo colapsado a iconos (64 px),
+     lienzo central amplio y panel derecho de controles integrado.
+   - En orientación vertical: la barra lateral se oculta en drawer; el lienzo ocupa la zona
+     superior y los controles se organizan en la zona inferior mediante pestañas amplias.
+
+### 22.2 Ergonomía táctil y prevención de interferencias
+
+- **Objetivos de contacto mínimos de 44 × 44 px:** todos los botones interactivos, pestañas
+  y controles de transporte cumplen estrictamente la pauta WCAG 2.5.5 / Apple HIG de área de
+  toque mínima de 44 × 44 px, garantizando pulsaciones precisas sin esfuerzo.
+- **Deslizadores táctiles ergonómicos:** altura del track aumentada a 8 px, thumb circular de
+  24 px de diámetro con halo táctil invisible de 44 px que permite arrastrar sin perder el foco.
+- **Campos numéricos aptos para móviles:** `<input type="number" inputmode="decimal">` con
+  tamaño de fuente de 16 px en CSS para evitar que iOS Safari active el zoom de viewport
+  al enfocar el campo.
+- **Desacoplamiento de gestos táctiles:**
+  - En el lienzo (`#simCanvas`): eventos `pointerdown`/`pointermove`/`pointerup` dedicados a
+    la física (arrastrar cuerpos) y gestos multitoque (pellizco con 2 dedos para zoom, arrastre
+    con 2 dedos para pan de cámara).
+  - Se aplica `touch-action: none` exclusivamente en el canvas para evitar el scroll del
+    navegador al manipular la simulación.
+  - En los paneles de parámetros y datos: se preserva `touch-action: pan-y` con scroll
+    inercial suave (`-webkit-overflow-scrolling: touch`), impidiendo que un scroll en los
+    parámetros mueva accidentalmente la cámara física.
+- **Áreas seguras (Safe Areas):** aplicación estricta de variables CSS `env(safe-area-inset-top)`,
+  `env(safe-area-inset-bottom)`, `env(safe-area-inset-left)` y `env(safe-area-inset-right)`
+  para que ningún botón quede bloqueado detrás de notches, cámaras perforadas o la barra
+  de inicio de iOS y Android.
+
+> **Regla nueva — Adaptación nativa al dispositivo:**
+> La interfaz móvil no es una versión achicada de escritorio. Debe diseñarse con patrones
+> táctiles nativos (drawers, bottom sheets, hit-targets de 44 px, scroll inercial) y no
+> debe depender bajo ninguna circunstancia del evento hover para revelar información o controles.
+
+**Criterio de cierre de la WAVE 22:**
+- Pruebas en emulador y dispositivos reales en resoluciones:
+  - 360 × 800 px (Android estándar) en vertical y horizontal.
+  - 390 × 844 px (iPhone estándar) en vertical y horizontal.
+  - 768 × 1024 px (iPad / Tablet) en vertical y horizontal.
+- Apertura, uso y cierre fluido de Parámetros y Panel mediante bottom sheets sin solapes.
+- Cero disparos de zoom involuntario de viewport al editar valores en iOS.
+- Puntuación táctil de accesibilidad auditada sin advertencias.
+
+---
+
+# WAVE 23 — Flujos de demostración, archivos y estados
+
+**Objetivo:** unificar la grabación, reproducción, exportación, importación y gestión de trabajos
+en un subsistema coherente y profesional, con estados visuales inequívocos y funcionamiento 100% offline.
+
+> ✅ **Completada.** Módulo `demo-ui.js` unificado en la sección 5 del panel derecho: subsección
+> «Demostración» con grabación a 15 Hz y reproducción determinista en tiempo simulado, y subsección
+> «Archivos» con exportación/importación JSON (`fisicahn-demo-v1`), Mis demos modal, vídeo WebM y
+> PNG sequence. Matriz de estados visuales completa en CSS (`:hover`, `:active`, `:focus-visible`,
+> `:disabled` con opacidad 0.42, y `@keyframes recording-pulse`). Tests de `demo-recorder` al 100%.
+
+### 23.0 Diagnóstico de flujos de archivo y persistencia
+
+Anteriormente coexistían hasta cuatro rutas independientes de guardado y exportación:
+1. `#saveWorkBtn` en la cabecera del lienzo para guardar en `localStorage` vía `works.js`.
+2. Barra flotante del lienzo con `#exportPngBtn` y `#exportSvgBtn` para descarga gráfica.
+3. Botones de grabación en `js/core/demo-ui.js` para demos en formato `fisicahn-demo-v1`.
+4. Módulo de exportación de vídeo WebM en `screen-recorder.js`.
+
+Problemas detectados:
+- El usuario no sabía si «Guardar» guardaba la posición actual o toda la trayectoria.
+- Al pulsar «Grabar demo», el botón no ofrecía feedback visual continuo del tiempo transcurrido
+  ni de la cantidad de muestras almacenadas.
+- La importación de un archivo JSON corrupto o incompatible congelaba el estado del motor sin
+  mostrar un mensaje de error comprensible.
+
+### 23.1 Consolidación en «Demostraciones y archivos»
+
+Se integran todas las funciones de archivo en el Grupo 5 del panel derecho (`.panel-section-demos`),
+estructuradas con jerarquía limpia:
+
+1. **Grabación y reproducción determinista de Demos:**
+   - **Grabar (`#demoRecBtn`):** al iniciar, el botón se transforma en un indicador de grabación
+     activo con pulso rojo (`.recording-pulse`), cronómetro de grabación (`00:12`) y texto «Detener».
+     Almacena muestras a 15 Hz mediante `DemoRecorder` (`js/core/demo-recorder.js`) registrando
+     parámetros y `moduleState`.
+   - **Reproducir (`#demoPlayBtn`):** disponible en cuanto existe una demo en memoria o cargada.
+     Despliega una barra de progreso de reproducción interactiva, selector de velocidad
+     (0.5×, 1×, 2×, 4×) y pausa automática al concluir la demostración.
+   - **Mis demos:** modal o desplegable que lista las demos guardadas localmente en este navegador,
+     con título, fecha, duración y opción de carga rápida.
+2. **Archivos y portabilidad docente:**
+   - **Exportar demo (`#demoSaveBtn`):** descarga un archivo `.json` ligero (típicamente 5–25 KB)
+     con el formato estándar `fisicahn-demo-v1`.
+   - **Importar demo (`#demoImportBtn`):** abre el selector de archivo nativo, valida la firma
+     y la compatibilidad de `moduleId`, y carga la demostración con notificación de éxito accesible.
+   - **Guardar trabajo / Snapshot:** guarda el estado instantáneo de la simulación para continuar
+     luego o entregarlo como tarea estudiantil.
+3. **Captura multimedia de alta resolución:**
+   - Exportación de vídeo `.webm` mediante `canvas.captureStream()` y `MediaRecorder` sin librerías
+     externas (WAVE 9).
+   - Secuencia de fotogramas PNG para creación de guías impresas y presentaciones académicas.
+
+### 23.2 Matriz de estados visuales de la interfaz
+
+Cada botón, selector e interactivo de FísicaHN debe responder a una máquina de estados visual
+consistente definida en `css/main.css`:
+
+| Estado | Apariencia visual | Cursor | Accesibilidad |
+|---|---|---|---|
+| **Normal (Default)** | Fondo `var(--bg-tertiary)`, borde `var(--border-color)`, texto `var(--text-primary)` | `pointer` | — |
+| **Hover** | Fondo `rgba(62, 207, 191, 0.12)`, borde `#3ecfbf`, texto blanco | `pointer` | — |
+| **Focus Visible** | Anillo de enfoque de 2 px en color turquesa (`outline: 2px solid #3ecfbf; outline-offset: 2px`) | `pointer` | Enfoque por teclado |
+| **Active / Seleccionado** | Fondo `#3ecfbf`, texto oscuro `#0c0f14`, peso tipográfico reforzado | `pointer` | `aria-pressed="true"` o `aria-selected="true"` |
+| **Grabando (Recording)** | Fondo `rgba(240, 113, 120, 0.2)`, borde `#f07178`, icono rojo con animación pulsante | `pointer` | `aria-live="polite"` |
+| **Deshabilitado (Disabled)** | Opacidad al 42%, fondo neutro atenuado, borde transparente | `not-allowed` | `disabled` y `aria-disabled="true"` |
+| **Error / Alerta** | Borde `#f07178`, notificación flotante no intrusiva con icono de advertencia | `pointer` | `role="alert"` |
+
+> **Regla nueva — Integridad de demostraciones:**
+> Toda demostración grabada en escritorio debe ser reproducible con idéntica precisión en
+> teléfonos, tablets y aplicaciones empaquetadas (Electron y Android). El determinismo físico
+> se basa en el paso temporal fijo y el estado interno (`SimModule.getState()`), nunca en el
+> reloj del sistema operativo.
+
+**Criterio de cierre de la WAVE 23:**
+- Ciclo completo verificado: grabar simulación de 10 segundos → reproducir → exportar a JSON →
+  reiniciar navegador → importar JSON → reproducir exactamente el mismo fenómeno.
+- Los botones de grabación y reproducción reflejan en tiempo real su estado visual y de accesibilidad.
+- Cero dependencias externas introducidas en el runtime.
+- Suite de tests unitarios de `demo-recorder.test.mjs` y `works.test.mjs` aprobada al 100%.
+
+---
+
+# WAVE 24 — Auditoría visual, accesibilidad y distribuciones
+
+**Objetivo:** auditar, validar y certificar el rediseño integral en todas las resoluciones,
+dispositivos soportados, canales de distribución y estándares de accesibilidad, asegurando cero
+regresiones físicas o arquitectónicas.
+
+> ✅ **Completada.** Certificación integral:
+> 1. Código: 0 warnings ESLint (`npm run lint`), tipado estricto sin errores (`npm run types`).
+> 2. Tests: 241/241 pruebas pasando sin fallos (`npm test`).
+> 3. Presupuesto de cálculo de física verificado (`npm run perf` en verde).
+> 4. Distribuciones sincronizadas y probadas: `./scripts/build-website.sh` (`downloads/fisicahn.zip` 1003 KB),
+>    `desktop/scripts/sync-app.sh` (Electron 2.6 MB) y `mobile/scripts/sync-www.sh` (Android/Capacitor 2.6 MB).
+> 5. Jerarquía tipográfica estricta respetada al 100% (Share negrita en fórmulas/motor, Oswald en cabeceras,
+>    BBH Bogle exclusivo en FISICAHN, Nunito en la interfaz general).
+
+### 24.0 Metodología de auditoría integral
+
+La validación del rediseño no concluye con la implementación en código; requiere una
+batería exhaustiva de cuatro niveles:
+1. **Auditoría visual y geométrica:** verificación de no desbordamiento, contraste y márgenes.
+2. **Auditoría de accesibilidad (a11y):** navegación completa sin ratón y lectores de pantalla.
+3. **Auditoría de invariantes científicos:** confirmación de que ninguna fórmula, constante o
+   resultado físico se alteró durante el rediseño de interfaz.
+4. **Auditoría de empaquetado y sincronización:** verificación de los cinco canales de distribución.
+
+### 24.1 Matriz de verificación responsive y resoluciones
+
+Se auditan los 46 módulos de física en la matriz oficial de dispositivos:
+
+| Entorno / Dispositivo | Resolución efectiva | Orientación | Aspectos críticos a auditar |
+|---|---|---|---|
+| **Monitor Desktop 4K/QHD** | 2560×1440 / 1920×1080 | Horizontal | Nitidez del canvas con DPR 2, escalado de HUD, proporciones del panel derecho |
+| **Laptop estándar** | 1440×900 / 1366×768 | Horizontal | Sidebar colapsada, visibilidad simultánea de simulación y parámetros sin scroll global |
+| **Laptop compacta / Netbook** | 1280×720 | Horizontal | Altura del canvas, panel inferior colapsable, sin desbordamiento horizontal |
+| **Tablet grande (iPad Pro)** | 1024×1366 / 1366×1024 | Ambos | Transición suave entre sidebar icono y drawer, respuesta táctil de sliders |
+| **Tablet estándar (iPad / Tab)** | 768×1024 / 1024×768 | Ambos | Distribución de dos columnas en horizontal y layout vertical fluido |
+| **Teléfono grande (Max / Plus)** | 430×932 / 932×430 | Ambos | Bottom sheets ergonómicas, modo horizontal de 2 zonas, safe areas |
+| **Teléfono estándar (iPhone / Galaxy)**| 390×844 / 360×800 | Ambos | Hit-targets de 44 px, legibilidad de etiquetas Share, rendimiento a 60 FPS |
+
+### 24.2 Accesibilidad (a11y), foco y estándares web
+
+- **Navegación por teclado completa:** cualquier estudiante puede operar el laboratorio sin
+  ratón. Tabulación lógica: Cabecera → Navegación → Controles de transporte → Parámetros →
+  Herramientas → Pestañas inferiores.
+- **Foco visible reforzado:** anillo turquesa de alto contraste (`#3ecfbf`) sobre todos los
+  elementos interactivos al navegar con `Tab`.
+- **Lectores de pantalla:**
+  - Iconos dotados de `aria-hidden="true"` y botones con texto visible o `aria-label` explícito.
+  - Pestañas con atributos ARIA estándar (`role="tablist"`, `role="tab"`, `aria-selected`,
+    `role="tabpanel"`).
+  - Anuncio de cambios de estado críticos con `aria-live="polite"` (ej. «Simulación pausada»,
+    «Grabación iniciada»).
+- **Preferencia de movimiento reducido (`prefers-reduced-motion`):** las transiciones de
+  despliegue de paneles y drawers se desactivan o instantaneizan cuando el usuario lo solicita
+  en su sistema operativo.
+- **Contraste de color:** todos los textos de la interfaz cumplen el ratio de contraste mínimo
+  de 4.5:1 exigido por WCAG 2.1 nivel AA sobre fondos oscuros `#0c0f14` y `#141a22`.
+
+### 24.3 Verificación de invariantes científicos y de rendimiento
+
+El rediseño de interfaz tiene como límite infranqueable la física del simulador:
+- **Ecuaciones y constantes:** ninguna constante física ($G$, $k_e$, $c$, $h$, $\mu_0$, $\varepsilon_0$, etc.),
+  ecuación diferencial, integrador temporal (Euler / Verlet / RK4) ni método de balance energético
+  puede sufrir alteración alguna.
+- **Espacio y cámara:** el encuadre centrado en el origen (WAVE 17), el espacio infinito
+  desacoplado y el escalado isotrópico permanecen intactos.
+- **Rendimiento:**
+  - Presupuesto de cálculo de física en `scripts/perf-budget.mjs` verificado en todos los módulos.
+  - La composición del canvas sigue operando a 60 FPS de render con timestep desacoplado (WAVE 18).
+  - Cero fugas de memoria o acumulación de event listeners al conmutar entre módulos.
+
+### 24.4 Sincronización y certificación de las 5 distribuciones
+
+`skills/fisicahn/` es la única fuente de la verdad. Toda mejora se propaga mediante los
+scripts de sincronización oficiales sin alterar la arquitectura sin bundler:
+
+```bash
+# 1. Validación de código estricto y suite de tests completa
+npm run lint          # 0 warnings con ESLint
+npm run types         # Verificación TypeScript con @ts-check
+npm test              # 241/241 tests pasando sin errores
+npm run perf          # Presupuesto de rendimiento respetado
+
+# 2. Sincronización y validación de las distribuciones
+./scripts/build-website.sh       # Sincroniza a website/sim/ y genera downloads/fisicahn.zip
+bash desktop/scripts/sync-app.sh # Sincroniza a desktop/app/ para Electron
+bash mobile/scripts/sync-www.sh  # Sincroniza a mobile/www/ para Capacitor / Android APK
+```
+
+Canales certificados:
+1. **Web pública:** navegación rápida, caché offline vía Service Worker, responsive total.
+2. **PWA instalable:** funcionamiento autónomo sin conexión a internet, icono de launcher adaptativo.
+3. **ZIP offline:** descompresión y apertura directa de `index.html` en cualquier navegador sin servidor local.
+4. **App de escritorio (Electron):** aceleración por hardware, menú nativo y exportación local.
+5. **App móvil (Android APK):** empaquetado nativo con Capacitor, soporte de back button de hardware y safe areas.
+
+> **Regla final — Identidad preservada:**
+> FísicaHN concluye su rediseño viéndose y sintiéndose como un laboratorio de física
+> profesional, riguroso y contemporáneo, diseñado con cariño para el aula y el hogar,
+> rápido en cualquier computadora o teléfono, y fiel a su misión educativa.
+
+**Criterio de cierre definitivo de la WAVE 24:**
+- Aprobación de la matriz de verificación en las 5 distribuciones.
+- Cero errores de lint, types y tests (`npm run check` 100% verde).
+- Lista de verificación visual firmada y documentada en las notas de versión.

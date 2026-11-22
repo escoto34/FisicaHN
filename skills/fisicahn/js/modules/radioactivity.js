@@ -130,6 +130,7 @@ export default class RadioactivityModule extends SimModule {
       ]
     });
     this.clearChallenges();
+    this.setModuleGraphs(this.graphData());
   }
 
   reset() {
@@ -371,6 +372,24 @@ export default class RadioactivityModule extends SimModule {
         'top-right'
       );
     }
+  }
+
+  /** Comparación teórica de remanencia por vida media en el panel de gráficas. */
+  graphData() {
+    const { N0, halfLife } = this.params;
+    return {
+      title: `Decaimiento teórico por vidas medias (T½ = ${halfLife} s)`,
+      description: `Población remanente N(t) = N₀·(1/2)^(t/T½) a partir de N₀ = ${N0} núcleos.`,
+      unit: 'núcleos',
+      items: [
+        { label: 't = 0 (N₀)', value: N0, active: this.t < 0.1 },
+        { label: 't = 1 T½ (50%)', value: Math.round(N0 * 0.5), active: Math.abs(this.t - halfLife) < 0.5 },
+        { label: 't = 2 T½ (25%)', value: Math.round(N0 * 0.25), active: Math.abs(this.t - 2 * halfLife) < 0.5 },
+        { label: 't = 3 T½ (12.5%)', value: Math.round(N0 * 0.125), active: Math.abs(this.t - 3 * halfLife) < 0.5 },
+        { label: 't = 4 T½ (6.25%)', value: Math.round(N0 * 0.0625), active: Math.abs(this.t - 4 * halfLife) < 0.5 },
+        { label: 't actual (medido)', value: this.aliveCount, active: true }
+      ]
+    };
   }
 
   /* ---------- datos numéricos (§3.1) ---------- */

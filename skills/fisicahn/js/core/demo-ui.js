@@ -73,9 +73,11 @@ function buildDom() {
   const host = document.getElementById('rightPanel');
   if (!host) return;
   const section = document.createElement('section');
-  section.className = 'panel-section';
+  section.className = 'panel-section panel-section-demos';
   section.innerHTML = `
-    <h3 class="panel-title">Demo</h3>
+    <h3 class="panel-title">Demostraciones y archivos</h3>
+    <p class="panel-section-note">Guarda un recorrido reproducible o prepara material para clase.</p>
+    <h4 class="panel-subtitle">Demostración</h4>
     <div class="btn-row" id="demoRecRow">
       <button type="button" class="ctrl-btn primary" id="demoRecBtn" title="Grabar la simulación como demo jugable">
         ${ICON_REC}<span>Grabar</span>
@@ -84,6 +86,7 @@ function buildDom() {
         ${ICON_PLAY}<span>Reproducir</span>
       </button>
     </div>
+    <h4 class="panel-subtitle">Archivos</h4>
     <div class="btn-row" id="demoFileRow">
       <button type="button" class="ctrl-btn ctrl-btn-small" id="demoSaveBtn" disabled>${ICON_DOWN}<span>Exportar</span></button>
       <button type="button" class="ctrl-btn ctrl-btn-small" id="demoImportBtn">${ICON_UP}<span>Importar</span></button>

@@ -196,6 +196,25 @@ export default class Calorimetry extends SimModule {
       ]
     });
     this.clearChallenges();
+    this.setModuleGraphs(this.graphData());
+  }
+
+  /** Gráfica complementaria para el panel Gráficas (fuera del lienzo). */
+  graphData() {
+    if (this.params.modo === 'mezcla') {
+      const Teq = this.tEq();
+      return {
+        title: 'Temperaturas en el calorímetro',
+        description: `Equilibrio térmico final Teq = ${roundTo(Teq, 1)} °C entre el agua y el metal.`,
+        unit: '°C',
+        items: [
+          { label: 'Agua (T₁)', value: roundTo(this.params.T1, 1), active: false },
+          { label: 'Metal (T₂)', value: roundTo(this.params.T2, 1), active: false },
+          { label: 'Equilibrio (Teq)', value: roundTo(Teq, 1), active: true }
+        ]
+      };
+    }
+    return null;
   }
 
   reset() {

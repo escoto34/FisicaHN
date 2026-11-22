@@ -123,6 +123,7 @@ export default class KineticTheory extends SimModule {
       ]
     });
     this.clearChallenges();
+    this.setModuleGraphs(this.graphData());
   }
 
   reset() {
@@ -401,6 +402,42 @@ export default class KineticTheory extends SimModule {
       yRange: [0, ymax * 1.2],
       xLabel: 'v (m/s)',
       yLabel: 'N'
+    };
+  }
+
+  /** Comparación de velocidades cinéticas para el panel de gráficas. */
+  graphData() {
+    const isBin = this.params.modo === 'binaria';
+    if (isBin) {
+      const v1 = this.vRms(this.params.M1 * AMU);
+      const v2 = this.vRms(this.params.M2 * AMU);
+      return {
+        title: 'Velocidad cuadrática media (v_rms) por especie',
+        description: `A T = ${this.params.T} K, la especie más ligera tiene mayor rapidez promedio (misma energía térmica ⟨E_k⟩ = k_B·T).`,
+        unit: 'm/s',
+        items: [
+          { label: `Gas 1 (m₁ = ${this.params.M1} u)`, value: roundTo(v1, 0), active: true },
+          { label: `Gas 2 (m₂ = ${this.params.M2} u)`, value: roundTo(v2, 0), active: false }
+        ]
+      };
+    }
+    const gases = [
+      { label: 'Helio (4 u)', m: 4 },
+      { label: 'Neón (20 u)', m: 20 },
+      { label: `Actual (${this.params.M} u)`, m: this.params.M, active: true },
+      { label: 'Argón (40 u)', m: 40 },
+      { label: 'Kriptón (84 u)', m: 84 },
+      { label: 'Xenón (131 u)', m: 131 }
+    ];
+    return {
+      title: `Comparativa de v_rms entre gases (T = ${this.params.T} K)`,
+      description: 'v_rms = √(2·k_B·T / m). La masa atómica mayor reduce la rapidez molecular.',
+      unit: 'm/s',
+      items: gases.map((g) => ({
+        label: g.label,
+        value: roundTo(this.vRms(g.m * AMU), 0),
+        active: !!g.active
+      }))
     };
   }
 

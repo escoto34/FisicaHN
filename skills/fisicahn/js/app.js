@@ -1202,7 +1202,9 @@ function fillSidebarUnified() {
     group.className = 'sidebar-group';
     const head = document.createElement('div');
     head.className = 'sidebar-group-head sidebar-group-label';
-    head.innerHTML = `<span class="sidebar-group-glyph">${categoryIcon(category.id)}</span><span class="sidebar-group-title">${escapeHtml(category.label)}</span>`;
+    head.setAttribute('title', category.label);
+    head.setAttribute('aria-label', category.label);
+    head.innerHTML = `<span class="sidebar-group-glyph" title="${escapeHtml(category.label)}">${categoryIcon(category.id)}</span><span class="sidebar-group-title">${escapeHtml(category.label)}</span>`;
     group.appendChild(head);
     const body = document.createElement('div');
     body.className = 'sidebar-group-body';
@@ -2130,8 +2132,15 @@ document.addEventListener('keydown', (e) => {
       break;
     case 'Escape':
       e.preventDefault();
-      if (document.body.classList.contains('canvas-maximized')) setCanvasMaximized(false);
-      else goToCatalog();
+      if (document.body.classList.contains('mobile-params-expanded')) {
+        setMobileParamsExpanded(false);
+      } else if (document.body.classList.contains('mobile-panel-expanded')) {
+        setMobilePanelExpanded(false);
+      } else if (document.body.classList.contains('canvas-maximized')) {
+        setCanvasMaximized(false);
+      } else {
+        goToCatalog();
+      }
       break;
     case 'KeyI': {
       const inst = state.moduleInstances[state.currentModule];

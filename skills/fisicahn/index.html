@@ -179,7 +179,7 @@
   <!-- Right Panel -->
   <aside class="right-panel" id="rightPanel">
     <input type="file" id="importWorksFile" accept="application/json,.json" hidden>
-    <div class="panel-section" id="simTransportControls">
+    <div class="panel-section panel-section-transport" id="simTransportControls">
       <h3 class="panel-title">Controles</h3>
       <div class="control-group">
         <label class="control-label" for="speedSlider">Velocidad</label>
@@ -201,13 +201,13 @@
         </div>
       </div>
     </div>
-    <div class="panel-section">
+    <div class="panel-section panel-section-params">
       <h3 class="panel-title">Parámetros</h3>
       <div id="paramsPanel" class="params-panel">
         <p class="placeholder-text">Selecciona un módulo para ver sus parámetros.</p>
       </div>
     </div>
-    <div class="panel-section">
+    <div class="panel-section panel-section-tools">
       <h3 class="panel-title">Herramientas</h3>
       <div class="tool-row" id="toolRow">
         <button type="button" class="tool-btn active" data-tool="pointer" aria-label="Puntero" title="Puntero — seleccionar / mover en pizarra">
@@ -233,7 +233,7 @@
         </button>
       </div>
     </div>
-    <div class="panel-section" id="servesSection" hidden>
+    <div class="panel-section panel-section-context" id="servesSection" hidden>
       <h3 class="panel-title">Útil para</h3>
       <div id="servesPanel" class="params-panel"></div>
     </div>

@@ -138,6 +138,40 @@ export default class Fluids extends SimModule {
       ]
     });
     this.clearChallenges();
+    this.setModuleGraphs(this.graphData());
+  }
+
+  /** Gráfica complementaria para el panel inferior Gráficas (fuera del lienzo). */
+  graphData() {
+    if (this.params.modo === 'arquimedes') {
+      const W = this.weight();
+      const E = this.buoyant();
+      const floating = E >= W - 1e-4;
+      return {
+        title: 'Balanza de fuerzas (Arquímedes)',
+        description: floating
+          ? `Flotación: Empuje iguala al peso (E = W = ${roundTo(W, 1)} N). Fracción sumergida: ${roundTo((this.params.rb / this.params.rf) * 100, 1)}%.`
+          : `Hundimiento: Peso (${roundTo(W, 1)} N) supera al empuje máximo (${roundTo(E, 1)} N).`,
+        unit: 'N',
+        items: [
+          { label: 'Peso del cuerpo (W)', value: roundTo(W, 1), active: W >= E },
+          { label: 'Empuje hidrostático (E)', value: roundTo(E, 1), active: E >= W }
+        ]
+      };
+    }
+    if (this.params.modo === 'bernoulli') {
+      const v2 = this.velocity2();
+      return {
+        title: 'Velocidades en el tubo de Venturi',
+        description: 'Efecto Venturi: al reducirse la sección de A₁ a A₂, la velocidad aumenta de v₁ a v₂.',
+        unit: 'm/s',
+        items: [
+          { label: 'Entrada v₁ (sección A₁)', value: roundTo(this.params.v1, 2), active: false },
+          { label: 'Garganta v₂ (sección A₂)', value: roundTo(v2, 2), active: true }
+        ]
+      };
+    }
+    return null;
   }
 
   reset() {

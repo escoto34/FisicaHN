@@ -261,6 +261,7 @@ export default class Blackbody extends SimModule {
       ]
     });
     this.clearChallenges();
+    this.setModuleGraphs(this.graphData());
   }
 
   reset() {
@@ -638,6 +639,29 @@ export default class Blackbody extends SimModule {
     if (P >= 1e6) return `${roundTo(P / 1e6, 2)} MW`;
     if (P >= 1e3) return `${roundTo(P / 1e3, 2)} kW`;
     return `${roundTo(P, 1)} W`;
+  }
+
+  /** Comparación espectral para el panel de gráficas (desacoplada del lienzo). */
+  graphData() {
+    const curT = this.targetT();
+    const presets = [
+      { label: 'Brasa (1000 K)', T: 1000 },
+      { label: 'Bombilla (2700 K)', T: 2700 },
+      { label: 'Betelgeuse (3500 K)', T: 3500 },
+      { label: 'Sol (5778 K)', T: 5778 },
+      { label: 'Sirio A (9940 K)', T: 9940 },
+      { label: 'Rigel (12000 K)', T: 12000 }
+    ];
+    return {
+      title: 'Pico de emisión espectral (Ley de Wien: λ_max = b / T)',
+      description: `Comparación de λ_max en nanómetros. Temperatura actual: ${Math.round(curT)} K.`,
+      unit: 'nm',
+      items: presets.map((p) => ({
+        label: p.label,
+        value: roundTo((WIEN_B / p.T) * 1e9, 0),
+        active: Math.abs(curT - p.T) < 100
+      }))
+    };
   }
 
   /* ---------- datos numéricos (§3.1) ---------- */
