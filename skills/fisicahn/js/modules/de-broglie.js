@@ -50,9 +50,15 @@ export default class DeBroglie extends SimModule {
     this.flying = [];
     /** Impactos acumulados en la pantalla (coordenada y de mundo): anillo de MAX_HITS. */
     this.hits = new TrailBuffer(MAX_HITS);
-    /** Histograma y posiciones en vuelo, reutilizados entre frames. */
+    /** Histograma (panel Gráficas) y posiciones, reutilizados entre frames. */
     this._bins = new Int32Array(BINS);
     this._flyBuf = new Float64Array(64);
+    this._hitBuf = new Float64Array(64);
+    /** Sube con cada impacto: evita rehacer búferes y gráfica sin cambios. */
+    this._hitVersion = 0;
+    this._hitBufVersion = -1;
+    this._graphVersion = -1;
+    this._graphAcc = 0;
     this.spawnAcc = 0;
   }
 
@@ -69,6 +75,7 @@ export default class DeBroglie extends SimModule {
         'Doble rendija con fotones, neutrones o incluso moléculas grandes: mismo patrón.'
       ]
     });
+    this.setModuleGraphs(this.graphData());
     this.setModuleFormulas({
       items: [
         { name: 'de Broglie', formula: '\\lambda = h / p', note: 'Toda partícula con momento p tiene una onda asociada.' },
@@ -87,7 +94,10 @@ export default class DeBroglie extends SimModule {
     this.t = 0;
     this.flying = [];
     this.hits.clear();
+    this._hitVersion++;
     this.spawnAcc = 0;
+    this._graphAcc = 0;
+    this.setModuleGraphs(this.graphData());
     this.engine?.reset?.();
   }
 
@@ -136,12 +146,46 @@ export default class DeBroglie extends SimModule {
       f.t += dt;
       if (f.t >= FLIGHT_TIME) {
         this.hits.push(f.yTarget);
+        this._hitVersion++;
       } else {
         if (write !== i) this.flying[write] = f;
         write++;
       }
     }
     this.flying.length = write;
+    // El histograma se refresca ~2 veces/s; el host omite el DOM si no cambió.
+    this._graphAcc += dt;
+    if (this._graphAcc >= 0.5) {
+      this._graphAcc = 0;
+      if (this._graphVersion !== this._hitVersion) {
+        this._graphVersion = this._hitVersion;
+        this.setModuleGraphs(this.graphData());
+      }
+    }
+  }
+
+  /** Histograma de impactos por franja de la pantalla, para la pestaña Gráficas. */
+  graphData() {
+    const bins = this._bins;
+    bins.fill(0);
+    this.hits.forEach((y) => {
+      const idx = Math.min(BINS - 1, Math.max(0, Math.floor(((y + 4) / 8) * BINS)));
+      bins[idx]++;
+    });
+    const GROUP = 4;
+    const items = [];
+    for (let g = 0; g < BINS; g += GROUP) {
+      let count = 0;
+      for (let i = g; i < Math.min(BINS, g + GROUP); i++) count += bins[i];
+      const yTop = 4 - (8 * g) / BINS;
+      items.push({ label: `y ≈ ${roundTo(yTop - 8 / BINS, 2)}`, value: count });
+    }
+    return {
+      title: 'Impactos acumulados por franja de la pantalla',
+      description: `${this.hits.length} electrones registrados. El patrón de franjas aparece al acumular muchos impactos.`,
+      unit: 'impactos',
+      items
+    };
   }
 
   /* ---------- dibujo declarativo (§2.4) ---------- */
@@ -155,21 +199,26 @@ export default class DeBroglie extends SimModule {
     scene.body(0, d / 2, { shape: 'circle', r: 0.1, color: 'field', glow: false });
     scene.body(0, -d / 2, { shape: 'circle', r: 0.1, color: 'field', glow: false });
 
-    // Histograma de impactos acumulados — el patrón emerge tras muchos disparos.
-    const bins = this._bins;
-    bins.fill(0);
-    this.hits.forEach((y) => {
-      const idx = Math.min(BINS - 1, Math.max(0, Math.floor(((y + 4) / 8) * BINS)));
-      bins[idx]++;
-    });
-    let maxBin = 1;
-    for (let i = 0; i < BINS; i++) if (bins[i] > maxBin) maxBin = bins[i];
-    const binH = (8 / BINS) * 0.85;
-    for (let i = 0; i < BINS; i++) {
-      if (!bins[i]) continue;
-      const y = -4 + (8 * (i + 0.5)) / BINS;
-      const w = Math.max(0.06, (bins[i] / maxBin) * 2.4);
-      scene.rect(SCREEN_L + w / 2, y, w, binH, { color: 'field', fill: 'field', stroke: false, alpha: 0.85 });
+    // Pantalla detectora: cada impacto es un punto sobre ella. El histograma
+    // estadístico vive en la pestaña Gráficas (`graphData`), no en el plano.
+    scene.line(SCREEN_L, 4, SCREEN_L, -4, { color: 'textDim', width: 3 });
+    const nh = this.hits.length;
+    if (nh) {
+      if (this._hitBuf.length < nh * 2) {
+        this._hitBuf = new Float64Array(nh * 4);
+        this._hitBufVersion = -1;
+      }
+      const hb = this._hitBuf;
+      if (this._hitBufVersion !== this._hitVersion) {
+        this._hitBufVersion = this._hitVersion;
+        let i = 0;
+        this.hits.forEach((y) => {
+          hb[i * 2] = SCREEN_L;
+          hb[i * 2 + 1] = y;
+          i++;
+        });
+      }
+      scene.dots(hb.subarray(0, nh * 2), 0.05, { color: 'field' });
     }
 
     // Electrones en vuelo: puntos que viajan del plano de rendijas a la

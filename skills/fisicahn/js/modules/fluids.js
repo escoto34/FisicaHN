@@ -27,15 +27,15 @@ const P_ATM = 101325;
 /* ---------- geometría del tanque de Arquímedes (unidades de mundo) ---------- */
 /** Semiancho del tanque. */
 const TANK_HALF = 4.0;
-/** Centro horizontal del tanque (el resto del ancho lo ocupan las barras W/E). */
-const TANK_CX = -2.6;
+/** Centro horizontal del tanque: en el origen; la balanza W/E vive en la pestaña Gráficas. */
+const TANK_CX = 0;
 /** Fondo y borde del tanque. */
 const TANK_BOTTOM = -4.4;
 const TANK_TOP = 3.6;
 /** Superficie del líquido en reposo. */
 const LEVEL = 1.2;
 /** Encuadre del modo Arquímedes / del modo Bernoulli. */
-const VIEW_ARQ = { width: 15, height: 10 };
+const VIEW_ARQ = { width: 13, height: 10 };
 const VIEW_BER = { width: 19.5, height: 11 };
 /** Eje del tubo de Venturi y semilongitud. */
 const TUBE_Y = -1.6;
@@ -91,11 +91,8 @@ export default class Fluids extends SimModule {
     this.y = 0;
     /** Velocidad vertical del cubo (m/s). */
     this.vy = 0;
-    /** Barras W vs E reutilizadas por frame (sin allocar en `draw`). */
-    this._bars = [
-      { label: 'W', value: 0, color: 'force' },
-      { label: 'E', value: 0, color: 'field' }
-    ];
+    /** Última pareja (W, E) enviada a la pestaña Gráficas. */
+    this._lastWE = '';
   }
 
   init(meta = null) {
@@ -178,6 +175,8 @@ export default class Fluids extends SimModule {
     this.t = 0;
     this.y = this._equilibriumY();
     this.vy = 0;
+    this._lastWE = '';
+    this.setModuleGraphs(this.graphData());
     const v = this.params.modo === 'bernoulli' ? VIEW_BER : VIEW_ARQ;
     this.frameWorld(v.width, v.height);
     this.engine?.reset?.();
@@ -286,6 +285,13 @@ export default class Fluids extends SimModule {
       this.y = ceil;
       if (this.vy > 0) this.vy = 0;
     }
+    // La balanza W/E del panel Gráficas sigue al empuje real mientras el cuerpo
+    // se sumerge; solo se rehace si cambia algún valor mostrado.
+    const key = `${roundTo(this.weight(), 1)}|${roundTo(this.buoyant(), 1)}`;
+    if (key !== this._lastWE) {
+      this._lastWE = key;
+      this.setModuleGraphs(this.graphData());
+    }
   }
 
   /* ---------- dibujo declarativo (§2.4) ---------- */
@@ -319,8 +325,10 @@ export default class Fluids extends SimModule {
     scene.fill(cx, LEVEL, tx * 2 - 0.12, LEVEL - TANK_BOTTOM, { color: 'field', alpha: 0.3, waves: true });
     scene.fluidPattern(cx - tx * 0.55, (LEVEL + TANK_BOTTOM) / 2, 1.5, { color: 'field', alpha: 0.25 });
     scene.fluidPattern(cx + tx * 0.55, (LEVEL + TANK_BOTTOM) / 2 - 0.6, 1.2, { color: 'field', alpha: 0.25 });
-    scene.label(cx - tx + 0.25, LEVEL + 0.45, `Líquido ρf = ${rf} kg/m³`, {
-      color: 'field', align: 'left', avoid: true
+    // En lienzos estrechos (teléfono vertical) las etiquetas largas chocaban entre sí.
+    const narrow = scene.viewport().w < 430;
+    scene.label(narrow ? cx + tx - 0.25 : cx - tx + 0.25, narrow ? LEVEL - 0.55 : LEVEL + 0.45, narrow ? `ρf = ${rf}` : `Líquido ρf = ${rf} kg/m³`, {
+      color: 'field', align: narrow ? 'right' : 'left', avoid: true
     });
     // Línea de flotación: referencia de toda la lectura.
     scene.line(cx - tx, LEVEL, cx + tx, LEVEL, { color: 'field', width: 1.6, dash: [6, 4], alpha: 0.85 });
@@ -330,7 +338,7 @@ export default class Fluids extends SimModule {
       shape: 'rect',
       r: side / 2,
       color: floating ? 'energy' : 'mass',
-      label: `Cubo ρb = ${rb} kg/m³`,
+      label: narrow ? `ρb = ${rb}` : `Cubo ρb = ${rb} kg/m³`,
       labelColor: floating ? 'energy' : 'mass'
     });
     if (d > 0.01) {
@@ -360,19 +368,8 @@ export default class Fluids extends SimModule {
       });
     }
 
-    // Balanza visual W frente a E: la comparación es el corazón del principio.
-    this._bars[0].value = W;
-    this._bars[1].value = E;
-    scene.bars(cx + tx + 2.5, TANK_BOTTOM, this._bars, {
-      max: Math.max(W, E, 1),
-      hMax: 5.4,
-      barW: 0.9,
-      gap: 1.1,
-      frame: true
-    });
-    scene.label(cx + tx + 3.5, TANK_BOTTOM - 0.55, floating ? 'E = W · equilibrio' : 'W > E · se hunde', {
-      color: floating ? 'field' : 'force', size: 11, baseline: 'top', avoid: true
-    });
+    // La comparación W frente a E (el corazón del principio) se muestra en la
+    // pestaña Gráficas (`graphData`), fuera del espacio físico del tanque.
 
     const hud = scene.hud;
     hud.chip(floating ? 'Flota: E iguala a W' : `Se hunde · a = g·(1 − ρf/ρb) = ${roundTo(this.acceleration(), 2)} m/s²`, 'top-left');

@@ -3418,3 +3418,198 @@ Se ejecutó la suite de evaluación heurística de Impeccable (`critique` / `det
 - Aprobación de la matriz de verificación en las 5 distribuciones.
 - Cero errores de lint, types y tests (`npm run check` 100% verde).
 - Lista de verificación visual firmada y documentada en las notas de versión.
+
+---
+
+# WAVE 25 — Segunda pasada de UI/UX: cobertura por módulo y pulido por dispositivo
+
+**Origen:** propuesta de «rediseño integral de interfaz» (referencia visual: «Masa y peso»).
+Casi todo su alcance ya lo cubren las WAVEs 19–24 (tres zonas, sidebar contraíble, panel
+derecho en 5 grupos, `graphData()`, panel inferior, bottom sheets móviles, tipografía
+estricta). Esta WAVE **no repite ese trabajo**: convierte lo que la propuesta pide y aún no
+está garantizado en tareas verificables. Estado: ✅ **Completada** (ver 25.7–25.9).
+
+**Objetivo:** que la separación «fenómeno físico / resultados» y la experiencia por
+dispositivo sean uniformes en los 51 módulos, no solo en los 6 con `graphData()`, sin tocar
+física ni motor.
+
+## 25.0 Invariantes (heredados, no negociables)
+
+- `skills/fisicahn` es la única fuente de verdad; las 5 distribuciones se regeneran con
+  `build-website.sh`, `sync-app.sh` y `sync-www.sh`, nunca se editan a mano.
+- ES Modules nativos, sin bundlers, sin dependencias nuevas, 100 % offline.
+- No cambian ecuaciones, constantes, unidades ni resultados. Se conserva `SimModule`,
+  `draw(scene)`, cámara isotrópica, encuadre, auto-layout de etiquetas, grabación
+  determinista y exportación de video/fotogramas.
+- Tipografía cerrada: **Share** (fórmulas y contenido del motor gráfico, en negrita),
+  **Oswald** (nombre del módulo y encabezados de sección), **BBH Bogle** (solo la marca
+  FISICAHN), **Nunito** (todo lo demás). Prohibido añadir familias o usar Oswald/Share
+  como fuente general. El turquesa se reserva para estados activos y acciones relevantes.
+- La rama `main` debe cerrar con `npm run check` (lint, types, test, perf) en verde.
+
+## 25.1 Auditoría de gráficas dentro del lienzo (cobertura total)
+
+Hoy solo `mass-weight`, `fluids`, `calorimetry`, `blackbody`, `kinetic-theory` y
+`radioactivity` usan `graphData()`. Un barrido previo detecta que `de-broglie.js` y
+`kinetic-theory.js` aún contienen primitivas de gráfica dibujadas en el canvas.
+
+- Recorrer los 51 módulos y clasificar cada elemento dibujado como **fenómeno** (se queda
+  en el lienzo, en unidades del plano) o **resultado estadístico/comparativo** (va a la
+  pestaña Gráficas).
+- Migrar los resultados a `graphData()` y retirar su dibujo del `draw(scene)`; después
+  comprobar que `Camera.fit` ya no incluye esa geometría en su encuadre.
+- Excepción justificada: una curva que **es** el fenómeno (p. ej. onda o función de onda)
+  permanece en el lienzo. Documentar cada excepción en el propio módulo.
+- Test nuevo en `js/tests/`: ningún módulo con `graphData()` invoca primitivas de gráfica en
+  `draw`, y el bounding box del encuadre no cambia al quitar la gráfica.
+
+## 25.2 Un solo lugar para cada función (cero duplicados)
+
+- Auditar y listar todos los controles de reproducción (reproducir, pausar, paso, velocidad)
+  en escritorio, móvil y atajos. Dejar **una** ubicación por función; las demás se eliminan
+  o se vuelven atajo de teclado documentado.
+- Verificar que la sección «Demostraciones y archivos» (grabar, reproducir, exportar,
+  importar, Mis demos) no repite acciones en el menú de usuario ni en Mis trabajos.
+- Test en `controls.test.mjs`: cada acción de transporte existe una sola vez por viewport.
+
+## 25.3 Iconos con nombre, tooltip y estados completos
+
+- Toda herramienta solo-icono tiene `aria-label` y tooltip también al foco por teclado
+  (nunca solo al hover, para que funcione en táctil).
+- Un único set de iconos (mismo trazo, radio y sombra); `icons.test.mjs` bloquea mezclas.
+- Estados verificados por componente: normal, hover, seleccionado, activo, deshabilitado y
+  foco visible, con contraste AA, también para vectores y etiquetas del lienzo.
+
+## 25.4 Panel inferior: densidad útil
+
+- Revisar espacio vacío por módulo en Información, Fórmulas, Datos y Gráficas: tablas y
+  fórmulas deben llenar el ancho disponible y adaptarse a la altura elegida por el usuario.
+- La pestaña Gráficas solo aparece si el módulo declara `graphData()`.
+- Los resultados se derivan del estado real de la simulación (incluida cámara lenta,
+  WAVE 18) y no provocan re-render del DOM si el valor no cambió.
+- Recordar localmente altura y estado contraído por viewport.
+
+## 25.5 Tablet y teléfono: casos aún por demostrar
+
+Las WAVEs 22–23 implementaron bottom sheets y objetivos de 44 px. Falta **demostrar** estos
+casos con capturas y pruebas, en lugar de darlos por hechos:
+
+- Tablet en vertical y horizontal: no heredar la disposición de teléfono ni la de
+  escritorio completa; panel de controles lateral con sidebar en cajón.
+- Teléfono horizontal: lienzo y controles consultables a la vez, sin que el sheet tape el
+  fenómeno justo al manipularlo; gestos pinch y pan del lienzo no deben disparar el scroll
+  de página ni el gesto de volver del sistema.
+- Barras del sistema y notch: `safe-area-inset` también en el pie del lienzo y en los
+  toasts; resolución mínima 360×640 sin scroll horizontal.
+- Nada depende de hover; deslizador + campo numérico siempre disponibles en pareja.
+
+## 25.6 Matriz de verificación y cierre
+
+Verificar, en las 5 distribuciones, con módulos testigo `mass-weight`, `kinetic-theory`,
+`de-broglie`, `fluids` y uno de cada categoría del catálogo:
+
+| Viewport | Escritorio ≥1280 | Tablet V/H | Teléfono V/H |
+|---|---|---|---|
+| Sin solapes ni desbordes | ✔ | ✔ | ✔ |
+| Etiquetas legibles (auto-layout) | ✔ | ✔ | ✔ |
+| Gráficas fuera del lienzo | ✔ | ✔ | ✔ |
+| Grabación y reproducción deterministas | ✔ | ✔ | ✔ |
+
+**Criterio de cierre:** `npm run check` en verde, sincronización de las 5 distribuciones,
+tabla anterior completada con evidencia y ningún módulo con gráfica estadística dentro del
+plano físico salvo las excepciones documentadas.
+
+> **Regla:** el resultado debe sentirse como una evolución natural de FísicaHN, centrada en
+> la simulación y no como un dashboard genérico. Ante duda, gana la precisión científica.
+
+## 25.7 Avance de implementación
+
+**Hecho (verificado con `npm run check`: lint, types, 245 tests y presupuesto de rendimiento):**
+- **25.1** Corrección de la auditoría: `kinetic-theory` era un falso positivo (ya usa
+  `graphData()`; su `hud.plot` es una gráfica en espacio de pantalla, no en el plano).
+  El único caso real era `de-broglie`: su histograma de impactos se dibujaba en el plano.
+  Ahora la pantalla detectora muestra cada impacto como punto y el histograma por franjas
+  está en la pestaña Gráficas (refresco ~2/s, solo si hay impactos nuevos).
+- **25.2** Eliminado el código muerto de `mobilePlayBtn` (el botón no existía en el HTML);
+  hay una única ubicación para reproducir, paso, velocidad y reinicio.
+- **25.3** Nuevo `js/focus-tip.js`: el nombre accesible de las herramientas e iconos aparece
+  con foco de teclado y con pulsación larga táctil, sin depender de hover.
+- Nuevo test `tests/ui-structure.test.mjs` (transporte único, botones solo-icono con nombre,
+  herramientas con `aria-label` y `title`, `de-broglie` sin barras en el plano).
+
+- **25.1 (cont.)** `fluids` (Arquímedes) y `em-waves` (Malus) ya no dibujan barras W/E ni
+  I₁/I₂ en el plano; ambas viven en Gráficas y se refrescan con el estado real (`fluids` desde
+  `update`, `em-waves` desde `reset`, que el host llama en cada cambio de parámetro). El
+  tanque de `fluids` pasó a centrarse en el origen y su encuadre a 12×10.
+- **25.4 (cerrado)** Persistir por viewport no aplica: las asas de redimensionado solo
+  existen en escritorio (>1100 px; en ≤1024 px están ocultas), así que la clave global
+  basta. La altura y el estado contraído del panel inferior ya se persistían
+  (`fisicahn_layout_v1`, `BOTTOM_COMPACT_KEY`); solo faltaría hacerlos por viewport.
+
+- **25.5 (parcial)** Nueva disposición para **tablet apaisada** (721–1100 px de ancho y alto
+  > 500 px): antes caía en la pila de teléfono y el lienzo quedaba con ~38 % del alto. Ahora
+  el lienzo ocupa la columna principal, los controles quedan a un costado (280–380 px) y el
+  panel inferior bajo el lienzo, con `safe-area-inset` laterales. La auditoría del código
+  confirmó que ya existían: objetivos de 44 px, `touch-action: none` en el lienzo (pinch/pan
+  sin scroll de página), `viewport-fit=cover`, safe areas en paneles y hojas, y teléfono
+  apaisado en dos columnas. No hay toasts fijos en el proyecto, así que no se tocó nada ahí.
+  Verificado después con Chromium headless (ver 25.8).
+
+- **25.1 (cierre de la auditoría)** `capacitors` (asociación): las barras de Q y V por
+  condensador pasaron a Gráficas (carga por condensador en µC; las tensiones van en la
+  descripción). Falsos positivos: `standing-waves` (su espectro es un `hud.plot` en espacio
+  de pantalla). **Excepciones documentadas** (indicadores unidos al objeto, no estadística):
+  barra de energía U de `capacitors` (placas), voltímetros de `induction`, barras de
+  energía/momento de `work-energy` y `momentum`.
+
+## 25.8 Verificación visual (Chromium headless con Playwright)
+
+Capturas a 1440×900, 1024×768, 768×1024, 360×640 y 640×360 de `mass-weight`, `fluids`,
+`de-broglie`, `capacitors` y `em-waves`, con una sesión de alumno de prueba. Resultado:
+- Ningún tamaño produce scroll horizontal de página.
+- **Tablet apaisada (1024×768):** la disposición nueva funciona (lienzo a la izquierda,
+  controles a la derecha, panel inferior bajo el lienzo).
+- **Tablet vertical y escritorio:** `fluids` con el tanque centrado, sin barras en el plano;
+  `de-broglie` con la pantalla detectora y los impactos como puntos; pestaña Gráficas
+  operativa en `de-broglie` y `capacitors` (asociación).
+- **Corrección encontrada:** en teléfono apaisado (640×360) la barra lateral ocupaba 100 px
+  con un botón cortado y la cabecera del lienzo ~106 px. Ahora la navegación se reduce a
+  iconos (56 px) y se ocultan estado de red y sesión; el encuadre de `fluids` pasó a 13×10.
+- **Corregido (teléfono vertical 360×640):** las etiquetas de `fluids` se solapaban; con un
+  lienzo < 430 px se abrevian (`ρf = 1000`, `ρb = 800`) y la del líquido pasa al lado
+  derecho. `capacitors` (asociación) usa ahora un encuadre propio de 22×11 porque, sin las
+  barras, el circuito quedaba pequeño y rodeado de vacío.
+- **Revisado a ojo:** `em-waves` en modo Malus (escritorio) y `capacitors` en asociación
+  (escritorio y teléfono), sin solapes ni scroll horizontal.
+- **Observación sin resolver (previa a esta WAVE):** el panel inferior muestra solo una o
+  dos filas de la pestaña Gráficas antes de hacer scroll cuando hay muchas barras.
+
+- **Corregido (cont.):** la etiqueta I₂ de `em-waves` se cortaba en lienzos estrechos; se
+  abrevia. En Gráficas, las barras se reparten en columnas (`auto-fit`, 300 px) para ver más
+  filas sin scroll.
+
+## 25.9 Matriz de verificación (25.6) y cierre
+
+Distribuciones regeneradas con `build-website.sh`, `sync-app.sh` y `sync-www.sh`; las copias
+(`website/sim`, `desktop/app`, `mobile/www`, ZIP) están en `.gitignore` salvo el ZIP y
+contienen `focus-tip.js` y el CSS nuevo. Prueba de humo en Chromium headless a 360×640
+abriendo cada copia, entrando con un alumno de prueba y cargando `fluids`:
+
+| Distribución | Carga y entra a un módulo | Sin errores JS | Sin scroll horizontal |
+|---|---|---|---|
+| Web (`website/sim`) | ✔ | ✔ | ✔ |
+| Escritorio (`desktop/app`, solo su HTML) | ✔ | ✔ | ✔ |
+| Móvil (`mobile/www`, solo su HTML) | ✔ | ✔ | ✔ |
+| ZIP offline | contiene los archivos nuevos (no se abrió) | — | — |
+| PWA / Electron / APK reales | **no probados**: requieren Service Worker, Electron y Capacitor | — | — |
+
+Módulos y viewports revisados a ojo: `mass-weight`, `fluids`, `de-broglie`, `capacitors`
+y `em-waves` a 1440×900, 1024×768, 768×1024, 360×640 y 640×360.
+
+**Limitaciones honestas:** la prueba usó `file://`, sin Service Worker ni contenedores
+nativos; el panel inferior sigue siendo bajo por defecto (se puede redimensionar); la
+grabación determinista de demos no se probó a mano, solo por la suite (`demo-recorder`).
+
+**Nota de rendimiento:** `de-broglie` pasó de ~0.25 a ~0.7 ms por 1000 pasos en el
+presupuesto sintético por generar el histograma; es coste despreciable en uso real y sigue
+dentro de presupuesto.

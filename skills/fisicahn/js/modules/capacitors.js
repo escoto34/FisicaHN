@@ -193,7 +193,26 @@ export default class Capacitors extends SimModule {
     // marcar la casilla, y el anfitrión llama reset() tras cada cambio.
     this.q = this.params.accion === 'descarga' ? this.cRc() * this.params.V : 0;
     this.i = 0;
+    this.setModuleGraphs(this.graphData());
+    // Sin las barras comparativas, el circuito ocupa y ∈ [−3, 3.5]: encuadre más ajustado.
+    if (this.params.modo === 'asociacion') this.frameWorld(22, 11);
+    else this.frameWorld(24, 16);
     this.engine?.reset?.();
+  }
+
+  /** Carga por condensador de la asociación (valores de equilibrio), fuera del plano. */
+  graphData() {
+    if (this.params.modo !== 'asociacion') return null;
+    const net = this.network();
+    const serie = this.params.config === 'serie';
+    return {
+      title: `Carga por condensador (${serie ? 'serie' : 'paralelo'})`,
+      description:
+        `Tensiones: ${net.items.map((it, i) => `V${sub(i)} = ${roundTo(it.V, 2)} V`).join(' · ')}. ` +
+        (serie ? 'En serie todos almacenan la misma carga.' : 'En paralelo todos soportan la misma tensión.'),
+      unit: 'µC',
+      items: net.items.map((it, i) => ({ label: `C${sub(i)} = ${roundTo(it.C * 1e6, 1)} µF`, value: roundTo(it.Q * 1e6, 2) }))
+    };
   }
 
   /* ---------- física: placas ---------- */
@@ -685,34 +704,12 @@ export default class Capacitors extends SimModule {
       });
     }
 
-    // Barras comparativas de Q y V por condensador (parte inferior).
-    const baseY = -7.6;
-    const maxH = 2.6;
-    const Vmax = Math.max(...net.items.map((it) => it.V), 1e-9);
-    const x0 = -3.5;
-    const groupW = 3.4;
-    net.items.forEach((it, i) => {
-      const gx = x0 + i * groupW;
-      const hQ = maxH * (it.Q / Qmax) * a;
-      const hV = maxH * (it.V / Vmax) * a;
-      if (hQ > 0.02) scene.rect(gx - 0.55, baseY + hQ / 2, 0.9, hQ, { color: 'mass', fill: 'mass', alpha: 0.85, width: 1 });
-      if (hV > 0.02) scene.rect(gx + 0.55, baseY + hV / 2, 0.9, hV, { color: 'energy', fill: 'energy', alpha: 0.85, width: 1, dash: [3, 2] });
-      scene.label(gx, baseY - 0.25, `C${sub(i)}`, { color: 'spring', size: 11, baseline: 'top', avoid: true });
-      scene.label(gx - 0.55, baseY + hQ + 0.15, `${roundTo(it.Q * 1e6, 1)}`, { color: 'mass', size: 10, avoid: true });
-      scene.label(gx + 0.55, baseY + hV + 0.15, `${roundTo(it.V, 1)}`, { color: 'energy', size: 10, avoid: true });
-    });
-    scene.line(x0 - 1.4, baseY, x0 + (n - 1) * groupW + 1.4, baseY, { color: 'axis', width: 1.2 });
+    // La comparación de Q y V por condensador vive en la pestaña Gráficas
+    // (`graphData`); el lienzo conserva el circuito y sus cargas.
 
     const hud = scene.hud;
     hud.chip(`${serie ? 'Serie' : 'Paralelo'} (${n}) · C_eq = ${roundTo(net.Ceq * 1e6, 2)} µF`, 'top-left');
     hud.chip(flowing ? `Cargando… ${Math.round(a * 100)} %` : 'Carga completa (equilibrio)', 'top-left');
-    hud.legend(
-      [
-        { color: 'mass', label: 'Q (µC)', dash: [] },
-        { color: 'energy', label: 'V (V)', dash: [3, 2] }
-      ],
-      'bottom-right'
-    );
     hud.readout(
       [
         { label: 'C_eq', value: roundTo(net.Ceq * 1e6, 2), unit: 'µF' },

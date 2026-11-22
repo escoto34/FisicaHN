@@ -22,6 +22,7 @@ import { ensureSessionGate, renderSessionBadge, renderUserChip } from './session
 import { bindUserMenu } from './user-menu.js';
 import { initNetworkStatusUI } from './network-status.js';
 import { initPanelResize } from './panel-resize.js';
+import { initFocusTips } from './focus-tip.js';
 import { ChallengeEngine, loadChallengeDataForEngine } from './challenges.js';
 import { ScenarioRunner, ScenarioStore, BUILTIN_SCENARIOS } from './scenario-manager.js';
 import {
@@ -1672,8 +1673,6 @@ function updateTransportControlsForModule(key = state.currentModule) {
   const hide = isWhiteboardModule(key);
   const transport = document.getElementById('simTransportControls');
   if (transport) transport.hidden = hide;
-  const mobilePlay = document.getElementById('mobilePlayBtn');
-  if (mobilePlay) mobilePlay.hidden = hide;
   if (hide && simStatus) {
     simStatus.textContent = 'Pizarra';
     delete simStatus.dataset.t;
@@ -1719,8 +1718,6 @@ function updatePlayPauseUI() {
   const paused = engine?.isPaused?.() ?? true;
   if (playPauseLabel) playPauseLabel.textContent = paused ? 'Reproducir' : 'Pausa';
   if (simStatus) simStatus.textContent = paused ? 'Pausado' : 'En ejecución';
-  const mobilePlay = document.getElementById('mobilePlayBtn');
-  if (mobilePlay) mobilePlay.textContent = paused ? 'Reproducir' : 'Pausa';
   const icon = playPauseBtn?.querySelector('svg');
   if (!icon) return;
   if (paused) {
@@ -2638,6 +2635,7 @@ async function init() {
   }
 
   try {
+    initFocusTips();
     initPanelResize({
       onResize: () => {
         try {

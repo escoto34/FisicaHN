@@ -80,7 +80,24 @@ export default class EMWaves extends SimModule {
 
   reset() {
     this.t = 0;
+    // Cada cambio de parámetro llama a reset(): la gráfica sigue a I₁ y θ.
+    this.setModuleGraphs(this.graphData());
     this.engine?.reset?.();
+  }
+
+  /** Intensidades I₁ → I₂ (ley de Malus) para la pestaña Gráficas, fuera del plano. */
+  graphData() {
+    if (this.params.modo !== 'polarizacion') return null;
+    const { I1, theta } = this.params;
+    return {
+      title: 'Intensidad antes y después del segundo polarizador',
+      description: `Ley de Malus: I₂ = I₁·cos²θ con θ = ${roundTo(theta, 0)}°.`,
+      unit: '%',
+      items: [
+        { label: 'I₁ incidente', value: roundTo(I1, 1), active: false },
+        { label: 'I₂ transmitida', value: roundTo(this.i2(), 1), active: true }
+      ]
+    };
   }
 
   update(dt) {
@@ -250,7 +267,7 @@ export default class EMWaves extends SimModule {
         xScreen - 0.4,
         { samples: N, color: 'spring', width: 2.4, alpha: alpha2 }
       );
-      scene.label((xP2 + xScreen) / 2, A2 + 0.45, `I₂ = I₁cos²θ = ${roundTo(I2, 0)} %`, {
+      scene.label((xP2 + xScreen) / 2, A2 + 0.45, scene.viewport().w < 430 ? `I₂ = ${roundTo(I2, 0)} %` : `I₂ = I₁cos²θ = ${roundTo(I2, 0)} %`, {
         color: 'spring',
         size: 11,
         avoid: true
@@ -263,17 +280,6 @@ export default class EMWaves extends SimModule {
     scene.rect(xScreen, 0, 0.35, 4.4, { color: 'textDim', width: 1.5, fill: 'textDim' });
     scene.circle(xScreen + 0.6, 0, 0.75, { color: 'spring', fill: 'spring', alpha: 0.1 + 0.9 * (I2 / 100), width: 1.5 });
     scene.label(xScreen + 0.4, -2.85, `detector · ${roundTo(I2, 0)} %`, { color: 'textDim', size: 11, avoid: true });
-
-    // Barras de intensidad I₁ → I₂ (primitiva `bars`, con marco de escala).
-    scene.bars(
-      -1.4,
-      -4.9,
-      [
-        { value: I1, color: 'force', label: `I₁ ${roundTo(I1, 0)} %` },
-        { value: I2, color: 'spring', label: `I₂ ${roundTo(I2, 0)} %` }
-      ],
-      { max: 100, hMax: 2.6, barW: 0.7, gap: 0.5, frame: true, labelSize: 10, labelOffset: 0.45, minH: 0.01 }
-    );
 
     // Curva cos²θ con el punto actual.
     const vp = scene.viewport();
