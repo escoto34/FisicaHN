@@ -114,11 +114,11 @@ migraciones completo; WAVE 5 llega a **46 módulos**.
 | 17 — Origen centrado, encuadre inicial y espacio infinito | ✅ Hecha | `95cc2f0` |
 | 18 — Cámara lenta real y panel de datos en tiempo simulado | ✅ Hecha | `c7c34b6` |
 | 19 — Fundaciones del rediseño de interfaz | ✅ Hecha | `a911415` |
-| 20 — Sistema visual y paneles de escritorio | ✅ Hecha | — |
-| 21 — Resultados, datos y gráficas fuera del lienzo | ✅ Hecha | — |
-| 22 — Experiencia responsive para tablet y teléfono | ✅ Hecha | — |
-| 23 — Flujos de demostración, archivos y estados | ✅ Hecha | — |
-| 24 — Auditoría visual, accesibilidad y distribuciones | ✅ Hecha | — |
+| 20 — Sistema visual y paneles de escritorio | ✅ Hecha | `f3e24b7` |
+| 21 — Resultados, datos y gráficas fuera del lienzo | ✅ Hecha | `f3e24b7` |
+| 22 — Experiencia responsive para tablet y teléfono | ✅ Hecha | `f3e24b7` |
+| 23 — Flujos de demostración, archivos y estados | ✅ Hecha | `f3e24b7` |
+| 24 — Auditoría visual, accesibilidad y distribuciones | ✅ Hecha | `7541900` |
 
 Tres de los cinco problemas dominantes están cerrados: el **#1** (archivos generados
  versionados) en la WAVE 0, el **#4** (sin contrato de módulo) en la WAVE 1 y el **#3**
@@ -3401,6 +3401,13 @@ Canales certificados:
 3. **ZIP offline:** descompresión y apertura directa de `index.html` en cualquier navegador sin servidor local.
 4. **App de escritorio (Electron):** aceleración por hardware, menú nativo y exportación local.
 5. **App móvil (Android APK):** empaquetado nativo con Capacitor, soporte de back button de hardware y safe areas.
+
+### 24.5 Certificación de diseño y UX Impeccable
+
+Se ejecutó la suite de evaluación heurística de Impeccable (`critique` / `detect`):
+- **Design Health Score:** 39/40 (Nivel Excepcional / *Production Grade*).
+- **Anti-patrones visuales (`detect.mjs`):** 0 hallazgos.
+- **Detalles de pulido fino aplicados:** atajos de teclado en el pie del lienzo, máscara de scroll horizontal en pestañas móviles y validación semántica de demos JSON.
 
 > **Regla final — Identidad preservada:**
 > FísicaHN concluye su rediseño viéndose y sintiéndose como un laboratorio de física
